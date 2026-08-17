@@ -1,0 +1,2344 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>ComexTrack</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root{
+  --navy:#0F1B2D;
+  --navy-light:#16263D;
+  --navy-lighter:#223a58;
+  --paper:#F4F6F8;
+  --card:#FFFFFF;
+  --ink-red:#B8441F;
+  --ink-red-bg:#FBE9E2;
+  --ink-green:#1F7A5C;
+  --ink-green-bg:#E4F3EC;
+  --ink-amber:#A5730F;
+  --ink-amber-bg:#FBF0DC;
+  --ink-blue:#2A5C8A;
+  --ink-blue-bg:#E4EEF6;
+  --ink-purple:#5B3FA0;
+  --ink-purple-bg:#EDE7F8;
+  --ink-teal:#0E7C86;
+  --ink-teal-bg:#DCEEF0;
+  --ink-gold:#946200;
+  --ink-gold-bg:#FCEFD1;
+  --text:#1A2433;
+  --muted:#6B7785;
+  --border:#E2E6EA;
+  --border-strong:#C7CFD6;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{
+  font-family:'Inter', sans-serif;
+  background:var(--paper);
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:'IBM Plex Mono', monospace;}
+.display{font-family:'Zilla Slab', serif;}
+
+#app{display:flex; min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{
+  width:220px; flex-shrink:0;
+  background:var(--navy);
+  color:#DCE4EC;
+  display:flex; flex-direction:column;
+  padding:24px 0;
+  position:sticky; top:0; height:100vh;
+}
+.brand{
+  padding:0 20px 24px 20px;
+  border-bottom:1px solid rgba(255,255,255,0.1);
+  margin-bottom:20px;
+}
+.brand-mark{
+  font-family:'Zilla Slab', serif; font-weight:700; font-size:20px;
+  color:#fff; letter-spacing:0.02em;
+  display:flex; align-items:center; gap:8px;
+}
+.brand-mark svg{flex-shrink:0;}
+.brand-sub{
+  font-family:'IBM Plex Mono', monospace; font-size:10px; color:#7C8FA8;
+  letter-spacing:0.12em; text-transform:uppercase; margin-top:4px;
+}
+.nav{display:flex; flex-direction:column; gap:2px; padding:0 12px;}
+.nav-item{
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px; border-radius:6px;
+  color:#AEBBCC; font-size:14px; font-weight:500;
+  cursor:pointer; border:none; background:none; text-align:left; width:100%;
+  transition:background 0.15s, color 0.15s;
+}
+.nav-item:hover{background:var(--navy-light); color:#fff;}
+.nav-item.active{background:var(--navy-lighter); color:#fff;}
+.nav-item .dot{width:6px; height:6px; border-radius:50%; background:currentColor; opacity:0; flex-shrink:0;}
+.nav-item.active .dot{opacity:1; background:#E8A25C;}
+
+.sidebar-footer{margin-top:auto; padding:0 20px;}
+.new-process-btn{
+  width:100%; background:var(--ink-red); color:#fff; border:none;
+  padding:11px 14px; border-radius:6px; font-weight:600; font-size:13px;
+  cursor:pointer; font-family:'Inter',sans-serif;
+  transition:background 0.15s;
+}
+.new-process-btn:hover{background:#9c3818;}
+
+/* MAIN */
+main{flex:1; min-width:0; display:flex; flex-direction:column;}
+.topbar{
+  padding:28px 36px 20px 36px;
+  border-bottom:1px solid var(--border);
+  background:var(--card);
+}
+.topbar h1{font-family:'Zilla Slab', serif; font-size:26px; font-weight:700;}
+.topbar p{color:var(--muted); font-size:13.5px; margin-top:4px;}
+.view-content{padding:28px 36px 60px 36px; flex:1;}
+
+/* KPI */
+.kpi-row{display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:14px; margin-bottom:20px;}
+.kpi-card{
+  background:var(--card); border:1px solid var(--border); border-radius:8px;
+  padding:16px 18px; position:relative; overflow:hidden;
+}
+.kpi-card::before{
+  content:''; position:absolute; top:0; left:0; width:3px; height:100%;
+  background:var(--kpi-accent, var(--ink-blue));
+}
+.kpi-label{font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:600;}
+.kpi-value{font-family:'Zilla Slab', serif; font-size:26px; font-weight:700; margin-top:6px;}
+.kpi-sub{font-size:12px; color:var(--muted); margin-top:3px;}
+
+.section-title{
+  font-family:'Zilla Slab', serif; font-weight:700; font-size:16px;
+  margin:36px 0 16px 0; display:flex; align-items:center; gap:12px;
+  text-transform:uppercase; letter-spacing:0.03em;
+}
+.section-title:first-child{margin-top:0;}
+.section-title .rule{flex:1; height:3px; background:linear-gradient(90deg, var(--navy) 0%, var(--border-strong) 70%, transparent 100%); border-radius:2px;}
+
+/* PROCESS LIST */
+.process-list{display:flex; flex-direction:column; gap:10px;}
+.process-card{
+  background:var(--card); border:1px solid var(--border); border-radius:8px;
+  padding:16px 18px; cursor:pointer; transition:border-color 0.15s, box-shadow 0.15s;
+  display:grid; grid-template-columns:auto 1fr auto; gap:18px; align-items:center;
+}
+.process-card:hover{border-color:var(--border-strong); box-shadow:0 2px 10px rgba(15,27,45,0.06);}
+
+.stamp{
+  font-family:'IBM Plex Mono', monospace; font-size:9.5px; font-weight:600;
+  letter-spacing:0.06em; text-transform:uppercase;
+  border:2px solid currentColor; border-radius:4px;
+  padding:5px 8px; transform:rotate(-3deg); white-space:nowrap;
+  text-align:center; line-height:1.3; max-width:150px;
+}
+.stamp-pedido{color:var(--ink-blue); background:var(--ink-blue-bg);}
+.stamp-producao{color:var(--ink-amber); background:var(--ink-amber-bg);}
+.stamp-embarcado{color:var(--ink-purple); background:var(--ink-purple-bg);}
+.stamp-transito{color:var(--ink-purple); background:var(--ink-purple-bg);}
+.stamp-porto{color:var(--ink-amber); background:var(--ink-amber-bg);}
+.stamp-desembaraco{color:var(--ink-red); background:var(--ink-red-bg);}
+.stamp-remocao{color:var(--ink-teal); background:var(--ink-teal-bg);}
+.stamp-pagamentos{color:var(--ink-gold); background:var(--ink-gold-bg);}
+.stamp-entregue{color:var(--ink-green); background:var(--ink-green-bg);}
+
+.process-main h3{font-size:15px; font-weight:600;}
+.process-meta{font-size:12.5px; color:var(--muted); margin-top:2px;}
+.process-meta .ref{font-family:'IBM Plex Mono', monospace; color:var(--muted);}
+.process-track{margin-top:10px; display:flex; align-items:center;}
+.track-step{display:flex; align-items:center; flex:1;}
+.track-dot{width:8px; height:8px; border-radius:50%; background:var(--border-strong); flex-shrink:0; position:relative;}
+.track-dot.done{background:var(--ink-green);}
+.track-dot.current{background:var(--ink-red); box-shadow:0 0 0 3px var(--ink-red-bg);}
+.track-line{flex:1; height:2px; background:var(--border-strong);}
+.track-line.done{background:var(--ink-green);}
+.step-note{font-size:12px; color:var(--ink-red); margin-top:5px; font-style:italic;}
+.progress-pct{font-size:10.5px; color:var(--muted); margin-top:4px; font-family:'IBM Plex Mono',monospace;}
+.alert-banner{
+  background:var(--ink-red-bg); color:var(--ink-red); border:1px solid #F0BBA5; border-radius:6px;
+  padding:6px 10px; font-size:11.5px; font-weight:600; margin-top:7px; line-height:1.5;
+}
+.process-card.has-alert, .transit-card.has-alert{border-color:var(--ink-red); box-shadow:0 0 0 1px var(--ink-red-bg);}
+.pending-since{font-size:11px; color:var(--ink-red); margin-top:4px; font-weight:600;}
+
+.process-ref-badge{min-width:64px; text-align:center; padding:6px 4px;}
+.process-ref-badge .ref-label{display:block; font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:3px;}
+.process-ref-badge .ref-value{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:17px; color:var(--navy); line-height:1.2; word-break:break-word; text-transform:uppercase; letter-spacing:0.02em;}
+.phase-mini{font-family:'IBM Plex Mono',monospace; font-size:9.5px; font-weight:600; color:var(--muted); background:var(--paper); padding:2px 7px; border-radius:10px; text-transform:uppercase; letter-spacing:0.03em; margin-left:6px; vertical-align:middle;}
+
+.filter-bar{display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:20px;}
+.filter-bar input, .filter-bar select{padding:8px 10px; border:1px solid var(--border-strong); border-radius:6px; font-size:13px; font-family:'Inter',sans-serif;}
+.filter-bar input[type="text"]{flex:1; min-width:180px;}
+.filter-bar .btn{padding:8px 12px; font-size:12.5px;}
+.supplier-name-carestream{color:#C8641A; font-weight:700;}
+.supplier-name-morita{color:#1D5FA8; font-weight:700;}
+
+body.dark-mode{
+  --paper:#10161F; --card:#1A222E; --text:#E4E9F0; --muted:#8C9BB5;
+  --border:#2A3646; --border-strong:#3A4A5F;
+}
+body.dark-mode .modal-overlay{background:rgba(0,0,0,0.7);}
+body.dark-mode .form-group input, body.dark-mode .form-group select, body.dark-mode .form-group textarea,
+body.dark-mode .filter-bar input, body.dark-mode .filter-bar select,
+body.dark-mode .item-fields input, body.dark-mode .item-fields select,
+body.dark-mode .stage-extra input, body.dark-mode .payment-row input,
+body.dark-mode .config-icon, body.dark-mode .config-label, body.dark-mode .config-row select{
+  background:#232E3D; color:var(--text); border-color:var(--border-strong);
+}
+body.dark-mode .doc-item, body.dark-mode .stage-header, body.dark-mode .stage-body{background:#1A222E;}
+body.dark-mode .theme-toggle-btn{background:#232E3D; color:#fff; border-color:#3A4A5F;}
+
+.process-side{text-align:right; white-space:nowrap;}
+.process-value{font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:14px;}
+.process-eta{font-size:11.5px; color:var(--muted); margin-top:3px;}
+.process-badge-temp{
+  display:inline-block; font-size:9.5px; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.05em; color:var(--ink-purple); background:var(--ink-purple-bg);
+  padding:2px 6px; border-radius:4px; margin-top:4px;
+}
+
+/* TRANSIT CARD */
+.transit-card{
+  background:var(--card); border:1px solid var(--border); border-radius:8px; padding:16px 18px;
+  display:grid; grid-template-columns:auto 1fr auto; gap:16px; align-items:center; cursor:pointer;
+}
+.transit-card:hover{border-color:var(--border-strong); box-shadow:0 2px 10px rgba(15,27,45,0.06);}
+.transit-icon{font-size:26px; width:44px; text-align:center;}
+.transit-dates{font-size:12px; color:var(--muted); margin-top:5px; display:flex; gap:14px; flex-wrap:wrap;}
+.transit-logi{font-size:11.5px; color:var(--text); margin-top:4px; display:flex; gap:12px; flex-wrap:wrap;}
+.transit-logi b{color:var(--muted); font-weight:600;}
+.transit-days{text-align:right; white-space:nowrap;}
+.transit-days .big{font-family:'Zilla Slab',serif; font-size:19px; font-weight:700;}
+.transit-days .small{font-size:11px; color:var(--muted);}
+.transit-days.late .big{color:var(--ink-red);}
+
+.empty-state{
+  text-align:center; padding:60px 20px; color:var(--muted);
+  border:1px dashed var(--border-strong); border-radius:10px;
+}
+.empty-state h3{font-family:'Zilla Slab', serif; color:var(--text); font-size:17px; margin-bottom:6px;}
+.empty-state button{margin-top:16px;}
+
+/* SUPPLIERS / PARTNERS */
+.supplier-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:14px;}
+.supplier-card{
+  background:var(--card); border:1px solid var(--border); border-radius:8px; padding:16px 18px;
+  cursor:pointer;
+}
+.supplier-card:hover{border-color:var(--border-strong);}
+.supplier-card h3{font-size:15px; font-weight:600;}
+.supplier-flag{font-size:12px; color:var(--muted); font-family:'IBM Plex Mono',monospace; margin-top:2px;}
+.supplier-meta{font-size:12.5px; color:var(--muted); margin-top:10px; line-height:1.6;}
+.supplier-count{
+  display:inline-block; margin-top:10px; font-size:11px; font-weight:600;
+  background:var(--ink-blue-bg); color:var(--ink-blue); padding:3px 8px; border-radius:20px;
+}
+.supplier-tags{display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;}
+.supplier-tag{font-size:10.5px; background:var(--ink-blue-bg); color:var(--ink-blue); padding:2px 7px; border-radius:10px; font-weight:600;}
+
+/* COUNTRY CHIPS */
+.country-checks{display:flex; flex-wrap:wrap; gap:8px;}
+.country-chip{
+  padding:6px 11px; border:1px solid var(--border-strong); border-radius:20px; font-size:12px; cursor:pointer; user-select:none;
+}
+.country-chip.checked{background:var(--ink-blue); color:#fff; border-color:var(--ink-blue);}
+
+.modalidade-row{display:flex; align-items:center; gap:14px; margin-top:6px; flex-wrap:wrap;}
+.modalidade-check{display:flex; align-items:center; gap:7px; font-size:13px; cursor:pointer; min-width:110px;}
+.modalidade-check input{width:auto;}
+.modalidade-dias{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted);}
+.modalidade-dias input{width:70px; padding:6px 8px; border:1px solid var(--border-strong); border-radius:5px; font-size:12.5px;}
+
+.container-row{display:grid; grid-template-columns:28px 1fr 1fr; gap:8px; align-items:center; margin-top:6px;}
+.container-row .container-idx{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted); font-weight:600;}
+.container-row input{padding:6px 8px; border:1px solid var(--border-strong); border-radius:5px; font-size:12.5px;}
+.containers-table{margin-top:4px;}
+
+/* PARTNERS GROUPS */
+.contact-group{margin-bottom:26px;}
+.contact-group-title{
+  font-family:'Zilla Slab', serif; font-weight:700; font-size:15px; margin-bottom:10px;
+  display:flex; align-items:center; gap:8px; color:var(--navy);
+}
+.contact-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:10px;}
+.contact-card{
+  background:var(--card); border:1px solid var(--border); border-radius:8px; padding:13px 15px; cursor:pointer;
+}
+.contact-card:hover{border-color:var(--border-strong);}
+.contact-name{font-size:13.5px; font-weight:600;}
+.contact-role{font-size:12px; color:var(--muted); margin-top:1px;}
+.contact-phone{font-size:12.5px; color:var(--ink-blue); margin-top:6px; font-family:'IBM Plex Mono',monospace;}
+
+/* INDICATORS */
+.indicators-table{width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:8px; overflow:hidden;}
+.indicators-table th{
+  text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted);
+  background:var(--paper); padding:10px 14px; font-weight:600; border-bottom:1px solid var(--border);
+}
+.indicators-table td{padding:11px 14px; font-size:13px; border-bottom:1px solid var(--border);}
+.indicators-table tr:last-child td{border-bottom:none;}
+.indicators-table td.meta-col{font-family:'IBM Plex Mono',monospace; color:var(--ink-green); font-weight:600;}
+
+/* MODAL */
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(15,27,45,0.55); z-index:100;
+  display:flex; align-items:flex-start; justify-content:center; padding:40px 20px;
+  overflow-y:auto;
+}
+.modal{
+  background:var(--card); border-radius:10px; width:100%; max-width:700px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3);
+}
+.modal-header{
+  padding:20px 26px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.modal-header h2{font-family:'Zilla Slab', serif; font-size:19px;}
+.modal-close{
+  background:none; border:none; cursor:pointer; color:var(--muted); font-size:20px;
+  width:28px; height:28px; border-radius:5px; display:flex; align-items:center; justify-content:center;
+}
+.modal-close:hover{background:var(--paper); color:var(--text);}
+.modal-body{padding:22px 26px; max-height:70vh; overflow-y:auto;}
+.modal-footer{padding:16px 26px; border-top:1px solid var(--border); display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+
+.form-row{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;}
+.form-group{margin-bottom:12px;}
+.form-group label{display:block; font-size:12px; font-weight:600; color:var(--muted); margin-bottom:5px; text-transform:uppercase; letter-spacing:0.04em;}
+.form-group input, .form-group select, .form-group textarea{
+  width:100%; padding:9px 11px; border:1px solid var(--border-strong); border-radius:6px;
+  font-family:'Inter',sans-serif; font-size:13.5px; background:#fff; color:var(--text);
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus{outline:2px solid var(--ink-blue); outline-offset:1px; border-color:var(--ink-blue);}
+.form-group textarea{resize:vertical; min-height:60px;}
+.form-hint{font-size:11px; color:var(--muted); margin-top:4px; font-style:italic;}
+
+.tabs{display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:18px; flex-wrap:wrap;}
+.tab-btn{
+  background:none; border:none; padding:9px 4px; margin-right:18px; font-size:13px; font-weight:600;
+  color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; font-family:'Inter',sans-serif;
+}
+.tab-btn.active{color:var(--text); border-bottom-color:var(--ink-red);}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+
+.cost-table{width:100%; border-collapse:collapse; font-size:13px;}
+.cost-table td{padding:7px 0; border-bottom:1px solid var(--border);}
+.cost-table td:last-child{text-align:right; font-family:'IBM Plex Mono',monospace;}
+.cost-table tr.total td{font-weight:700; border-top:2px solid var(--text); border-bottom:none; padding-top:10px;}
+.cost-note{font-size:11.5px; color:var(--muted); margin-top:10px; line-height:1.5; font-style:italic;}
+
+.doc-checklist{display:flex; flex-direction:column; gap:8px;}
+.doc-item{
+  display:flex; align-items:center; gap:10px; padding:9px 11px;
+  border:1px solid var(--border); border-radius:6px; cursor:pointer;
+}
+.doc-item.checked{background:var(--ink-green-bg); border-color:#B7DBC9;}
+.doc-check{
+  width:18px; height:18px; border-radius:4px; border:2px solid var(--border-strong); flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:12px; color:#fff;
+}
+.doc-item.checked .doc-check{background:var(--ink-green); border-color:var(--ink-green);}
+.doc-item span{font-size:13px; line-height:1.4;}
+.doc-item.checked span{color:var(--ink-green); text-decoration:line-through; text-decoration-color:#B7DBC9;}
+
+.item-fields{margin:-2px 0 6px 30px; padding:9px 11px; background:var(--paper); border-left:2px solid var(--border-strong); display:flex; flex-wrap:wrap; gap:8px; border-radius:0 6px 6px 0;}
+.item-fields .mini-field{display:flex; flex-direction:column; gap:3px; min-width:130px; flex:1;}
+.item-fields label{font-size:10px; text-transform:uppercase; color:var(--muted); font-weight:600;}
+.item-fields input, .item-fields select{padding:6px 8px; border:1px solid var(--border-strong); border-radius:5px; font-size:12px; font-family:'Inter',sans-serif;}
+
+.stage-extra{margin-top:6px; padding:11px 12px; background:var(--paper); border:1px solid var(--border); border-radius:6px; display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:9px;}
+
+.payment-row{display:flex; align-items:center; gap:10px; padding:9px 11px; border:1px solid var(--border); border-radius:6px;}
+.payment-row.checked{background:var(--ink-green-bg); border-color:#B7DBC9;}
+.payment-row .payment-label{flex:1; font-size:13px; cursor:pointer;}
+.payment-row input.payment-value{width:140px; padding:6px 8px; border:1px solid var(--border-strong); border-radius:5px; font-size:12.5px; font-family:'IBM Plex Mono',monospace; text-align:right;}
+
+.btn{
+  padding:9px 16px; border-radius:6px; font-size:13.5px; font-weight:600; cursor:pointer;
+  border:1px solid var(--border-strong); background:#fff; color:var(--text); font-family:'Inter',sans-serif;
+}
+.btn:hover{background:var(--paper);}
+.btn-primary{background:var(--navy); color:#fff; border-color:var(--navy);}
+.btn-primary:hover{background:var(--navy-light);}
+.btn-danger{color:var(--ink-red); border-color:var(--ink-red-bg);}
+.btn-danger:hover{background:var(--ink-red-bg);}
+.btn-pdf{color:var(--ink-teal); border-color:var(--ink-teal-bg); background:var(--ink-teal-bg);}
+.btn-pdf:hover{background:#c9e6e9;}
+
+.status-badge-row{
+  display:flex; align-items:center; gap:10px; padding:12px 14px;
+  background:var(--paper); border:1px solid var(--border); border-radius:8px; margin-bottom:16px;
+}
+.status-badge-row .stamp{transform:rotate(0deg);}
+.status-badge-hint{font-size:12px; color:var(--muted);}
+
+.type-toggle{display:flex; gap:8px; margin-bottom:16px;}
+.type-toggle button{
+  flex:1; padding:10px 12px; border-radius:6px; border:1px solid var(--border-strong);
+  background:#fff; font-size:13px; font-weight:600; cursor:pointer; color:var(--muted);
+}
+.type-toggle button.active{background:var(--navy); color:#fff; border-color:var(--navy);}
+
+.stage-block{
+  border:1px solid var(--border); border-radius:8px; margin-bottom:8px; overflow:hidden;
+}
+.stage-block.current{border-color:var(--ink-red); box-shadow:0 0 0 1px var(--ink-red-bg);}
+.stage-block.done{border-color:#B7DBC9;}
+.stage-header{
+  display:flex; align-items:center; gap:12px; padding:11px 14px; cursor:pointer;
+  background:#fff; user-select:none;
+}
+.stage-block.done .stage-header{background:var(--ink-green-bg);}
+.stage-block.current .stage-header{background:var(--ink-red-bg);}
+.stage-num{
+  width:22px; height:22px; border-radius:50%; background:var(--border-strong); color:#fff;
+  font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  font-family:'IBM Plex Mono', monospace;
+}
+.stage-block.done .stage-num{background:var(--ink-green);}
+.stage-block.current .stage-num{background:var(--ink-red);}
+.stage-title{flex:1; font-size:13.5px; font-weight:600;}
+.stage-progress{font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--muted);}
+.stage-body{padding:12px 14px 14px 14px; display:flex; flex-direction:column; gap:8px; background:#fff;}
+.stage-hint{font-size:11.5px; color:var(--muted); margin-top:2px; font-style:italic;}
+
+#loading{padding:60px; text-align:center; color:var(--muted);}
+
+/* LOGIN */
+#login-screen{
+  min-height:100vh; display:flex; align-items:center; justify-content:center;
+  background:var(--navy);
+}
+.login-box{
+  background:var(--card); border-radius:12px; padding:36px 34px; width:100%; max-width:360px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.35);
+}
+.login-brand{display:flex; align-items:center; gap:8px; font-family:'Zilla Slab',serif; font-weight:700; font-size:22px; color:var(--navy); margin-bottom:4px;}
+.login-sub{font-size:12.5px; color:var(--muted); margin-bottom:24px;}
+.login-error{font-size:12.5px; color:var(--ink-red); margin-top:10px; min-height:16px;}
+.login-btn{width:100%; margin-top:6px;}
+.team-role-select{padding:6px 9px; border:1px solid var(--border-strong); border-radius:5px; font-size:12.5px;}
+.role-badge{font-size:10.5px; font-weight:700; text-transform:uppercase; padding:2px 8px; border-radius:10px; letter-spacing:.04em;}
+.role-badge.admin{background:var(--ink-red-bg); color:var(--ink-red);}
+.role-badge.editor{background:var(--ink-blue-bg); color:var(--ink-blue);}
+.role-badge.viewer{background:var(--paper); color:var(--muted); border:1px solid var(--border-strong);}
+
+.config-list{display:flex; flex-direction:column; gap:8px;}
+.config-row{display:flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:9px 11px;}
+.config-icon{width:52px; text-align:center; padding:8px 6px; border:1px solid var(--border-strong); border-radius:6px; font-size:16px;}
+.config-label{flex:1; padding:8px 10px; border:1px solid var(--border-strong); border-radius:6px; font-size:13.5px;}
+.config-row select{padding:8px 10px; border:1px solid var(--border-strong); border-radius:6px; font-size:13px; max-width:260px;}
+.config-id-tag{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--muted); background:var(--paper); padding:3px 8px; border-radius:10px; white-space:nowrap;}
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-brand">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 16L12 20L21 16M3 12L12 16L21 12M12 4L3 8L12 12L21 8L12 4Z" stroke="#1f3864" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      ComexTrack
+    </div>
+    <div class="login-sub">Entre com o e-mail e senha cadastrados no Firebase.</div>
+    <div class="form-group"><label>E-mail</label><input type="email" id="login-email" placeholder="voce@empresa.com"></div>
+    <div class="form-group"><label>Senha</label><input type="password" id="login-password" placeholder="••••••••"></div>
+    <button class="btn btn-primary login-btn" onclick="doLogin()">Entrar</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<div id="loading" style="display:none;">Carregando seus processos...</div>
+<div id="app" style="display:none;"></div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBEkQ5JtdnbhC_aJAnMgarmcFZx6HxyO3k",
+  authDomain: "plataforma-comextrack.firebaseapp.com",
+  projectId: "plataforma-comextrack",
+  storageBucket: "plataforma-comextrack.firebasestorage.app",
+  messagingSenderId: "483429245617",
+  appId: "1:483429245617:web:ed494476724f11bd98b890",
+  measurementId: "G-X58Z9RMEH4"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+let currentUser = null;
+let currentRole = 'viewer';
+let unsubscribeData = null;
+
+function doLogin(){
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  if(!email || !password){ errEl.textContent = 'Preencha e-mail e senha.'; return; }
+  auth.signInWithEmailAndPassword(email, password).catch(e=>{
+    errEl.textContent = 'Não foi possível entrar. Confira e-mail e senha.';
+    console.error(e);
+  });
+}
+function doLogout(){
+  if(unsubscribeData) unsubscribeData();
+  auth.signOut();
+}
+
+async function ensureUserRole(user){
+  const ref = db.collection('users').doc(user.uid);
+  const snap = await ref.get();
+  if(snap.exists){
+    currentRole = snap.data().role || 'editor';
+    return;
+  }
+  const allUsers = await db.collection('users').get();
+  const role = allUsers.empty ? 'admin' : 'editor';
+  await ref.set({ email:user.email, role, createdAt: Date.now() });
+  currentRole = role;
+}
+
+function attachDataListener(){
+  if(unsubscribeData) unsubscribeData();
+  unsubscribeData = db.collection('comextrack').doc('data').onSnapshot(doc=>{
+    if(doc.exists){
+      const d = doc.data();
+      state.processes = d.processes || [];
+      state.suppliers = d.suppliers || [];
+      state.partners = (d.partners && d.partners.length) ? d.partners : DEFAULT_PARTNERS.map(p=>({...p}));
+      state.dashboardConfig = d.dashboardConfig || null;
+    } else {
+      state = { processes:[], suppliers:[], partners: DEFAULT_PARTNERS.map(p=>({...p})) };
+    }
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    render();
+  }, err=>{
+    console.error('Erro ao sincronizar', err);
+    updateSaveIndicator('⚠ Erro de conexão com a nuvem');
+  });
+}
+
+auth.onAuthStateChanged(async (user)=>{
+  if(user){
+    currentUser = user;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('loading').style.display = 'block';
+    await ensureUserRole(user);
+    attachDataListener();
+  } else {
+    currentUser = null;
+    if(unsubscribeData) unsubscribeData();
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+  }
+});
+</script>
+
+<script>
+/* ===================== ESTRUTURA DAS FASES ===================== */
+const STAGE_DEFS = [
+  {key:'fase1', label:'Fase 1 · Pedido e Aprovação', cls:'stamp-pedido',
+    items:['Enviar PO','Abertura de pasta no sistema']},
+  {key:'fase2', label:'Fase 2 · Confirmação e Registro', cls:'stamp-producao',
+    items:['Conferência da Proforma','Pedido no SAP','Confirmação de prontidão'],
+    itemFields:{ 1:[{key:'numeroPedidoSAP', label:'Número do Pedido', type:'text'}] }},
+  {key:'fase3', label:'Fase 3 · Pagamento e Câmbio', cls:'stamp-porto',
+    items:['Pagamento'],
+    extraFields:[{key:'modalidadePagamento', label:'Modalidade de Pagamento (se aplicável)', type:'select', options:['Adiantado','Factoring']}]},
+  {key:'fase4', label:'Fase 4 · Frete e Embarque', cls:'stamp-embarcado',
+    items:['Cotação agente de cargas','Definição agente de cargas','Booking'],
+    itemFields:{
+      1:[{key:'agenteCarga', label:'Agente de Cargas', type:'partner', partnerType:'Agente de Cargas'}],
+      2:[
+        {key:'navio', label:'Navio', type:'text'},
+        {key:'viagem', label:'Viagem', type:'text'},
+        {key:'freetime', label:'Freetime (dias)', type:'number'},
+      ],
+    },
+    containersItemIndex:2},
+  {key:'fase5', label:'Fase 5 · Documentação e Licenciamento', cls:'stamp-transito',
+    items:['Aprovar Draft de BL','Abertura de processo junto ao despachante','Pré-análise tributária','Planilha com lotes e datas','Rascunho da DUIMP','DDR'],
+    itemFields:{
+      0:[{key:'numeroBL', label:'Número do BL', type:'text'}],
+      1:[{key:'despachante', label:'Despachante', type:'partner', partnerType:'Despachante'}],
+    }},
+  {key:'fase6', label:'Fase 6 · Chegada, Trânsito e Desembaraço', cls:'stamp-desembaraco',
+    items:['Solicitar DTA','Chegada e presença','Agendar DTA','Chegada no porto seco de Betim','Descarga em Betim','Registro da DUIMP','Pagar numerário despachante','Testar NF','Desembaraço da DUIMP','Liberação SEFAZ'],
+    itemFields:{
+      0:[{key:'transportadoraDTA', label:'Transportadora', type:'partner', partnerType:'Transportadora'}],
+      2:[{key:'dataAgendamentoDTA', label:'Data Agendada', type:'date'}],
+      3:[{key:'dataChegadaBetim', label:'Data de Chegada', type:'date'}],
+      5:[{key:'numeroDUIMP', label:'Número da DUIMP', type:'text'},{key:'dataRegistroDUIMP', label:'Data de Registro', type:'date'}],
+      8:[{key:'canalDesembaraco', label:'Canal', type:'select', options:['Verde','Amarelo','Vermelho','Cinza']},{key:'dataDesembaraco', label:'Data do Desembaraço', type:'date'}],
+      9:[{key:'dataLiberacaoSefaz', label:'Data de Liberação SEFAZ', type:'date'}],
+    },
+    arrivalItemIndex:3,
+    extraFields:[{key:'statusDesembaraco', label:'Status Atual do Desembaraço (descreva livremente)', type:'text'}]},
+  {key:'fase7', label:'Fase 7 · Remoção e Entrada', cls:'stamp-remocao',
+    items:['Agendamento da remoção','Início da remoção','Recebimento em estoque','Nota fiscal','Devolução do vazio'],
+    itemFields:{ 3:[{key:'numeroNF', label:'Número da NF', type:'text'}] },
+    receiptItemIndex:2},
+  {key:'fase8', label:'Fase 8 · Pagamentos', cls:'stamp-pagamentos', type:'payments',
+    items:[
+      {key:'freteInternacional', label:'Frete Internacional'},
+      {key:'armazenagemMovecta', label:'Armazenagem Movecta'},
+      {key:'armazenagemTora', label:'Armazenagem TORA'},
+      {key:'dta', label:'DTA'},
+      {key:'prestacaoDespachante', label:'Prestação Despachante'},
+    ]},
+  {key:'fase9', label:'Fase 9 · Encerramento', cls:'stamp-entregue',
+    items:['Despesa de importação','Custo de importação','Enviar pasta para encerrado','Fechamento físico do processo']},
+];
+
+/* Admissão temporária (feira/demonstração) — fluxo alternativo */
+const TEMP_STAGES = [
+  {key:'tfase1', label:'Registro e Garantia', cls:'stamp-pedido', items:[
+    'Declaração de Admissão Temporária','Garantia (termo de responsabilidade)','Prazo de permanência definido',
+  ]},
+  {key:'tfase2', label:'Permanência no Brasil', cls:'stamp-transito', items:[
+    'Uso para feira/demonstração','Acompanhamento do prazo',
+  ]},
+  {key:'tfase3', label:'Encerramento', cls:'stamp-entregue', items:[
+    'Decisão: reexportação ou nacionalização','Comprovante de saída (se reexportado)','Fluxo normal de importação (se nacionalizado)',
+  ]},
+];
+
+const DOC_TYPES = [
+  'Proforma Invoice',
+  'Invoice Comercial (Fatura)',
+  'Packing List',
+  'HBL / HAWB (Conhecimento de Embarque)',
+  'DDR (Declaração do Detentor do Registro)',
+  'Rascunho / Registro da DUIMP',
+  'Comprovante de Pagamento / Numerário',
+  'Termo de Demurrage e Procuração',
+  'Comprovante de Devolução do Contêiner Vazio',
+  'DANFE — Nota Fiscal de Entrada',
+];
+
+const DESEMBARACO_ICON = 'data:image/png;base64,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';
+const COUNTRY_OPTIONS = ['Japão','EUA','Holanda','Bélgica','China','Outro'];
+const PARTNER_TYPES = ['Despachante','Transportadora','Agente de Cargas','Outro'];
+
+const REFERENCE_INDICATORS = [
+  {name:'Lead time total (PO → estoque)', meta:'Reduzir com o tempo', freq:'Mensal'},
+  {name:'Lead time de desembaraço', meta:'≤ 3 dias', freq:'Mensal'},
+  {name:'Processos sem exigência', meta:'≥ 95%', freq:'Mensal'},
+  {name:'Custo de sobrestadia', meta:'R$ 0', freq:'Mensal'},
+  {name:'Devolução do vazio dentro do free time', meta:'100%', freq:'Mensal'},
+  {name:'Processo fechado com dossiê completo', meta:'100%', freq:'Mensal'},
+];
+
+const DEFAULT_PARTNERS = [
+  {id:'seed-1', tipo:'Despachante', empresa:'Zigma', contato:'Maxwell Oliveira', phone:'(31) 3311-4968'},
+  {id:'seed-2', tipo:'Despachante', empresa:'Interfreight', contato:'Claudio da Silva', phone:'(21) 3849-7733'},
+  {id:'seed-3', tipo:'Transportadora', empresa:'Biotech', contato:'Cleiton Soares', phone:'(31) 3195-6695'},
+  {id:'seed-4', tipo:'Transportadora', empresa:'Teca', contato:'Igor Machado', phone:'(35) 3015-3392'},
+  {id:'seed-5', tipo:'Agente de Cargas', empresa:'Nelson Heusi', contato:'Leonardo André Pavesi', phone:'(47) 3404-4000'},
+  {id:'seed-6', tipo:'Agente de Cargas', empresa:'DC Logistics', contato:'Davisson Cuchaba', phone:'(47) 3045-0947'},
+  {id:'seed-7', tipo:'Agente de Cargas', empresa:'Rentalog', contato:'Mariana Aguiar', phone:'(47) 3046-6990'},
+  {id:'seed-8', tipo:'Agente de Cargas', empresa:'Nippon Express', contato:'Tatiana Takao', phone:'(11) 3583-3850'},
+];
+
+let state = { processes: [], suppliers: [], partners: [] };
+let currentView = 'dashboard';
+let saveTimer = null;
+
+function requireEditPermission(){
+  if(currentRole==='viewer'){
+    alert('Você está em modo somente leitura. Peça a um admin para alterar sua permissão em Equipe.');
+    return false;
+  }
+  return true;
+}
+
+function toggleTheme(){
+  document.body.classList.toggle('dark-mode');
+  try{ localStorage.setItem('comextrack-theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light'); }catch(e){}
+  render();
+}
+function applyStoredTheme(){
+  try{
+    if(localStorage.getItem('comextrack-theme')==='dark'){ document.body.classList.add('dark-mode'); }
+  }catch(e){}
+}
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+function fmtBRL(v){
+  return (v||0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+}
+function fmtUSD(v){
+  return (v||0).toLocaleString('en-US', {style:'currency', currency:'USD'});
+}
+function fmtDate(d){
+  if(!d) return '—';
+  const [y,m,dd] = d.split('-');
+  return `${dd}/${m}/${y}`;
+}
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function daysBetween(d1,d2){
+  const a = new Date(d1+'T00:00:00');
+  const b = new Date(d2+'T00:00:00');
+  return Math.round((b-a)/86400000);
+}
+function countryFlag(country){
+  const map = {'Japão':'🇯🇵','EUA':'🇺🇸','Holanda':'🇳🇱','Bélgica':'🇧🇪','China':'🇨🇳'};
+  return map[country] || (country ? '🌐' : '');
+}
+function modalIcon(modal){ return modal==='aereo' ? '✈️' : '🚢'; }
+function modalLabel(modal){ return modal==='aereo' ? 'Aéreo' : 'Marítimo'; }
+function getProcessAlerts(p){
+  const alerts = [];
+  if(p.tipo==='temporaria' || isProcessDone(p)) return alerts;
+  const extra = p.extra || {};
+  const today = todayStr();
+
+  if(p.dataEmbarqueReal){
+    const diasDesdeEmbarque = daysBetween(p.dataEmbarqueReal, today);
+    if(diasDesdeEmbarque>=3 && !extra.despachante){
+      alerts.push('3+ dias de embarque sem despachante definido');
+    }
+    if(diasDesdeEmbarque>=0){
+      const fase3checked = p.checklist['fase3']||[];
+      if(!fase3checked[0]){
+        alerts.push('Carga já embarcou e o provisionamento (Fase 3) não foi enviado');
+      }
+    }
+  }
+
+  if(p.chegadaPrevista){
+    const diasParaChegada = daysBetween(today, p.chegadaPrevista);
+    if(diasParaChegada<=5 && !extra.transportadoraDTA){
+      alerts.push('Faltam 5 dias ou menos para a chegada sem DTA definida');
+    }
+    const fase5checked = p.checklist['fase5']||[];
+    if(diasParaChegada<=5 && !fase5checked[4]){
+      alerts.push('Faltam 5 dias ou menos para a chegada sem rascunho da DUIMP');
+    }
+  }
+
+  if(p.prontidao && daysBetween(p.prontidao, today) >= 0){
+    const hasFatura = p.docs && p.docs['Invoice Comercial (Fatura)'];
+    const hasPacking = p.docs && p.docs['Packing List'];
+    if(!hasFatura || !hasPacking){
+      alerts.push('Prontidão já chegou sem Fatura e/ou Packing List marcados');
+    }
+  }
+
+  return alerts;
+}
+
+function renderAlertBanner(p){
+  const alerts = getProcessAlerts(p);
+  if(!alerts.length) return '';
+  return `<div class="alert-banner">⚠️ ${alerts.join(' · ')}</div>`;
+}
+
+function fornecedorNameHtml(fornecedor){
+  if(!fornecedor) return 'Fornecedor não definido';
+  const name = fornecedor.name || '';
+  if(/carestream/i.test(name)) return `<span class="supplier-name-carestream">${name}</span>`;
+  if(/morita/i.test(name)) return `<span class="supplier-name-morita">${name}</span>`;
+  return name;
+}
+
+function refBadgeHtml(p){
+  const ref = p.ref || ('REF-'+p.id.slice(0,6).toUpperCase());
+  return `<div class="process-ref-badge"><span class="ref-label">Ref</span><span class="ref-value">${ref}</span></div>`;
+}
+function originModalMeta(p){
+  const flag = countryFlag(p.origemPais);
+  const pais = p.origemPais || 'Origem não definida';
+  return `${flag?flag+' ':''}${pais} · ${modalIcon(p.modal)} ${modalLabel(p.modal)}`;
+}
+function currentPendingKey(p){
+  const stages = getStagesForProcess(p);
+  const stage = stages.find(s=>s.key===p.status);
+  if(!stage) return String(p.status);
+  if(stage.type==='payments'){
+    const idx = stage.items.findIndex(it=>!(p.payments[it.key]||{}).checked);
+    return `${p.status}:pay:${idx}`;
+  }
+  const checked = p.checklist[stage.key]||[];
+  const idx = checked.findIndex(c=>!c);
+  return `${p.status}:${idx}`;
+}
+
+/* ===================== LÓGICA DE ETAPAS ===================== */
+function getStagesForProcess(p){
+  if(p && p.tipo==='temporaria') return TEMP_STAGES;
+  return STAGE_DEFS.map(s=>{
+    if(s.key==='fase3'){
+      const supplier = state.suppliers.find(x=>x.id===p.supplierId);
+      let options = [];
+      if(supplier && supplier.modalidades){
+        if(supplier.modalidades.adiantado) options.push('Adiantado');
+        if(supplier.modalidades.aPrazo && supplier.modalidades.aPrazo.checked) options.push(`A prazo (${supplier.modalidades.aPrazo.dias||'?'} dias)`);
+        if(supplier.modalidades.factoring && supplier.modalidades.factoring.checked) options.push(`Factoring (${supplier.modalidades.factoring.dias||'?'} dias)`);
+      }
+      if(options.length===0) options = ['Adiantado','A prazo','Factoring'];
+      const mp = p.extra && p.extra.modalidadePagamento;
+      const label = mp ? `Pagamento (${mp})` : 'Pagamento';
+      return {...s, items:[label], extraFields:[{key:'modalidadePagamento', label:'Modalidade de Pagamento', type:'select', options}]};
+    }
+    return s;
+  });
+}
+function stageIndexFor(p, key){ return getStagesForProcess(p).findIndex(s=>s.key===key); }
+function stageInfoFor(p, key){ const stages=getStagesForProcess(p); return stages.find(s=>s.key===key) || stages[0]; }
+
+function initProcessData(p){
+  p.extra = p.extra || {};
+  p.payments = p.payments || {};
+  p.checklist = p.checklist || {};
+  getStagesForProcess(p).forEach(s=>{
+    if(s.type==='payments'){
+      s.items.forEach(it=>{
+        if(!p.payments[it.key]) p.payments[it.key] = {checked:false, valor:''};
+      });
+    } else {
+      const existing = p.checklist[s.key] || [];
+      p.checklist[s.key] = s.items.map((_,i)=> existing[i]===true);
+    }
+  });
+  return p;
+}
+
+function stageComplete(p, stageKey){
+  const stage = getStagesForProcess(p).find(s=>s.key===stageKey);
+  if(!stage) return false;
+  if(stage.type==='payments'){
+    return stage.items.every(it=> (p.payments[it.key]||{}).checked===true);
+  }
+  const checked = p.checklist[stageKey] || [];
+  return stage.items.every((_,i)=>checked[i]===true);
+}
+
+function recomputeStatus(p){
+  const stages = getStagesForProcess(p);
+  for(const s of stages){
+    if(!stageComplete(p, s.key)) return s.key;
+  }
+  return stages[stages.length-1].key;
+}
+
+function isProcessDone(p){
+  return getStagesForProcess(p).every(s=>stageComplete(p, s.key));
+}
+
+function getDashboardConfig(){
+  const dflt = {
+    labels: {
+      producao: {label:'Em Produção', icon:'📦'},
+      aguardando_embarque: {label:'Aguardando Embarque', icon:'⏳'},
+      transito: {label:'Em Trânsito', icon:'🚢'},
+      desembaraco: {label:'Em Desembaraço', icon:'📋'},
+      entregue: {label:'Entregue', icon:'✅'},
+    },
+    rules: [],
+  };
+  const cfg = state.dashboardConfig || {};
+  const labels = {...dflt.labels};
+  Object.keys(cfg.labels||{}).forEach(k=>{ labels[k] = {...labels[k], ...cfg.labels[k]}; });
+  return { labels, rules: cfg.rules || [] };
+}
+
+function bucketLabel(id, cfg){
+  cfg = cfg || getDashboardConfig();
+  if(String(id).indexOf('custom:')===0){
+    const rid = id.slice(7);
+    const r = (cfg.rules||[]).find(x=>x.id===rid);
+    return r ? `${r.icon?r.icon+' ':''}${r.label}` : id;
+  }
+  const l = cfg.labels[id];
+  return l ? `${l.icon?l.icon+' ':''}${l.label}` : id;
+}
+
+function getBucket(p){
+  if(isProcessDone(p)) return 'finalizados';
+  const cfg = getDashboardConfig();
+  const rule = (cfg.rules||[]).find(r=>r.stageKey===p.status);
+  if(rule) return 'custom:'+rule.id;
+  if(p.tipo==='temporaria') return 'producao';
+  const stages = getStagesForProcess(p);
+  const idx = stages.findIndex(s=>s.key===p.status);
+  if(idx<=3){
+    if(p.prontidao && daysBetween(todayStr(), p.prontidao) <= 0) return 'aguardando_embarque';
+    return 'producao';
+  }
+  if(idx===4){
+    const diasParaEmbarque = p.dataEmbarqueReal ? daysBetween(todayStr(), p.dataEmbarqueReal) : null;
+    if(diasParaEmbarque===null || diasParaEmbarque>0) return 'aguardando_embarque';
+    return 'transito';
+  }
+  if(idx===5){
+    const stage = stages[5];
+    const checked = p.checklist['fase6']||[];
+    return checked[stage.arrivalItemIndex] ? 'desembaraco' : 'transito';
+  }
+  if(idx===6){
+    const stage = stages[6];
+    const checked = p.checklist['fase7']||[];
+    return checked[stage.receiptItemIndex] ? 'entregue' : 'desembaraco';
+  }
+  if(idx>=7) return 'entregue';
+  return 'producao';
+}
+
+function currentStepLabel(p){
+  const stages = getStagesForProcess(p);
+  const stage = stages.find(s=>s.key===p.status);
+  if(!stage) return '';
+  if(stage.type==='payments'){
+    const pend = stage.items.find(it=> !(p.payments[it.key]||{}).checked);
+    return pend ? `Pendente: ${pend.label}` : 'Concluído';
+  }
+  const checked = p.checklist[stage.key]||[];
+  const idx = stage.items.findIndex((_,i)=>!checked[i]);
+  return idx>=0 ? `Pendente: ${stage.items[idx]}` : 'Concluído';
+}
+
+function computeCosts(p){
+  const fob = parseFloat(p.fob)||0;
+  const frete = parseFloat(p.frete)||0;
+  const seguro = parseFloat(p.seguro)||0;
+  const cambio = parseFloat(p.cambio)||0;
+  const cifUsd = fob + frete + seguro;
+  const cifBrl = cifUsd * cambio;
+  const ii = parseFloat(p.ii)||0;
+  const ipi = parseFloat(p.ipi)||0;
+  const pis = parseFloat(p.pis)||0;
+  const cofins = parseFloat(p.cofins)||0;
+  const icms = parseFloat(p.icms)||0;
+  const despesas = parseFloat(p.despesas)||0;
+  const paymentsTotal = p.payments ? Object.values(p.payments).reduce((s,r)=>s+(parseFloat(r.valor)||0),0) : 0;
+  const total = cifBrl + ii + ipi + pis + cofins + icms + despesas + paymentsTotal;
+  return {cifUsd, cifBrl, ii, ipi, pis, cofins, icms, despesas, paymentsTotal, total};
+}
+
+/* Carregamento agora é feito por attachDataListener() após o login (ver script de autenticação acima) */
+
+async function persistState(){
+  if(currentRole==='viewer'){ return false; }
+  updateSaveIndicator('Salvando...');
+  try{
+    await db.collection('comextrack').doc('data').set({
+      processes: state.processes,
+      suppliers: state.suppliers,
+      partners: state.partners,
+      dashboardConfig: state.dashboardConfig || null,
+    });
+    updateSaveIndicator('Dados salvos na nuvem ✓');
+    return true;
+  }catch(e){
+    console.error('Erro ao salvar no Firestore', e);
+    updateSaveIndicator('⚠ Falha ao salvar — clique em Salvar agora');
+    return false;
+  }
+}
+function updateSaveIndicator(text){
+  const el = document.getElementById('save-indicator');
+  if(el) el.textContent = text;
+}
+function manualSave(){ persistState(); }
+/* mantido por compatibilidade com chamadas antigas */
+function scheduleSave(){ persistState(); }
+
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 16L12 20L21 16M3 12L12 16L21 12M12 4L3 8L12 12L21 8L12 4Z" stroke="#E8A25C" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          ComexTrack
+        </div>
+        <div class="brand-sub">Controle de Importações</div>
+      </div>
+      <nav class="nav">
+        ${navItem('dashboard','Painel')}
+        ${navItem('processos','Processos')}
+        ${navItem('finalizados','Finalizados')}
+        ${navItem('fornecedores','Fornecedores')}
+        ${navItem('parceiros','Parceiros')}
+        ${navItem('indicadores','Indicadores')}
+        ${currentRole==='admin' ? navItem('equipe','Equipe') : ''}
+        ${currentRole==='admin' ? navItem('personalizacao','Personalização') : ''}
+      </nav>
+      <div class="sidebar-footer">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <span class="role-badge ${currentRole}">${currentRole}</span>
+          <div style="display:flex; gap:6px;">
+            <button class="btn theme-toggle-btn" style="padding:5px 9px; font-size:13px;" onclick="toggleTheme()" title="Alternar modo escuro">${document.body.classList.contains('dark-mode')?'☀️':'🌙'}</button>
+            <button class="btn" style="padding:5px 10px; font-size:11.5px;" onclick="doLogout()">Sair</button>
+          </div>
+        </div>
+        <div id="save-indicator" style="font-size:11px; color:#7C8FA8; margin-bottom:8px; text-align:center;">Dados salvos ✓</div>
+        ${currentRole!=='viewer' ? `<button class="btn" style="width:100%; margin-bottom:8px; background:var(--navy-light); color:#fff; border-color:var(--navy-lighter);" onclick="manualSave()">💾 Salvar agora</button>
+        <button class="new-process-btn" onclick="openProcessModal()">+ Novo Processo</button>` : `<div class="form-hint" style="color:#7C8FA8;">Modo somente leitura</div>`}
+      </div>
+    </aside>
+    <main>
+      <div class="topbar">
+        <h1>${viewTitle()}</h1>
+        <p>${viewSubtitle()}</p>
+      </div>
+      <div class="view-content" id="view-content"></div>
+    </main>
+  `;
+  renderView();
+}
+
+function navItem(key,label){
+  return `<button class="nav-item ${currentView===key?'active':''}" onclick="setView('${key}')"><span class="dot"></span>${label}</button>`;
+}
+function setView(v){ currentView=v; render(); }
+function viewTitle(){
+  if(currentView==='dashboard') return 'Painel Geral';
+  if(currentView==='processos') return 'Processos de Importação';
+  if(currentView==='finalizados') return 'Processos Finalizados';
+  if(currentView==='fornecedores') return 'Fornecedores';
+  if(currentView==='parceiros') return 'Parceiros';
+  if(currentView==='indicadores') return 'Indicadores de Referência';
+  if(currentView==='equipe') return 'Equipe';
+  if(currentView==='personalizacao') return 'Personalização do Painel';
+}
+function viewSubtitle(){
+  if(currentView==='dashboard') return 'Visão consolidada dos seus embarques em andamento';
+  if(currentView==='processos') return `${state.processes.filter(p=>getBucket(p)!=='finalizados').length} processo(s) ativo(s)`;
+  if(currentView==='finalizados') return `${state.processes.filter(p=>getBucket(p)==='finalizados').length} processo(s) encerrado(s)`;
+  if(currentView==='fornecedores') return `${state.suppliers.length} fornecedor(es) cadastrado(s)`;
+  if(currentView==='parceiros') return 'Agentes de carga, transportadoras, despachantes e outros parceiros';
+  if(currentView==='indicadores') return 'Metas de acompanhamento mensal';
+  if(currentView==='equipe') return 'Gerencie quem tem acesso e o nível de permissão de cada pessoa';
+  if(currentView==='personalizacao') return 'Nomes, ícones e regras dos estágios que aparecem no Painel Geral';
+}
+
+function renderView(){
+  const el = document.getElementById('view-content');
+  if(currentView==='dashboard') el.innerHTML = renderDashboard();
+  if(currentView==='processos') el.innerHTML = renderProcessos();
+  if(currentView==='finalizados') el.innerHTML = renderFinalizados();
+  if(currentView==='fornecedores') el.innerHTML = renderFornecedores();
+  if(currentView==='parceiros') el.innerHTML = renderParceiros();
+  if(currentView==='indicadores') el.innerHTML = renderIndicadores();
+  if(currentView==='equipe') renderEquipe();
+  if(currentView==='personalizacao') el.innerHTML = renderPersonalizacao();
+}
+
+function renderEquipe(){
+  const el = document.getElementById('view-content');
+  el.innerHTML = '<div class="empty-state"><h3>Carregando equipe...</h3></div>';
+  db.collection('users').get().then(snap=>{
+    const users = [];
+    snap.forEach(doc=>users.push({id:doc.id, ...doc.data()}));
+    const rows = users.map(u=>`
+      <div class="supplier-card" style="cursor:default; display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <h3 style="font-size:14px;">${u.email}</h3>
+          <div class="supplier-meta">${u.id===currentUser.uid?'Você':''}</div>
+        </div>
+        <select class="team-role-select" onchange="changeUserRole('${u.id}', this.value)" ${u.id===currentUser.uid?'disabled':''}>
+          <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+          <option value="editor" ${u.role==='editor'?'selected':''}>Editor</option>
+          <option value="viewer" ${u.role==='viewer'?'selected':''}>Visualizador</option>
+        </select>
+      </div>
+    `).join('');
+    el.innerHTML = `
+      <div class="form-hint" style="margin-bottom:14px;">Admin: acesso total, inclusive gerenciar a equipe. Editor: cria e edita processos, fornecedores e parceiros. Visualizador: apenas consulta.</div>
+      <div class="supplier-grid" style="grid-template-columns:1fr;">${rows}</div>
+      <div class="cost-note" style="margin-top:16px;">Para adicionar uma nova pessoa, cadastre o login dela no Console do Firebase (Authentication > Users). Na primeira vez que ela entrar, aparece aqui automaticamente como Editor.</div>
+    `;
+  });
+}
+
+async function changeUserRole(uid, role){
+  await db.collection('users').doc(uid).set({role}, {merge:true});
+  renderEquipe();
+}
+
+/* ---------- PERSONALIZAÇÃO DO PAINEL ---------- */
+function renderPersonalizacao(){
+  const cfg = getDashboardConfig();
+  window.__editingDashboardRules = (cfg.rules||[]).map(r=>({...r}));
+
+  const bucketRows = Object.keys(cfg.labels).map(id=>{
+    const l = cfg.labels[id];
+    return `<div class="config-row">
+      <input type="text" class="config-icon" id="cfg-icon-${id}" value="${l.icon||''}" maxlength="4">
+      <input type="text" class="config-label" id="cfg-label-${id}" value="${l.label||''}">
+      <span class="config-id-tag">${id}</span>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="section-title">Estágios Fixos do Painel<div class="rule"></div></div>
+    <div class="form-hint" style="margin-bottom:12px;">Personalize o nome e o ícone (emoji) de cada estágio padrão que aparece no Painel Geral.</div>
+    <div class="config-list">${bucketRows}</div>
+
+    <div class="section-title">Regras Personalizadas<div class="rule"></div></div>
+    <div class="form-hint" style="margin-bottom:12px;">Crie estágios extras: quando um processo estiver numa etapa específica das Fases 1 a 9, ele passa a aparecer no estágio personalizado em vez do estágio padrão.</div>
+    <div id="custom-rules-list">${renderCustomRulesList()}</div>
+    <button class="btn" style="margin-top:10px;" onclick="addCustomRule()">+ Nova Regra</button>
+
+    <div style="margin-top:26px;">
+      <button class="btn btn-primary" onclick="saveDashboardConfig()">Salvar Personalização</button>
+    </div>
+  `;
+}
+
+function renderCustomRulesList(){
+  const rules = window.__editingDashboardRules || [];
+  if(!rules.length) return `<div class="form-hint">Nenhuma regra personalizada ainda.</div>`;
+  return rules.map((r,i)=>`
+    <div class="config-row">
+      <select id="rule-stage-${i}">${STAGE_DEFS.map(s=>`<option value="${s.key}" ${r.stageKey===s.key?'selected':''}>${s.label}</option>`).join('')}</select>
+      <input type="text" class="config-icon" id="rule-icon-${i}" value="${r.icon||''}" placeholder="🔧" maxlength="4">
+      <input type="text" class="config-label" id="rule-label-${i}" value="${r.label||''}" placeholder="Nome do estágio">
+      <button class="btn btn-danger" style="padding:6px 10px;" onclick="removeCustomRule(${i})">Excluir</button>
+    </div>
+  `).join('');
+}
+
+function addCustomRule(){
+  window.__editingDashboardRules = window.__editingDashboardRules || [];
+  window.__editingDashboardRules.push({id: uid(), stageKey: STAGE_DEFS[0].key, label:'', icon:''});
+  document.getElementById('custom-rules-list').innerHTML = renderCustomRulesList();
+}
+function removeCustomRule(i){
+  window.__editingDashboardRules.splice(i,1);
+  document.getElementById('custom-rules-list').innerHTML = renderCustomRulesList();
+}
+
+async function saveDashboardConfig(){
+  if(!requireEditPermission()) return;
+  const cfg = getDashboardConfig();
+  const labels = {};
+  Object.keys(cfg.labels).forEach(id=>{
+    labels[id] = {
+      icon: document.getElementById('cfg-icon-'+id).value.trim(),
+      label: document.getElementById('cfg-label-'+id).value.trim() || id,
+    };
+  });
+  const rules = (window.__editingDashboardRules||[]).map((r,i)=>({
+    id: r.id,
+    stageKey: document.getElementById('rule-stage-'+i).value,
+    icon: document.getElementById('rule-icon-'+i).value.trim(),
+    label: document.getElementById('rule-label-'+i).value.trim() || 'Personalizado',
+  }));
+  state.dashboardConfig = { labels, rules };
+  await persistState();
+  render();
+}
+
+/* ---------- DASHBOARD ---------- */
+let dashboardFilters = { search:'', supplierId:'', modal:'', tipo:'' };
+
+function processMatchesFilter(p){
+  if(dashboardFilters.search){
+    const q = dashboardFilters.search.toLowerCase();
+    const hay = `${p.produto||''} ${p.ref||''}`.toLowerCase();
+    if(!hay.includes(q)) return false;
+  }
+  if(dashboardFilters.supplierId && p.supplierId!==dashboardFilters.supplierId) return false;
+  if(dashboardFilters.modal && p.modal!==dashboardFilters.modal) return false;
+  if(dashboardFilters.tipo && p.tipo!==dashboardFilters.tipo) return false;
+  return true;
+}
+
+function applyDashboardFilters(){
+  dashboardFilters.search = document.getElementById('dash-filter-search').value;
+  dashboardFilters.supplierId = document.getElementById('dash-filter-supplier').value;
+  dashboardFilters.modal = document.getElementById('dash-filter-modal').value;
+  dashboardFilters.tipo = document.getElementById('dash-filter-tipo').value;
+  const el = document.getElementById('dashboard-results');
+  if(el) el.innerHTML = renderDashboardResults();
+}
+
+function clearDashboardFilters(){
+  dashboardFilters = { search:'', supplierId:'', modal:'', tipo:'' };
+  renderView();
+}
+
+function renderDashboard(){
+  const supplierOptions = state.suppliers.map(s=>`<option value="${s.id}" ${dashboardFilters.supplierId===s.id?'selected':''}>${s.name}</option>`).join('');
+  const filterBar = `
+    <div class="filter-bar">
+      <input type="text" id="dash-filter-search" placeholder="Buscar por produto ou referência..." value="${dashboardFilters.search}" oninput="applyDashboardFilters()">
+      <select id="dash-filter-supplier" onchange="applyDashboardFilters()">
+        <option value="">Todos os fornecedores</option>
+        ${supplierOptions}
+      </select>
+      <select id="dash-filter-modal" onchange="applyDashboardFilters()">
+        <option value="">Todos os modais</option>
+        <option value="maritimo" ${dashboardFilters.modal==='maritimo'?'selected':''}>Marítimo</option>
+        <option value="aereo" ${dashboardFilters.modal==='aereo'?'selected':''}>Aéreo</option>
+      </select>
+      <select id="dash-filter-tipo" onchange="applyDashboardFilters()">
+        <option value="">Definitiva e Temporária</option>
+        <option value="definitiva" ${dashboardFilters.tipo==='definitiva'?'selected':''}>Só Definitiva</option>
+        <option value="temporaria" ${dashboardFilters.tipo==='temporaria'?'selected':''}>Só Temporária</option>
+      </select>
+      <button class="btn" onclick="clearDashboardFilters()">Limpar filtros</button>
+    </div>
+  `;
+  return filterBar + `<div id="dashboard-results">${renderDashboardResults()}</div>`;
+}
+
+function renderDashboardResults(){
+  const cfg = getDashboardConfig();
+  const bucketOrder = ['producao','aguardando_embarque','transito','desembaraco','entregue', ...cfg.rules.map(r=>'custom:'+r.id)];
+  const buckets = {};
+  bucketOrder.forEach(id=>buckets[id]=[]);
+  const filteredProcesses = state.processes.filter(processMatchesFilter);
+  filteredProcesses.forEach(p=>{ const b=getBucket(p); if(buckets[b]) buckets[b].push(p); });
+  const finalizadosCount = filteredProcesses.filter(p=>getBucket(p)==='finalizados').length;
+
+  const kpiAccents = {producao:'var(--ink-blue)', aguardando_embarque:'var(--ink-amber)', transito:'var(--ink-purple)', desembaraco:'var(--ink-red)', entregue:'var(--ink-green)'};
+  const kpis = `
+  <div class="kpi-row">
+    ${bucketOrder.map(id=>`
+      <div class="kpi-card" style="--kpi-accent:${kpiAccents[id]||'var(--ink-teal)'}">
+        <div class="kpi-label">${bucketLabel(id, cfg)}</div>
+        <div class="kpi-value">${buckets[id].length}</div>
+      </div>
+    `).join('')}
+  </div>
+  `;
+
+  let body = '';
+  let anyContent = false;
+  bucketOrder.forEach(id=>{
+    const list = buckets[id];
+    if(!list.length) return;
+    anyContent = true;
+    const title = bucketLabel(id, cfg);
+    if(id==='producao'){
+      body += `<div class="section-title">${title}<div class="rule"></div></div><div class="process-list">${list.map(producaoCard).join('')}</div>`;
+    } else if(id==='aguardando_embarque'){
+      body += `<div class="section-title">${title}<div class="rule"></div></div><div class="process-list">${list.map(aguardandoEmbarqueCard).join('')}</div>`;
+    } else if(id==='transito'){
+      body += `<div class="section-title">${title}<div class="rule"></div></div><div class="process-list">${list.map(transitoCard).join('')}</div>`;
+    } else if(id==='desembaraco'){
+      body += `<div class="section-title">${title}<div class="rule"></div></div><div class="process-list">${list.map(desembaracoCard).join('')}</div>`;
+    } else {
+      body += `<div class="section-title">${title}<div class="rule"></div></div><div class="process-list">${list.map(p=>processCard(p)).join('')}</div>`;
+    }
+  });
+
+  if(!anyContent){
+    const hasFilters = dashboardFilters.search || dashboardFilters.supplierId || dashboardFilters.modal || dashboardFilters.tipo;
+    body = hasFilters ? `
+    <div class="empty-state">
+      <h3>Nenhum processo encontrado</h3>
+      <p>Nenhum processo bate com os filtros aplicados.</p>
+      <button class="btn" onclick="clearDashboardFilters()">Limpar filtros</button>
+    </div>
+  ` : `
+    <div class="empty-state">
+      <h3>Nenhum processo em andamento</h3>
+      <p>Cadastre seu primeiro processo de importação para começar a acompanhar aqui.</p>
+      <button class="btn btn-primary" onclick="openProcessModal()">+ Novo Processo</button>
+    </div>
+  `;
+  }
+
+  const finalNote = finalizadosCount ? `<div class="cost-note" style="margin-top:14px;">${finalizadosCount} processo(s) finalizado(s) — veja na aba <strong>Finalizados</strong>.</div>` : '';
+
+  return kpis + body + finalNote;
+}
+
+/* ---------- INDICADORES ---------- */
+function renderIndicadores(){
+  return `
+    <table class="indicators-table">
+      <thead><tr><th>Indicador</th><th>Meta</th><th>Frequência</th></tr></thead>
+      <tbody>
+        ${REFERENCE_INDICATORS.map(i=>`<tr><td>${i.name}</td><td class="meta-col">${i.meta}</td><td>${i.freq}</td></tr>`).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+/* ---------- PROCESSOS ---------- */
+function processProgressRatio(p){
+  const stages = getStagesForProcess(p);
+  let total=0, done=0;
+  stages.forEach(s=>{
+    if(s.type==='payments'){
+      total += s.items.length;
+      done += s.items.filter(it=>(p.payments[it.key]||{}).checked).length;
+    } else {
+      total += s.items.length;
+      const checked = p.checklist[s.key]||[];
+      done += checked.filter(Boolean).length;
+    }
+  });
+  return total ? done/total : 0;
+}
+
+function renderProcessos(){
+  const list = state.processes.filter(p=>getBucket(p)!=='finalizados');
+  if(list.length===0){
+    return `<div class="empty-state">
+      <h3>Nenhum processo ativo</h3>
+      <p>Crie seu primeiro processo para começar a controlar custos, prazos e documentos.</p>
+      <button class="btn btn-primary" onclick="openProcessModal()">+ Novo Processo</button>
+    </div>`;
+  }
+  const sorted = [...list].sort((a,b)=> processProgressRatio(b) - processProgressRatio(a) || (a.chegadaPrevista||'9999').localeCompare(b.chegadaPrevista||'9999'));
+  return `<div class="process-list">${sorted.map(p=>processCard(p)).join('')}</div>`;
+}
+
+/* ---------- FINALIZADOS ---------- */
+function renderFinalizados(){
+  const list = state.processes.filter(p=>getBucket(p)==='finalizados');
+  if(list.length===0){
+    return `<div class="empty-state">
+      <h3>Nenhum processo finalizado ainda</h3>
+      <p>Quando um processo tiver a Fase 9 (Encerramento) totalmente concluída, ele aparece aqui.</p>
+    </div>`;
+  }
+  return `<div class="process-list">${list.map(p=>processCard(p)).join('')}</div>`;
+}
+
+function processCard(p, note){
+  const stages = getStagesForProcess(p);
+  const info = stageInfoFor(p, p.status);
+  const idx = stageIndexFor(p, p.status);
+  const costs = computeCosts(p);
+  const fornecedor = state.suppliers.find(s=>s.id===p.supplierId);
+  const trackHtml = stages.map((s,i)=>{
+    const dotCls = i<idx ? 'done' : (i===idx ? 'current' : '');
+    const lineCls = i<idx ? 'done' : '';
+    return `<div class="track-step">
+      <div class="track-dot ${dotCls}"></div>
+      ${i<stages.length-1?`<div class="track-line ${lineCls}"></div>`:''}
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="process-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessModal('${p.id}')">
+    ${refBadgeHtml(p)}
+    <div class="process-main">
+      <h3>${p.produto || 'Sem descrição'}<span class="phase-mini">${info.label.replace(/^Fase \d+ · /,'')}</span></h3>
+      ${p.tipo==='temporaria'?'<div class="process-badge-temp">Admissão Temp.</div>':''}
+      <div class="process-meta">${fornecedorNameHtml(fornecedor)} · ${originModalMeta(p)}</div>
+      <div class="process-track">${trackHtml}</div>
+      <div class="progress-pct">${Math.round(processProgressRatio(p)*100)}% concluído</div>
+      ${note?`<div class="step-note">${note}</div>`:''}
+      ${renderAlertBanner(p)}
+    </div>
+    <div class="process-side">
+      <div class="process-value">${fmtBRL(costs.total)}</div>
+      <div class="process-eta">Chegada: ${fmtDate(p.chegadaPrevista)}</div>
+    </div>
+  </div>`;
+}
+
+function producaoCard(p){
+  const stages = getStagesForProcess(p);
+  const idx = stageIndexFor(p, p.status);
+  const dias = p.prontidao ? daysBetween(todayStr(), p.prontidao) : null;
+  const lateCls = (dias!==null && dias<0) ? 'late' : '';
+  const remText = dias===null ? 'Prontidão não definida' : (dias<0 ? `${Math.abs(dias)}d de atraso` : (dias===0 ? 'Pronto hoje' : `em ${dias}d`));
+  const fornecedor = state.suppliers.find(s=>s.id===p.supplierId);
+  const trackHtml = stages.map((s,i)=>{
+    const dotCls = i<idx ? 'done' : (i===idx ? 'current' : '');
+    const lineCls = i<idx ? 'done' : '';
+    return `<div class="track-step">
+      <div class="track-dot ${dotCls}"></div>
+      ${i<stages.length-1?`<div class="track-line ${lineCls}"></div>`:''}
+    </div>`;
+  }).join('');
+  return `
+  <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessModal('${p.id}')">
+    ${refBadgeHtml(p)}
+    <div>
+      <h3 style="font-size:15px;font-weight:600;">${p.produto||'Sem descrição'}<span class="phase-mini">${stageInfoFor(p,p.status).label.replace(/^Fase \d+ · /,'')}</span></h3>
+      <div class="process-meta">${fornecedorNameHtml(fornecedor)} · ${originModalMeta(p)}</div>
+      <div class="transit-dates">
+        <span>Pedido: ${fmtDate(p.dataPedido)}</span>
+        <span>Prontidão prevista: ${fmtDate(p.prontidao)}</span>
+      </div>
+      <div class="process-track" style="margin-top:8px;">${trackHtml}</div>
+      ${renderAlertBanner(p)}
+    </div>
+    <div class="transit-days ${lateCls}">
+      <div class="big">${remText}</div>
+      <div class="small">para prontidão</div>
+    </div>
+  </div>`;
+}
+
+function aguardandoEmbarqueCard(p){
+  const embarque = p.dataEmbarqueReal;
+  let diasParaEmbarque = null;
+  if(embarque) diasParaEmbarque = daysBetween(todayStr(), embarque);
+  const fornecedor = state.suppliers.find(s=>s.id===p.supplierId);
+  const lateCls = (diasParaEmbarque!==null && diasParaEmbarque<0) ? 'late' : '';
+  const remText = diasParaEmbarque===null ? 'Sem data definida' : (diasParaEmbarque<0 ? `${Math.abs(diasParaEmbarque)}d de atraso` : (diasParaEmbarque===0 ? 'Embarca hoje' : `em ${diasParaEmbarque}d`));
+  const extra = p.extra || {};
+  const logiParts = [];
+  if(extra.navio) logiParts.push(`<span><b>Navio:</b> ${extra.navio}</span>`);
+  if(extra.viagem) logiParts.push(`<span><b>Viagem:</b> ${extra.viagem}</span>`);
+  if(extra.agenteCarga) logiParts.push(`<span><b>Agente:</b> ${extra.agenteCarga}</span>`);
+  return `
+  <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessModal('${p.id}')">
+    ${refBadgeHtml(p)}
+    <div>
+      <h3 style="font-size:15px;font-weight:600;">${p.produto||'Sem descrição'}</h3>
+      <div class="process-meta">${fornecedorNameHtml(fornecedor)} · ${originModalMeta(p)}</div>
+      <div class="transit-dates">
+        <span>Prontidão: ${fmtDate(p.prontidao)}</span>
+        <span>Embarque previsto: ${fmtDate(embarque)}</span>
+        <span>Chegada prevista: ${fmtDate(p.chegadaPrevista)}</span>
+      </div>
+      ${logiParts.length?`<div class="transit-logi">${logiParts.join('')}</div>`:''}
+      ${renderAlertBanner(p)}
+    </div>
+    <div class="transit-days ${lateCls}">
+      <div class="big">${remText}</div>
+      <div class="small">para embarque</div>
+    </div>
+  </div>`;
+}
+
+function desembaracoCard(p){
+  const fornecedor = state.suppliers.find(s=>s.id===p.supplierId);
+  const extra = p.extra || {};
+  const statusText = extra.statusDesembaraco || currentStepLabel(p);
+  const infoParts = [];
+  if(extra.dataChegadaBetim) infoParts.push(`<span><b>Chegada:</b> ${fmtDate(extra.dataChegadaBetim)}</span>`);
+  if(extra.numeroDUIMP) infoParts.push(`<span><b>DUIMP:</b> ${extra.numeroDUIMP}</span>`);
+  if(extra.canalDesembaraco) infoParts.push(`<span><b>Canal:</b> ${extra.canalDesembaraco}</span>`);
+  if(extra.despachante) infoParts.push(`<span><b>Despachante:</b> ${extra.despachante}</span>`);
+  let pendingHtml = '';
+  if(p.pendingSince){
+    const dias = daysBetween(p.pendingSince, todayStr());
+    pendingHtml = `<div class="pending-since">Pendente desde ${fmtDate(p.pendingSince)} (${dias}d)</div>`;
+  }
+  return `
+  <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessModal('${p.id}')">
+    ${refBadgeHtml(p)}
+    <div>
+      <h3 style="font-size:15px;font-weight:600;"><img src="${DESEMBARACO_ICON}" alt="" style="width:16px;height:16px;object-fit:contain;vertical-align:-3px;margin-right:5px;">${p.produto||'Sem descrição'}</h3>
+      <div class="process-meta">${fornecedorNameHtml(fornecedor)} · ${originModalMeta(p)}</div>
+      ${infoParts.length?`<div class="transit-logi">${infoParts.join('')}</div>`:''}
+      <div class="step-note">${statusText}</div>
+      ${pendingHtml}
+      ${renderAlertBanner(p)}
+    </div>
+  </div>`;
+}
+
+function transitoCard(p){
+  const embarque = p.dataEmbarqueReal || p.embarquePrevisto;
+  const chegada = p.chegadaPrevista;
+  let totalDays=null, remDays=null;
+  if(embarque && chegada) totalDays = daysBetween(embarque, chegada);
+  if(chegada) remDays = daysBetween(todayStr(), chegada);
+  const fornecedor = state.suppliers.find(s=>s.id===p.supplierId);
+  const lateCls = (remDays!==null && remDays<0) ? 'late' : '';
+  const remText = remDays===null ? '—' : (remDays<0 ? `${Math.abs(remDays)}d atrasado` : `${remDays}d restantes`);
+  const extra = p.extra || {};
+  const logiParts = [];
+  if(extra.navio) logiParts.push(`<span><b>Navio:</b> ${extra.navio}</span>`);
+  if(extra.viagem) logiParts.push(`<span><b>Viagem:</b> ${extra.viagem}</span>`);
+  if(extra.numeroBL) logiParts.push(`<span><b>BL:</b> ${extra.numeroBL}</span>`);
+  if(extra.agenteCarga) logiParts.push(`<span><b>Agente:</b> ${extra.agenteCarga}</span>`);
+  if(extra.despachante) logiParts.push(`<span><b>Despachante:</b> ${extra.despachante}</span>`);
+  if(extra.transportadoraDTA) logiParts.push(`<span><b>DTA:</b> ${extra.transportadoraDTA}</span>`);
+  return `
+  <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessModal('${p.id}')">
+    ${refBadgeHtml(p)}
+    <div>
+      <h3 style="font-size:15px;font-weight:600;">${p.produto||'Sem descrição'}</h3>
+      <div class="process-meta">${fornecedorNameHtml(fornecedor)} · ${originModalMeta(p)}</div>
+      <div class="transit-dates">
+        <span>Embarque: ${fmtDate(embarque)}</span>
+        <span>Chegada prevista: ${fmtDate(chegada)}</span>
+        ${totalDays!==null?`<span>Trânsito total: ${totalDays}d</span>`:''}
+      </div>
+      ${logiParts.length?`<div class="transit-logi">${logiParts.join('')}</div>`:''}
+      ${renderAlertBanner(p)}
+    </div>
+    <div class="transit-days ${lateCls}">
+      <div class="big">${remText}</div>
+      <div class="small">para chegada</div>
+    </div>
+  </div>`;
+}
+
+/* ---------- FORNECEDORES ---------- */
+function renderFornecedores(){
+  const header = currentRole!=='viewer' ? `<div style="margin-bottom:18px;"><button class="btn btn-primary" onclick="openSupplierModal()">+ Novo Fornecedor</button></div>` : '';
+  if(state.suppliers.length===0){
+    return header + `<div class="empty-state">
+      <h3>Nenhum fornecedor cadastrado</h3>
+      <p>Cadastre seus fornecedores para vincular aos processos de importação.</p>
+    </div>`;
+  }
+  const cards = state.suppliers.map(s=>{
+    const count = state.processes.filter(p=>p.supplierId===s.id).length;
+    return `<div class="supplier-card" onclick="openSupplierModal('${s.id}')">
+      <h3>${fornecedorNameHtml(s)}</h3>
+      <div class="supplier-meta">
+        ${s.contact ? `Contato: ${s.contact}<br>`:''}
+        ${s.paymentTerms ? `Obs. pagamento: ${s.paymentTerms}`:''}
+      </div>
+      <div class="supplier-tags">${(s.countries||[]).map(c=>`<span class="supplier-tag">${c}</span>`).join('')}</div>
+      <div class="supplier-count">${count} processo(s)</div>
+    </div>`;
+  }).join('');
+  return header + `<div class="supplier-grid">${cards}</div>`;
+}
+
+/* ---------- PARCEIROS ---------- */
+function renderParceiros(){
+  const header = currentRole!=='viewer' ? `<div style="margin-bottom:18px;"><button class="btn btn-primary" onclick="openPartnerModal()">+ Novo Parceiro</button></div>` : '';
+  if(state.partners.length===0){
+    return header + `<div class="empty-state">
+      <h3>Nenhum parceiro cadastrado</h3>
+      <p>Cadastre despachantes, transportadoras e agentes de carga para usar nos processos.</p>
+    </div>`;
+  }
+  const groupHtml = (tipo)=>{
+    const list = state.partners.filter(p=>p.tipo===tipo);
+    if(!list.length) return '';
+    return `
+      <div class="contact-group">
+        <div class="contact-group-title">${tipo}</div>
+        <div class="contact-grid">
+          ${list.map(c=>`
+            <div class="contact-card" onclick="openPartnerModal('${c.id}')">
+              <div class="contact-name">${c.empresa}</div>
+              <div class="contact-role">${c.contato||'—'}</div>
+              <div class="contact-phone">${c.phone||''}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  };
+  return header + PARTNER_TYPES.map(groupHtml).join('');
+}
+
+function openPartnerModal(id){
+  const existing = id ? state.partners.find(p=>p.id===id) : null;
+  const s = existing || {id:uid()};
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modal-overlay';
+  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header">
+        <h2>${existing?'Editar Parceiro':'Novo Parceiro'}</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group"><label>Tipo</label>
+          <select id="pt-tipo">${PARTNER_TYPES.map(t=>`<option value="${t}" ${s.tipo===t?'selected':''}>${t}</option>`).join('')}</select>
+        </div>
+        <div class="form-group"><label>Empresa</label><input id="pt-empresa" value="${s.empresa||''}" placeholder="Ex: Zigma, Biotech, Nelson Heusi..."></div>
+        <div class="form-group"><label>Contato</label><input id="pt-contato" value="${s.contato||''}" placeholder="Nome da pessoa de contato"></div>
+        <div class="form-group"><label>Telefone</label><input id="pt-phone" value="${s.phone||''}"></div>
+        <div class="form-group"><label>E-mail</label><input id="pt-email" value="${s.email||''}"></div>
+        <div class="form-group"><label>Observações</label><textarea id="pt-notes">${s.notes||''}</textarea></div>
+      </div>
+      <div class="modal-footer">
+        <div>${existing && currentRole!=='viewer' ?`<button class="btn btn-danger" onclick="deletePartner('${s.id}')">Excluir</button>`:'<span></span>'}</div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" onclick="closeModal()">${currentRole==='viewer'?'Fechar':'Cancelar'}</button>
+          ${currentRole!=='viewer' ? `<button class="btn btn-primary" onclick="savePartner('${s.id}')">Salvar Parceiro</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+async function savePartner(id){
+  if(!requireEditPermission()) return;
+  const empresa = document.getElementById('pt-empresa').value.trim();
+  if(!empresa){ alert('Informe o nome da empresa.'); return; }
+  const data = {
+    id,
+    tipo: document.getElementById('pt-tipo').value,
+    empresa,
+    contato: document.getElementById('pt-contato').value.trim(),
+    phone: document.getElementById('pt-phone').value.trim(),
+    email: document.getElementById('pt-email').value.trim(),
+    notes: document.getElementById('pt-notes').value.trim(),
+  };
+  const idx = state.partners.findIndex(p=>p.id===id);
+  if(idx>=0) state.partners[idx]=data; else state.partners.push(data);
+  await persistState();
+  closeModal();
+  render();
+}
+
+async function deletePartner(id){
+  if(!requireEditPermission()) return;
+  if(!confirm('Excluir este parceiro?')) return;
+  state.partners = state.partners.filter(p=>p.id!==id);
+  await persistState();
+  closeModal();
+  render();
+}
+
+/* ---------- CAMPOS EXTRAS (itemFields / extraFields) ---------- */
+function renderExtraFieldInput(f, p){
+  const val = (p.extra && p.extra[f.key]) || '';
+  if(f.type==='readonly'){
+    const v = (p[f.sourceKey]!==undefined && p[f.sourceKey]!=='') ? p[f.sourceKey] : '—';
+    return `<div class="mini-field"><label>${f.label}</label><div style="padding:6px 8px;font-size:12px;background:#fff;border:1px solid var(--border-strong);border-radius:5px;">${v}</div></div>`;
+  }
+  if(f.type==='select'){
+    return `<div class="mini-field"><label>${f.label}</label><select onchange="updateExtraField('${f.key}', this.value)">
+      <option value="">—</option>
+      ${f.options.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('')}
+    </select></div>`;
+  }
+  if(f.type==='partner'){
+    const options = state.partners.filter(pt=>pt.tipo===f.partnerType).map(pt=>pt.empresa);
+    return `<div class="mini-field"><label>${f.label}</label><select onchange="updateExtraField('${f.key}', this.value)">
+      <option value="">—</option>
+      ${options.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('')}
+    </select></div>`;
+  }
+  const type = f.type||'text';
+  return `<div class="mini-field"><label>${f.label}</label><input type="${type}" value="${val}" oninput="updateExtraField('${f.key}', this.value)"></div>`;
+}
+function renderContainersTable(p){
+  const qty = parseInt(p.containersQty)||0;
+  if(qty<=0){
+    return `<div class="form-hint" style="margin-top:6px;">Defina a quantidade de containers na Visão Geral para preencher os números aqui.</div>`;
+  }
+  const list = p.extra.containersList || [];
+  let rows = '';
+  for(let i=0;i<qty;i++){
+    const c = list[i] || {container:'', lacre:''};
+    rows += `<div class="container-row">
+      <span class="container-idx">#${i+1}</span>
+      <input type="text" placeholder="Número do container" value="${c.container||''}" oninput="updateContainerField(${i},'container',this.value)">
+      <input type="text" placeholder="Número do lacre" value="${c.lacre||''}" oninput="updateContainerField(${i},'lacre',this.value)">
+    </div>`;
+  }
+  return `<div class="containers-table"><label style="display:block;font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-top:8px;">Containers e Lacres</label>${rows}</div>`;
+}
+function updateContainerField(idx, field, value){
+  const p = window.__editingProcess;
+  p.extra.containersList = p.extra.containersList || [];
+  if(!p.extra.containersList[idx]) p.extra.containersList[idx] = {container:'', lacre:''};
+  p.extra.containersList[idx][field] = value;
+}
+function onContainersQtyChange(val){
+  const p = window.__editingProcess;
+  p.containersQty = val;
+  const n = parseInt(val)||0;
+  const list = p.extra.containersList || [];
+  const newList = [];
+  for(let i=0;i<n;i++){ newList.push(list[i] || {container:'', lacre:''}); }
+  p.extra.containersList = newList;
+  renderEtapasTab();
+}
+function toggleTemperaturaControlada(val){
+  window.__editingProcess.temperaturaControlada = val;
+  document.querySelectorAll('.temp-toggle-btn').forEach(b=>{
+    b.classList.toggle('active', (b.dataset.val==='sim')===val);
+  });
+  document.getElementById('temp-wrap').style.display = val ? 'block' : 'none';
+}
+function onTemperaturaSelectChange(val){
+  const outroEl = document.getElementById('f-temperatura-outro');
+  if(outroEl) outroEl.style.display = val==='outro' ? 'block' : 'none';
+}
+function initTemperaturaUI(p){
+  document.querySelectorAll('.temp-toggle-btn').forEach(b=>{
+    b.classList.toggle('active', (b.dataset.val==='sim')===!!p.temperaturaControlada);
+  });
+  document.getElementById('temp-wrap').style.display = p.temperaturaControlada ? 'block' : 'none';
+  const sel = document.getElementById('f-temperatura');
+  if(sel) onTemperaturaSelectChange(sel.value);
+}
+function updateExtraField(key, val){
+  window.__editingProcess.extra = window.__editingProcess.extra || {};
+  window.__editingProcess.extra[key] = val;
+  if(key==='modalidadePagamento'){ renderEtapasTab(); }
+}
+function updatePaymentValue(key, val){
+  const p = window.__editingProcess;
+  p.payments[key] = p.payments[key] || {checked:false, valor:''};
+  p.payments[key].valor = val;
+}
+function togglePaymentCheck(key){
+  const p = window.__editingProcess;
+  p.payments[key] = p.payments[key] || {checked:false, valor:''};
+  p.payments[key].checked = !p.payments[key].checked;
+  renderEtapasTab();
+}
+
+/* ---------- PROCESS MODAL ---------- */
+function openProcessModal(id){
+  const existing = id ? state.processes.find(p=>p.id===id) : null;
+  const base = existing || {id:uid(), status:'fase1', tipo:'definitiva', docs:{}};
+  const p = initProcessData(JSON.parse(JSON.stringify(base)));
+  p.status = recomputeStatus(p);
+  window.__editingProcess = p;
+  window.__openStage = p.status;
+
+  const supplierOptions = state.suppliers.map(s=>`<option value="${s.id}" ${p.supplierId===s.id?'selected':''}>${s.name}</option>`).join('');
+
+  const initialSupplier = state.suppliers.find(s=>s.id===p.supplierId);
+  const initialCountries = initialSupplier ? (initialSupplier.countries||[]) : [];
+  let origemOptionsHtml = initialCountries.map(c=>`<option value="${c}" ${p.origemPais===c?'selected':''}>${c}</option>`).join('');
+  if(p.origemPais && !initialCountries.includes(p.origemPais)) origemOptionsHtml += `<option value="${p.origemPais}" selected>${p.origemPais}</option>`;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modal-overlay';
+  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  overlay.innerHTML = `
+    <div class="modal">
+      <div class="modal-header">
+        <h2>${existing?'Editar Processo':'Novo Processo'}</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="geral" onclick="switchTab('geral')">Visão Geral</button>
+          <button class="tab-btn" data-tab="etapas" onclick="switchTab('etapas')">Etapas</button>
+          <button class="tab-btn" data-tab="custos" onclick="switchTab('custos')">Custos</button>
+          <button class="tab-btn" data-tab="docs" onclick="switchTab('docs')">Documentos</button>
+        </div>
+
+        <div class="tab-pane active" id="tab-geral">
+          <div class="type-toggle">
+            <button type="button" class="${p.tipo==='definitiva'?'active':''}" onclick="changeProcessType('definitiva')">Importação Definitiva</button>
+            <button type="button" class="${p.tipo==='temporaria'?'active':''}" onclick="changeProcessType('temporaria')">Admissão Temporária (feira/demo)</button>
+          </div>
+          <div class="status-badge-row">
+            <div class="stamp ${stageInfoFor(p,p.status).cls}" id="geral-status-stamp">${stageInfoFor(p,p.status).label}</div>
+            <div class="status-badge-hint">O status é atualizado automaticamente conforme você marca os itens na aba <strong>Etapas</strong>.</div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Produto</label><input id="f-produto" value="${p.produto||''}" placeholder="Ex: Equipamento radiológico"></div>
+            <div class="form-group"><label>Referência</label><input id="f-ref" value="${p.ref||''}" placeholder="Ex: M-014 (Morita) ou C-007 (Carestream)"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Fornecedor</label>
+              <select id="f-supplier" onchange="onSupplierChange(this.value)"><option value="">Selecione...</option>${supplierOptions}</select>
+            </div>
+            <div class="form-group"><label>País de Origem</label>
+              <select id="f-origem"><option value="">Selecione...</option>${origemOptionsHtml}</select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Incoterm</label>
+              <select id="f-incoterm">
+                ${['FOB','CIF','EXW','FCA','CPT','CIP'].map(v=>`<option value="${v}" ${p.incoterm===v?'selected':''}>${v}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group"><label>Modal</label>
+              <select id="f-modal">
+                <option value="maritimo" ${p.modal==='maritimo'?'selected':''}>Marítimo</option>
+                <option value="aereo" ${p.modal==='aereo'?'selected':''}>Aéreo</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Data do Pedido</label><input type="date" id="f-datapedido" value="${p.dataPedido||''}"></div>
+            <div class="form-group"><label>Prontidão da Carga</label><input type="date" id="f-prontidao" value="${p.prontidao||''}"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Data de Embarque Real</label><input type="date" id="f-dataembarquereal" value="${p.dataEmbarqueReal||''}"></div>
+            <div class="form-group"><label>Chegada Prevista</label><input type="date" id="f-chegada" value="${p.chegadaPrevista||''}"></div>
+          </div>
+          <div class="form-group"><label>Quantidade de Containers</label><input type="number" min="0" id="f-containers" value="${p.containersQty||''}" placeholder="Ex: 2" oninput="onContainersQtyChange(this.value)"></div>
+          <div class="form-group">
+            <label>Controle de Temperatura</label>
+            <div class="type-toggle">
+              <button type="button" class="temp-toggle-btn" data-val="nao" onclick="toggleTemperaturaControlada(false)">Não</button>
+              <button type="button" class="temp-toggle-btn" data-val="sim" onclick="toggleTemperaturaControlada(true)">Sim</button>
+            </div>
+          </div>
+          <div class="form-group" id="temp-wrap" style="display:none;">
+            <label>Faixa de Temperatura</label>
+            <select id="f-temperatura" onchange="onTemperaturaSelectChange(this.value)">
+              <option value="-20" ${p.temperaturaValor==='-20'?'selected':''}>-20°C (congelado)</option>
+              <option value="2-8" ${p.temperaturaValor==='2-8'?'selected':''}>2°C a 8°C (refrigerado)</option>
+              <option value="10" ${p.temperaturaValor==='10'?'selected':''}>10°C</option>
+              <option value="15-25" ${p.temperaturaValor==='15-25'?'selected':''}>15°C a 25°C (ambiente controlado)</option>
+              <option value="outro" ${p.temperaturaValor==='outro'?'selected':''}>Outro (especificar)</option>
+            </select>
+            <input type="text" id="f-temperatura-outro" style="margin-top:8px; display:none;" placeholder="Especifique a faixa de temperatura" value="${p.temperaturaOutro||''}">
+          </div>
+          <div class="form-group"><label>Observações</label><textarea id="f-obs" placeholder="Notas sobre o processo...">${p.obs||''}</textarea></div>
+        </div>
+
+        <div class="tab-pane" id="tab-etapas">
+          <div class="stage-hint" style="margin-bottom:12px;">Marque os itens conforme forem concluídos. Ao finalizar todos os itens de uma etapa, o processo avança automaticamente para a próxima.</div>
+          <div id="etapas-container"></div>
+        </div>
+
+        <div class="tab-pane" id="tab-custos">
+          <div class="form-row">
+            <div class="form-group"><label>Valor FOB (USD)</label><input type="number" step="0.01" id="c-fob" value="${p.fob||''}" oninput="updateCostPreview()"></div>
+            <div class="form-group"><label>Frete Internacional (USD)</label><input type="number" step="0.01" id="c-frete" value="${p.frete||''}" oninput="updateCostPreview()"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Seguro Internacional (USD)</label><input type="number" step="0.01" id="c-seguro" value="${p.seguro||''}" oninput="updateCostPreview()"></div>
+            <div class="form-group"><label>Câmbio (BRL/USD)</label><input type="number" step="0.0001" id="c-cambio" value="${p.cambio||''}" oninput="updateCostPreview()"></div>
+          </div>
+          <div class="form-hint" style="margin:-6px 0 12px 0;">Seguro negociado a 0,09% do valor da carga; comunique a seguradora apenas se a carga ultrapassar R$ 4 milhões.</div>
+          <div class="form-row">
+            <div class="form-group"><label>II — Imp. Importação (R$)</label><input type="number" step="0.01" id="c-ii" value="${p.ii||''}" oninput="updateCostPreview()"></div>
+            <div class="form-group"><label>IPI (R$)</label><input type="number" step="0.01" id="c-ipi" value="${p.ipi||''}" oninput="updateCostPreview()"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>PIS (R$)</label><input type="number" step="0.01" id="c-pis" value="${p.pis||''}" oninput="updateCostPreview()"></div>
+            <div class="form-group"><label>COFINS (R$)</label><input type="number" step="0.01" id="c-cofins" value="${p.cofins||''}" oninput="updateCostPreview()"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>ICMS (R$)</label><input type="number" step="0.01" id="c-icms" value="${p.icms||''}" oninput="updateCostPreview()"></div>
+            <div class="form-group"><label>Outras Despesas (R$)</label><input type="number" step="0.01" id="c-despesas" value="${p.despesas||''}" oninput="updateCostPreview()"></div>
+          </div>
+          <div class="form-group">
+            <label>Regime Fiscal do Item</label>
+            <select id="c-regime">
+              <option value="revenda" ${p.regime==='revenda'?'selected':''}>Revenda (RET-MG aplicável)</option>
+              <option value="consumo" ${p.regime==='consumo'?'selected':''}>Consumo (ICMS normal, sem RET-MG)</option>
+              <option value="demonstracao" ${p.regime==='demonstracao'?'selected':''}>Demonstração / Feira</option>
+            </select>
+          </div>
+          <table class="cost-table" id="cost-preview"></table>
+          <div class="cost-note">* Os impostos (II, IPI, PIS, COFINS, ICMS) são de preenchimento livre em R$, já que a base de cálculo varia por item — use o valor apurado pelo despachante. Os valores marcados na Fase 8 (Pagamentos) entram automaticamente no total.</div>
+        </div>
+
+        <div class="tab-pane" id="tab-docs">
+          <div class="doc-checklist">
+            ${DOC_TYPES.map(d=>`
+              <div class="doc-item ${p.docs && p.docs[d] ? 'checked':''}" onclick="toggleDoc(this,'${d.replace(/'/g,"\\'")}')">
+                <div class="doc-check">${p.docs && p.docs[d] ? '✓':''}</div>
+                <span>${d}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div style="display:flex; gap:8px;">
+          ${existing && currentRole!=='viewer' ?`<button class="btn btn-danger" onclick="deleteProcess('${p.id}')">Excluir</button>`:''}
+          <button class="btn btn-pdf" onclick="generateCapaPDF()">Gerar Capa (PDF)</button>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" onclick="closeModal()">${currentRole==='viewer'?'Fechar':'Cancelar'}</button>
+          ${currentRole!=='viewer' ? `<button class="btn btn-primary" onclick="saveProcess()">Salvar Processo</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  updateCostPreview();
+  renderEtapasTab();
+  initTemperaturaUI(p);
+}
+
+function onSupplierChange(val){
+  window.__editingProcess.supplierId = val;
+  const supplier = state.suppliers.find(s=>s.id===val);
+  const countries = supplier ? (supplier.countries||[]) : [];
+  const sel = document.getElementById('f-origem');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Selecione...</option>' + countries.map(c=>`<option value="${c}" ${c===current?'selected':''}>${c}</option>`).join('');
+  if(!countries.includes(current)) sel.value = '';
+}
+
+function changeProcessType(tipo){
+  window.__editingProcess.tipo = tipo;
+  initProcessData(window.__editingProcess);
+  window.__editingProcess.status = recomputeStatus(window.__editingProcess);
+  window.__openStage = window.__editingProcess.status;
+  document.querySelectorAll('.type-toggle button').forEach(b=>{
+    b.classList.toggle('active', (tipo==='definitiva' && b.textContent.includes('Definitiva')) || (tipo==='temporaria' && b.textContent.includes('Temporária')));
+  });
+  renderEtapasTab();
+}
+
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+}
+
+function renderEtapasTab(){
+  const p = window.__editingProcess;
+  const stages = getStagesForProcess(p);
+  const currentKey = recomputeStatus(p);
+  p.status = currentKey;
+
+  const html = stages.map((s,i)=>{
+    const isPayments = s.type==='payments';
+    const doneCount = isPayments
+      ? s.items.filter(it=>(p.payments[it.key]||{}).checked).length
+      : (p.checklist[s.key]||[]).filter(Boolean).length;
+    const total = s.items.length;
+    const isDone = doneCount===total;
+    const isCurrent = s.key===currentKey;
+    const stateCls = isDone ? 'done' : (isCurrent ? 'current' : '');
+    const isOpen = window.__openStage === s.key;
+
+    let bodyHtml = '';
+    if(isPayments){
+      bodyHtml = s.items.map(it=>{
+        const rec = p.payments[it.key] || {checked:false, valor:''};
+        const label = (it.key==='dta' && p.extra && p.extra.transportadoraDTA) ? `${it.label} (${p.extra.transportadoraDTA})` : it.label;
+        return `<div class="payment-row ${rec.checked?'checked':''}">
+          <div class="doc-check" style="cursor:pointer;" onclick="togglePaymentCheck('${it.key}')">${rec.checked?'✓':''}</div>
+          <div class="payment-label" onclick="togglePaymentCheck('${it.key}')">${label}</div>
+          <input type="number" step="0.01" class="payment-value" placeholder="Valor pago (R$)" value="${rec.valor||''}" oninput="updatePaymentValue('${it.key}', this.value)">
+        </div>`;
+      }).join('');
+    } else {
+      const checked = p.checklist[s.key] || [];
+      bodyHtml = s.items.map((label,idx)=>{
+        let row = `<div class="doc-item ${checked[idx]?'checked':''}" onclick="toggleStageItem('${s.key}',${idx})">
+          <div class="doc-check">${checked[idx]?'✓':''}</div><span>${label}</span>
+        </div>`;
+        if(s.itemFields && s.itemFields[idx]){
+          row += `<div class="item-fields">${s.itemFields[idx].map(f=>renderExtraFieldInput(f,p)).join('')}${s.containersItemIndex===idx?renderContainersTable(p):''}</div>`;
+        } else if(s.containersItemIndex===idx){
+          row += `<div class="item-fields">${renderContainersTable(p)}</div>`;
+        }
+        return row;
+      }).join('');
+      if(s.extraFields){
+        bodyHtml += `<div class="stage-extra">${s.extraFields.map(f=>renderExtraFieldInput(f,p)).join('')}</div>`;
+      }
+    }
+
+    return `
+    <div class="stage-block ${stateCls}">
+      <div class="stage-header" onclick="toggleStageOpen('${s.key}')">
+        <div class="stage-num">${isDone?'✓':(i+1)}</div>
+        <div class="stage-title">${s.label}</div>
+        <div class="stage-progress">${doneCount}/${total}</div>
+      </div>
+      <div class="stage-body" style="display:${isOpen?'flex':'none'}">
+        ${bodyHtml}
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('etapas-container').innerHTML = html;
+
+  const stampEl = document.getElementById('geral-status-stamp');
+  if(stampEl){
+    const info = stageInfoFor(p, currentKey);
+    stampEl.className = `stamp ${info.cls}`;
+    stampEl.textContent = info.label;
+  }
+}
+
+function toggleStageOpen(key){
+  window.__openStage = (window.__openStage===key) ? null : key;
+  renderEtapasTab();
+}
+
+function toggleStageItem(stageKey, idx){
+  const p = window.__editingProcess;
+  p.checklist[stageKey][idx] = !p.checklist[stageKey][idx];
+  window.__openStage = stageKey;
+  renderEtapasTab();
+}
+
+function toggleDoc(el, docName){
+  el.classList.toggle('checked');
+  const checkEl = el.querySelector('.doc-check');
+  checkEl.textContent = el.classList.contains('checked') ? '✓' : '';
+}
+
+function collectCostFields(){
+  return {
+    fob: document.getElementById('c-fob').value,
+    frete: document.getElementById('c-frete').value,
+    seguro: document.getElementById('c-seguro').value,
+    cambio: document.getElementById('c-cambio').value,
+    ii: document.getElementById('c-ii').value,
+    ipi: document.getElementById('c-ipi').value,
+    pis: document.getElementById('c-pis').value,
+    cofins: document.getElementById('c-cofins').value,
+    icms: document.getElementById('c-icms').value,
+    despesas: document.getElementById('c-despesas').value,
+    regime: document.getElementById('c-regime') ? document.getElementById('c-regime').value : '',
+  };
+}
+
+function updateCostPreview(){
+  const fields = collectCostFields();
+  const costs = computeCosts({...fields, payments: window.__editingProcess ? window.__editingProcess.payments : {}});
+  const el = document.getElementById('cost-preview');
+  el.innerHTML = `
+    <tr><td>CIF (USD)</td><td>${fmtUSD(costs.cifUsd)}</td></tr>
+    <tr><td>CIF (BRL)</td><td>${fmtBRL(costs.cifBrl)}</td></tr>
+    <tr><td>II</td><td>${fmtBRL(costs.ii)}</td></tr>
+    <tr><td>IPI</td><td>${fmtBRL(costs.ipi)}</td></tr>
+    <tr><td>PIS</td><td>${fmtBRL(costs.pis)}</td></tr>
+    <tr><td>COFINS</td><td>${fmtBRL(costs.cofins)}</td></tr>
+    <tr><td>ICMS</td><td>${fmtBRL(costs.icms)}</td></tr>
+    <tr><td>Outras Despesas</td><td>${fmtBRL(costs.despesas)}</td></tr>
+    <tr><td>Pagamentos (Fase 8)</td><td>${fmtBRL(costs.paymentsTotal)}</td></tr>
+    <tr class="total"><td>Custo Total Estimado</td><td>${fmtBRL(costs.total)}</td></tr>
+  `;
+}
+
+function collectProcessFormData(){
+  const docs = {};
+  document.querySelectorAll('#tab-docs .doc-item').forEach(el=>{
+    const name = el.querySelector('span').textContent;
+    docs[name] = el.classList.contains('checked');
+  });
+  const status = recomputeStatus(window.__editingProcess);
+  return {
+    id: window.__editingProcess.id,
+    tipo: window.__editingProcess.tipo || 'definitiva',
+    status: status,
+    checklist: window.__editingProcess.checklist,
+    payments: window.__editingProcess.payments,
+    extra: window.__editingProcess.extra,
+    produto: document.getElementById('f-produto').value.trim(),
+    ref: document.getElementById('f-ref').value.trim(),
+    supplierId: document.getElementById('f-supplier').value,
+    origemPais: document.getElementById('f-origem').value,
+    incoterm: document.getElementById('f-incoterm').value,
+    dataPedido: document.getElementById('f-datapedido').value,
+    prontidao: document.getElementById('f-prontidao').value,
+    dataEmbarqueReal: document.getElementById('f-dataembarquereal').value,
+    chegadaPrevista: document.getElementById('f-chegada').value,
+    modal: document.getElementById('f-modal').value,
+    containersQty: document.getElementById('f-containers').value,
+    temperaturaControlada: !!window.__editingProcess.temperaturaControlada,
+    temperaturaValor: document.getElementById('f-temperatura').value,
+    temperaturaOutro: document.getElementById('f-temperatura-outro').value,
+    obs: document.getElementById('f-obs').value,
+    docs: docs,
+    ...collectCostFields()
+  };
+}
+
+async function saveProcess(){
+  if(!requireEditPermission()) return;
+  const data = collectProcessFormData();
+  if(!data.produto){
+    alert('Informe ao menos o nome do produto.');
+    switchTab('geral');
+    return;
+  }
+  const idx = state.processes.findIndex(p=>p.id===data.id);
+  const prev = idx>=0 ? state.processes[idx] : null;
+  const newKey = currentPendingKey(data);
+  if(prev && prev.pendingKey===newKey){
+    data.pendingSince = prev.pendingSince || todayStr();
+  } else {
+    data.pendingSince = todayStr();
+  }
+  data.pendingKey = newKey;
+  if(idx>=0) state.processes[idx] = data; else state.processes.push(data);
+  await persistState();
+  closeModal();
+  render();
+}
+
+async function deleteProcess(id){
+  if(!requireEditPermission()) return;
+  if(!confirm('Excluir este processo permanentemente?')) return;
+  state.processes = state.processes.filter(p=>p.id!==id);
+  await persistState();
+  closeModal();
+  render();
+}
+
+function closeModal(){
+  const overlay = document.getElementById('modal-overlay');
+  if(overlay) overlay.remove();
+  window.__editingProcess = null;
+}
+
+/* ---------- GERAÇÃO DE CAPA (PDF via impressão) ---------- */
+function capaItem(checked, label){
+  return `<div class="capa-item"><span class="capa-check">${checked?'&#10003;':''}</span><span>${label}</span></div>`;
+}
+
+function generateCapaPDF(){
+  const data = collectProcessFormData();
+  const fornecedor = state.suppliers.find(s=>s.id===data.supplierId);
+  const stages = getStagesForProcess(data);
+  const costs = computeCosts(data);
+  const extra = data.extra || {};
+  const destino = data.modal==='aereo' ? 'Aeroporto de Confins' : 'Porto Seco de Betim';
+  const refDisplay = data.ref || ('REF-'+data.id.slice(0,6).toUpperCase());
+  const statusLabel = stageInfoFor(data, data.status).label;
+
+  const etapasHtml = stages.map(s=>{
+    if(s.type==='payments'){
+      return s.items.map(it=>{
+        const rec = (data.payments && data.payments[it.key]) || {checked:false, valor:''};
+        const v = parseFloat(rec.valor)||0;
+        return capaItem(rec.checked, it.label + (v?` — ${fmtBRL(v)}`:''));
+      }).join('');
+    }
+    const checked = data.checklist[s.key]||[];
+    return s.items.map((label,idx)=>capaItem(checked[idx], label)).join('');
+  }).join('');
+
+  const docsHtml = DOC_TYPES.map(d=>capaItem(data.docs && data.docs[d], d)).join('');
+
+  const field = (label, value)=>`<div class="f"><div class="l">${label}</div><div class="v">${value || '—'}</div></div>`;
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><title>Capa — ${data.produto||'Processo'}</title>
+<style>
+:root{--bar:#1f3864;--fill:#dce4ff;--title:#152a4a;--label:#3f5178;--ink:#1c2333;}
+*{box-sizing:border-box;}
+@page{ size: A4; margin: 10mm; }
+html, body{ margin:0; padding:0; }
+body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);font-size:9.5pt;background:#fff;}
+.sheet{width:190mm;max-width:190mm;margin:0 auto;padding:0;}
+.head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--bar);padding-bottom:8px;margin-bottom:14px;}
+.head h1{font-size:19pt;color:var(--title);margin:0;}
+.head .ref{font-size:12pt;font-weight:700;color:var(--bar);background:var(--fill);padding:7px 14px;border-radius:4px;}
+.sec-bar{background:var(--bar);color:#fff;font-size:9.5pt;font-weight:700;letter-spacing:.5px;padding:6px 10px;text-transform:uppercase;margin-top:16px; break-after:avoid; page-break-after:avoid;}
+.row{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px; break-inside:avoid; page-break-inside:avoid;}
+.f{flex:1 1 150px;min-width:150px;}
+.f .l{font-size:7.5pt;text-transform:uppercase;color:var(--label);font-weight:700;letter-spacing:.4px;}
+.f .v{background:var(--fill);padding:6px 9px;border-radius:3px;font-size:10pt;margin-top:3px;min-height:15px;}
+.capa-items{display:flex;flex-wrap:wrap;margin-top:8px;}
+.capa-item{width:33%;font-size:8.5pt;padding:3px 6px 3px 0;display:flex;align-items:center;gap:6px; break-inside:avoid; page-break-inside:avoid;}
+.capa-check{display:inline-block;width:12px;height:12px;border:1.4px solid var(--bar);text-align:center;line-height:11px;font-size:8px;color:var(--bar);flex-shrink:0;}
+.obs-box{background:var(--fill);border-radius:4px;padding:8px 10px;margin-top:8px;font-size:9.5pt;min-height:30px; break-inside:avoid; page-break-inside:avoid;}
+.foot{text-align:center;font-size:7.5pt;color:#8a93a8;margin-top:18px;padding-top:8px;border-top:1px solid #d5dcec;}
+@media print{
+  body{ background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .sheet{ width:auto; max-width:none; }
+}
+</style></head>
+<body>
+<div class="sheet">
+  <div class="head">
+    <h1>PROCESSO DE IMPORTAÇÃO</h1>
+    <div class="ref">${refDisplay}</div>
+  </div>
+
+  <div class="sec-bar">1. Identificação</div>
+  <div class="row">
+    ${field('Produto', data.produto)}
+    ${field('Fornecedor', fornecedor?fornecedor.name:'')}
+    ${field('Status Atual', statusLabel)}
+  </div>
+  <div class="row">
+    ${field('Data de Abertura', fmtDate(data.dataPedido))}
+    ${field('Prontidão da Carga', fmtDate(data.prontidao))}
+    ${field('Tipo de Processo', data.tipo==='temporaria'?'Admissão Temporária':'Importação Definitiva')}
+  </div>
+
+  <div class="sec-bar">2. Dados da Importação</div>
+  <div class="row">
+    ${field('DI / DUIMP', extra.numeroDUIMP)}
+    ${field('Modal', data.modal==='aereo'?'Aéreo':'Marítimo')}
+    ${field('Incoterm', data.incoterm)}
+    ${field('Regime Fiscal', data.regime)}
+  </div>
+  <div class="row">
+    ${field('Controle de Temperatura', data.temperaturaControlada ? (data.temperaturaValor==='outro' ? data.temperaturaOutro : (data.temperaturaValor||'Sim')) : 'Não')}
+  </div>
+  <div class="row">
+    ${field('Origem', data.origemPais)}
+    ${field('Destino', destino)}
+    ${field('Moeda', 'USD')}
+    ${field('Câmbio', data.cambio)}
+  </div>
+  <div class="row">
+    ${field('Agente de Cargas', extra.agenteCarga)}
+    ${field('Despachante', extra.despachante)}
+    ${field('Transportadora (DTA)', extra.transportadoraDTA)}
+  </div>
+  <div class="row">
+    ${field('Número do BL', extra.numeroBL)}
+    ${field('Valor FOB', data.fob?fmtUSD(parseFloat(data.fob)):'')}
+    ${field('Quantidade de Containers', data.containersQty)}
+    ${field('Número da NF', extra.numeroNF)}
+  </div>
+
+  <div class="sec-bar">3. Logística</div>
+  <div class="row">
+    ${field('Navio / Voo', extra.navio)}
+    ${field('Viagem', extra.viagem)}
+    ${field('Quantidade de Containers', data.containersQty)}
+  </div>
+  <div class="row">
+    ${field('Data de Embarque', fmtDate(data.dataEmbarqueReal))}
+    ${field('Chegada Prevista', fmtDate(data.chegadaPrevista))}
+    ${field('Data de Chegada (Betim)', fmtDate(extra.dataChegadaBetim))}
+  </div>
+  ${(extra.containersList && extra.containersList.length) ? `
+  <div class="row">
+    ${extra.containersList.map((c,i)=>field('Container #'+(i+1), (c.container||'—')+' / Lacre: '+(c.lacre||'—'))).join('')}
+  </div>` : ''}
+
+  <div class="sec-bar">4. Etapas do Processo</div>
+  <div class="capa-items">${etapasHtml}</div>
+
+  <div class="sec-bar">5. Checklist de Documentos</div>
+  <div class="capa-items">${docsHtml}</div>
+
+  <div class="sec-bar">6. Custos</div>
+  <div class="row">
+    ${field('CIF (BRL)', fmtBRL(costs.cifBrl))}
+    ${field('Impostos (II+IPI+PIS+COFINS+ICMS)', fmtBRL(costs.ii+costs.ipi+costs.pis+costs.cofins+costs.icms))}
+    ${field('Pagamentos (Fase 8)', fmtBRL(costs.paymentsTotal))}
+    ${field('Custo Total Estimado', fmtBRL(costs.total))}
+  </div>
+
+  <div class="sec-bar">7. Observações</div>
+  <div class="obs-box">${data.obs || '—'}</div>
+
+  <div class="foot">Capa gerada automaticamente pelo ComexTrack em ${fmtDate(todayStr())}.</div>
+</div>
+<` + `script>window.onload=function(){ setTimeout(function(){ window.print(); }, 350); };<` + `/script>
+</body></html>`;
+
+  const w = window.open('', '_blank');
+  if(!w){
+    alert('Não foi possível abrir a janela de impressão. Verifique se o navegador bloqueou pop-ups.');
+    return;
+  }
+  w.document.write(html);
+  w.document.close();
+}
+
+/* ---------- SUPPLIER MODAL ---------- */
+function openSupplierModal(id){
+  const existing = id ? state.suppliers.find(s=>s.id===id) : null;
+  const s = existing || {id:uid()};
+  window.__editingSupplierCountries = (s.countries||[]).slice();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modal-overlay';
+  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header">
+        <h2>${existing?'Editar Fornecedor':'Novo Fornecedor'}</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group"><label>Nome</label><input id="s-name" value="${s.name||''}" placeholder="Ex: Morita ou Carestream"></div>
+        <div class="form-group">
+          <label>Países de Origem</label>
+          <div class="country-checks">
+            ${COUNTRY_OPTIONS.map(c=>`<div class="country-chip ${window.__editingSupplierCountries.includes(c)?'checked':''}" id="chip-${c}" onclick="toggleSupplierCountry('${c}')">${c}</div>`).join('')}
+          </div>
+          <div class="form-hint">Ex: Morita normalmente só Japão; Carestream pode sair de EUA, Holanda, Bélgica ou China.</div>
+        </div>
+        <div class="form-group"><label>Contato (e-mail / telefone)</label><input id="s-contact" value="${s.contact||''}"></div>
+        <div class="form-group">
+          <label>Modalidades de Pagamento Aceitas</label>
+          <div class="modalidade-row">
+            <label class="modalidade-check"><input type="checkbox" id="s-mod-adiantado" ${s.modalidades && s.modalidades.adiantado ? 'checked':''}> Adiantado</label>
+          </div>
+          <div class="modalidade-row">
+            <label class="modalidade-check"><input type="checkbox" id="s-mod-aprazo" onchange="toggleModalidadeDias('aprazo', this.checked)" ${s.modalidades && s.modalidades.aPrazo && s.modalidades.aPrazo.checked ? 'checked':''}> A prazo</label>
+            <div class="modalidade-dias" id="wrap-aprazo" style="display:${s.modalidades && s.modalidades.aPrazo && s.modalidades.aPrazo.checked ? 'flex':'none'};">
+              <input type="number" id="s-mod-aprazo-dias" value="${(s.modalidades && s.modalidades.aPrazo && s.modalidades.aPrazo.dias) || ''}" placeholder="dias">
+              <span>dias após a fatura</span>
+            </div>
+          </div>
+          <div class="modalidade-row">
+            <label class="modalidade-check"><input type="checkbox" id="s-mod-factoring" onchange="toggleModalidadeDias('factoring', this.checked)" ${s.modalidades && s.modalidades.factoring && s.modalidades.factoring.checked ? 'checked':''}> Factoring</label>
+            <div class="modalidade-dias" id="wrap-factoring" style="display:${s.modalidades && s.modalidades.factoring && s.modalidades.factoring.checked ? 'flex':'none'};">
+              <input type="number" id="s-mod-factoring-dias" value="${(s.modalidades && s.modalidades.factoring && s.modalidades.factoring.dias) || ''}" placeholder="dias">
+              <span>dias após a fatura (via banco)</span>
+            </div>
+          </div>
+          <div class="form-hint">Marque quantas se aplicarem. O número de dias fica salvo para quando você precisar calcular a data de vencimento a partir da fatura.</div>
+        </div>
+        <div class="form-group"><label>Observações de Pagamento</label><input id="s-payment" value="${s.paymentTerms||''}" placeholder="Ex: condições específicas, banco, contato financeiro..."></div>
+        <div class="form-group"><label>Observações Gerais</label><textarea id="s-notes">${s.notes||''}</textarea></div>
+      </div>
+      <div class="modal-footer">
+        <div>${existing && currentRole!=='viewer' ?`<button class="btn btn-danger" onclick="deleteSupplier('${s.id}')">Excluir</button>`:'<span></span>'}</div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" onclick="closeModal()">${currentRole==='viewer'?'Fechar':'Cancelar'}</button>
+          ${currentRole!=='viewer' ? `<button class="btn btn-primary" onclick="saveSupplier('${s.id}')">Salvar Fornecedor</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function toggleModalidadeDias(which, checked){
+  document.getElementById('wrap-'+which).style.display = checked ? 'flex' : 'none';
+}
+
+function toggleSupplierCountry(c){
+  const arr = window.__editingSupplierCountries;
+  const i = arr.indexOf(c);
+  if(i>=0) arr.splice(i,1); else arr.push(c);
+  document.getElementById('chip-'+c).classList.toggle('checked');
+}
+
+async function saveSupplier(id){
+  if(!requireEditPermission()) return;
+  const name = document.getElementById('s-name').value.trim();
+  if(!name){ alert('Informe o nome do fornecedor.'); return; }
+  const data = {
+    id,
+    name,
+    countries: (window.__editingSupplierCountries||[]).slice(),
+    contact: document.getElementById('s-contact').value.trim(),
+    modalidades: {
+      adiantado: document.getElementById('s-mod-adiantado').checked,
+      aPrazo: { checked: document.getElementById('s-mod-aprazo').checked, dias: document.getElementById('s-mod-aprazo-dias').value },
+      factoring: { checked: document.getElementById('s-mod-factoring').checked, dias: document.getElementById('s-mod-factoring-dias').value },
+    },
+    paymentTerms: document.getElementById('s-payment').value.trim(),
+    notes: document.getElementById('s-notes').value.trim(),
+  };
+  const idx = state.suppliers.findIndex(s=>s.id===id);
+  if(idx>=0) state.suppliers[idx]=data; else state.suppliers.push(data);
+  await persistState();
+  closeModal();
+  render();
+}
+
+async function deleteSupplier(id){
+  if(!requireEditPermission()) return;
+  if(!confirm('Excluir este fornecedor? Processos vinculados manterão a referência vazia.')) return;
+  state.suppliers = state.suppliers.filter(s=>s.id!==id);
+  state.processes.forEach(p=>{ if(p.supplierId===id) p.supplierId=''; });
+  await persistState();
+  closeModal();
+  render();
+}
+
+applyStoredTheme();
+/* App inicia via tela de login — ver auth.onAuthStateChanged acima */
+</script>
+</body>
+</html>
