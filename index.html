@@ -242,6 +242,42 @@ main{flex:1; min-width:0; display:flex; flex-direction:column;}
 .followup-meta-grid .view-label{font-size:9px;}
 .followup-meta-grid .view-value{font-size:12px;}
 .followup-narrative{background:var(--paper); border:1px solid var(--border); border-radius:6px; padding:10px 12px; font-size:12.5px; line-height:1.8; color:var(--text);}
+
+.product-search-bar{display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap;}
+.product-search-bar input{flex:1; min-width:200px; padding:9px 12px; border:1px solid var(--border-strong); border-radius:6px; font-size:13.5px;}
+.product-search-bar select{padding:9px 10px; border:1px solid var(--border-strong); border-radius:6px; font-size:13px;}
+.product-row{display:grid; grid-template-columns:110px 1fr 110px 130px 100px auto; gap:10px; align-items:center; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:11px 14px; margin-bottom:8px; cursor:pointer;}
+.product-row:hover{border-color:var(--border-strong);}
+.product-row .pn{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13px; color:var(--navy);}
+.product-row .desc{font-size:13px;}
+.product-row .ncm{font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--muted);}
+.product-row .fab{font-size:12px; color:var(--muted);}
+.product-row .val{font-family:'IBM Plex Mono',monospace; font-size:12.5px; text-align:right;}
+.product-inactive-badge{font-size:9.5px; font-weight:700; text-transform:uppercase; background:var(--paper); color:var(--muted); padding:2px 7px; border-radius:10px; border:1px solid var(--border-strong);}
+
+.import-drop{border:2px dashed var(--border-strong); border-radius:10px; padding:30px; text-align:center; color:var(--muted); margin-bottom:16px;}
+.import-mapping-row{display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:center; padding:8px 0; border-bottom:1px solid var(--border);}
+.import-preview-table{width:100%; border-collapse:collapse; font-size:12px; margin-top:10px;}
+.import-preview-table th{background:var(--paper); padding:7px 9px; text-align:left; border-bottom:1px solid var(--border); font-size:11px; text-transform:uppercase; color:var(--muted);}
+.import-preview-table td{padding:7px 9px; border-bottom:1px solid var(--border);}
+.import-status-badge{font-size:10px; font-weight:700; padding:2px 7px; border-radius:10px;}
+.import-status-badge.novo{background:var(--ink-green-bg); color:var(--ink-green);}
+.import-status-badge.alterado{background:var(--ink-amber-bg); color:var(--ink-amber);}
+.import-status-badge.inalterado{background:var(--paper); color:var(--muted);}
+
+.item-row{display:grid; grid-template-columns:100px 1fr 100px 90px 110px 40px; gap:8px; align-items:center; background:var(--paper); border:1px solid var(--border); border-radius:6px; padding:9px 11px; margin-bottom:6px;}
+.item-row input{padding:6px 8px; border:1px solid var(--border-strong); border-radius:5px; font-size:12.5px;}
+.item-row .item-pn{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12px;}
+.item-row .item-desc{font-size:12px;}
+.item-autocomplete-wrap{position:relative;}
+.item-autocomplete-list{position:absolute; top:100%; left:0; right:0; background:var(--card); border:1px solid var(--border-strong); border-radius:6px; box-shadow:0 8px 20px rgba(0,0,0,0.15); max-height:220px; overflow-y:auto; z-index:20;}
+.item-autocomplete-option{padding:8px 11px; cursor:pointer; font-size:12.5px; border-bottom:1px solid var(--border);}
+.item-autocomplete-option:hover{background:var(--paper);}
+.item-autocomplete-option:last-child{border-bottom:none;}
+.item-totals-row{display:flex; gap:20px; flex-wrap:wrap; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-top:12px;}
+.item-total-box{text-align:center;}
+.item-total-box .num{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:18px; color:var(--navy);}
+.item-total-box .lbl{font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.03em;}
 .supplier-name-carestream{color:#C8641A; font-weight:700;}
 .supplier-name-morita{color:#1D5FA8; font-weight:700;}
 
@@ -436,7 +472,10 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .payment-row{display:flex; align-items:center; gap:10px; padding:9px 11px; border:1px solid var(--border); border-radius:6px;}
 .payment-row.checked{background:var(--ink-green-bg); border-color:#B7DBC9;}
 .payment-row .payment-label{flex:1; font-size:13px; cursor:pointer;}
-.payment-row input.payment-value{width:140px; padding:6px 8px; border:1px solid var(--border-strong); border-radius:5px; font-size:12.5px; font-family:'IBM Plex Mono',monospace; text-align:right;}
+.payment-row input.payment-value{width:110px; padding:6px 8px; border:1px solid var(--border-strong); border-radius:5px; font-size:12.5px; font-family:'IBM Plex Mono',monospace; font-weight:700; text-align:right;}
+.payment-value-wrap{display:flex; align-items:center; gap:5px; background:#fff; border:1px solid var(--border-strong); border-radius:5px; padding:0 8px 0 10px;}
+.payment-value-wrap .payment-value-prefix{font-size:11.5px; color:var(--muted); font-weight:600;}
+.payment-value-wrap input.payment-value{border:none; padding:6px 0;}
 
 .btn{
   padding:9px 16px; border-radius:6px; font-size:13.5px; font-weight:600; cursor:pointer;
@@ -519,6 +558,7 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -655,12 +695,12 @@ const STAGE_DEFS = [
       1:[{key:'despachante', label:'Despachante', type:'partner', partnerType:'Despachante'}],
     }},
   {key:'fase6', label:'Fase 6 · Chegada, Trânsito e Desembaraço', cls:'stamp-desembaraco',
-    items:['Solicitar DTA','Chegada e presença','Agendar DTA','Chegada no porto seco de Betim','Descarga em Betim','Registro da DUIMP','Pagar numerário despachante','Testar NF','Desembaraço da DUIMP','Liberação SEFAZ'],
+    items:['Solicitar DTA','Chegada e presença','Agendar DTA','Chegada no porto seco de Betim','Descarga em Betim','Pagar numerário despachante','Registro da DUIMP','Testar NF','Desembaraço da DUIMP','Liberação SEFAZ'],
     itemFields:{
       0:[{key:'transportadoraDTA', label:'Transportadora', type:'partner', partnerType:'Transportadora'}],
       2:[{key:'dataAgendamentoDTA', label:'Data Agendada', type:'date'}],
       3:[{key:'dataChegadaBetim', label:'Data de Chegada', type:'date'}],
-      5:[{key:'numeroDUIMP', label:'Número da DUIMP', type:'text'},{key:'chaveAcessoDUIMP', label:'Chave de Acesso da DUIMP', type:'text'},{key:'dataRegistroDUIMP', label:'Data de Registro', type:'date'}],
+      6:[{key:'numeroDUIMP', label:'Número da DUIMP', type:'text'},{key:'chaveAcessoDUIMP', label:'Chave de Acesso da DUIMP', type:'text'},{key:'dataRegistroDUIMP', label:'Data de Registro', type:'date'}],
       8:[{key:'canalDesembaraco', label:'Canal', type:'select', options:['Verde','Amarelo','Vermelho','Cinza']},{key:'dataDesembaraco', label:'Data do Desembaraço', type:'date'}],
       9:[{key:'dataLiberacaoSefaz', label:'Data de Liberação SEFAZ', type:'date'}],
     },
@@ -775,7 +815,23 @@ function fmtBRL(v){
   return (v||0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 }
 function fmtUSD(v){
-  return (v||0).toLocaleString('en-US', {style:'currency', currency:'USD'});
+  return (v||0).toLocaleString('pt-BR', {style:'currency', currency:'USD'});
+}
+function fmtNumberBR(v, decimals){
+  decimals = decimals===undefined ? 2 : decimals;
+  return (parseFloat(v)||0).toLocaleString('pt-BR', {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
+}
+function maskCurrencyInput(el){
+  let digits = el.value.replace(/\D/g,'');
+  if(!digits) digits = '0';
+  digits = digits.replace(/^0+(?=\d)/,'');
+  const num = parseInt(digits,10)/100;
+  el.value = num.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function parseBRMasked(str){
+  if(str===undefined || str===null || str==='') return 0;
+  const cleaned = String(str).replace(/\./g,'').replace(',','.');
+  return parseFloat(cleaned)||0;
 }
 function fmtDate(d){
   if(!d) return '—';
@@ -899,6 +955,23 @@ function getProcessAlerts(p){
   const extra = p.extra || {};
   const today = todayStr();
 
+  const stages = getStagesForProcess(p);
+  const statusIdx = stages.findIndex(s=>s.key===p.status);
+  for(let i=0;i<statusIdx;i++){
+    const s = stages[i];
+    if(stageComplete(p, s.key)) continue;
+    let pendentes;
+    if(s.type==='payments'){
+      pendentes = s.items.filter(it=>!(p.payments[it.key]||{}).checked).map(it=>it.label);
+    } else {
+      const checked = p.checklist[s.key]||[];
+      pendentes = s.items.filter((_,idx)=>!checked[idx]);
+    }
+    if(pendentes.length){
+      alerts.push(`Pendente da fase anterior (${s.label.replace(/^Fase \d+ · /,'')}): ${pendentes.join(', ')}`);
+    }
+  }
+
   if(p.dataEmbarqueReal){
     const diasDesdeEmbarque = daysBetween(p.dataEmbarqueReal, today);
     const diasParaEmbarque = daysBetween(today, p.dataEmbarqueReal);
@@ -921,11 +994,13 @@ function getProcessAlerts(p){
 
   if(p.chegadaPrevista){
     const diasParaChegada = daysBetween(today, p.chegadaPrevista);
-    if(diasParaChegada<=5 && diasParaChegada>0 && !extra.transportadoraDTA){
-      alerts.push(`Faltam ${diasParaChegada} dia${diasParaChegada===1?'':'s'} para a chegada sem DTA definida`);
-    }
-    if(diasParaChegada<=0 && !extra.transportadoraDTA){
-      alerts.push(diasParaChegada===0 ? 'Chegada é hoje e a DTA ainda não foi definida' : `Chegada atrasada há ${Math.abs(diasParaChegada)} dias sem DTA definida`);
+    if(p.modal!=='aereo'){
+      if(diasParaChegada<=5 && diasParaChegada>0 && !extra.transportadoraDTA){
+        alerts.push(`Faltam ${diasParaChegada} dia${diasParaChegada===1?'':'s'} para a chegada sem DTA definida`);
+      }
+      if(diasParaChegada<=0 && !extra.transportadoraDTA){
+        alerts.push(diasParaChegada===0 ? 'Chegada é hoje e a DTA ainda não foi definida' : `Chegada atrasada há ${Math.abs(diasParaChegada)} dias sem DTA definida`);
+      }
     }
     const fase5checked = p.checklist['fase5']||[];
     if(diasParaChegada<=5 && diasParaChegada>0 && !fase5checked[4]){
@@ -1025,10 +1100,12 @@ function openProcessViewModal(id, event){
   }).join('');
 
   const docFilesRef = p.docFiles || {};
-  const docsHtml = `<div class="view-check-list">${getDocTypesForProcess(p).map(d=>{
-    const file = docFilesRef[d];
-    return `<div class="view-check-item ${p.docs&&p.docs[d]?'done':''}" style="justify-content:space-between;">
-      <span><span class="vc">${p.docs&&p.docs[d]?'✓':''}</span>${d}</span>
+  const allDocEntries = getDocTypesForProcess(p).map(d=>({key:d, label:d}))
+    .concat((p.customDocs||[]).map(cd=>({key:'custom:'+cd.id, label:cd.name})));
+  const docsHtml = `<div class="view-check-list">${allDocEntries.map(({key,label})=>{
+    const file = docFilesRef[key];
+    return `<div class="view-check-item ${p.docs&&p.docs[key]?'done':''}" style="justify-content:space-between;">
+      <span><span class="vc">${p.docs&&p.docs[key]?'✓':''}</span>${label}</span>
       ${file ? `<a href="${file.url}" target="_blank" rel="noopener" class="btn" style="padding:3px 9px; font-size:10.5px;">Ver / Baixar</a>` : ''}
     </div>`;
   }).join('')}</div>`;
@@ -1061,6 +1138,7 @@ function openProcessViewModal(id, event){
           ${viewFieldHtml('Data do Pedido', fmtDate(p.dataPedido))}
           ${viewFieldHtml('Prontidão Prevista', fmtDate(p.prontidao))}
           ${viewFieldHtml('Pedido no SAP', extra.numeroPedidoSAP)}
+          ${viewFieldHtml('Referência do Fornecedor', p.referenciaFornecedor)}
         </div>
 
         <div class="view-section-title">Dados da Importação</div>
@@ -1203,6 +1281,143 @@ function formatHistoryDate(ts){
   const hh = String(d.getHours()).padStart(2,'0');
   const mi = String(d.getMinutes()).padStart(2,'0');
   return `${dd}/${mm}/${yy} — ${hh}:${mi}`;
+}
+
+/* ---------- ITENS DO PROCESSO ---------- */
+function renderItensTab(){
+  const p = window.__editingProcess;
+  p.itens = p.itens || [];
+  const el = document.getElementById('itens-list');
+  if(!el) return;
+  const canEdit = currentRole!=='viewer';
+  el.innerHTML = p.itens.length ? p.itens.map((it,idx)=>{
+    const valorAlterado = it.valorUnitarioMestre!==undefined && it.valorUnitarioMestre!=='' && String(it.valorUnitarioMestre)!==String(it.valorUnitarioUsado);
+    return `
+    <div class="item-row">
+      <span class="item-pn">${it.pn}</span>
+      <span class="item-desc">${it.descricao||'—'}${valorAlterado ? `<br><span class="form-hint" style="color:var(--ink-amber);">✏️ Valor alterado manualmente — cadastrado: ${fmtUSD(parseFloat(it.valorUnitarioMestre)||0)}</span>` : ''}</span>
+      <input type="text" inputmode="decimal" value="${it.valorUnitarioUsado?fmtNumberBR(it.valorUnitarioUsado):''}" ${canEdit?'':'disabled'} oninput="maskCurrencyInput(this); updateItemField(${idx},'valorUnitarioUsado', parseBRMasked(this.value));" title="Valor unitário usado neste processo" style="font-family:'IBM Plex Mono',monospace; font-weight:700;">
+      <input type="number" step="1" value="${it.quantidade}" ${canEdit?'':'disabled'} oninput="updateItemField(${idx},'quantidade', this.value)" style="font-family:'IBM Plex Mono',monospace; font-weight:700;">
+      <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; text-align:right;">${fmtUSD((parseFloat(it.valorUnitarioUsado)||0)*(parseFloat(it.quantidade)||0))}</span>
+      ${canEdit?`<button class="btn btn-danger" style="padding:4px 7px; font-size:11px;" onclick="removeItem(${idx})">×</button>`:'<span></span>'}
+    </div>
+  `;
+  }).join('') : `<div class="form-hint">Nenhum item adicionado ainda.</div>`;
+  renderItemTotals();
+}
+
+function renderItemTotals(){
+  const p = window.__editingProcess;
+  const itens = p.itens||[];
+  const totalItens = itens.length;
+  const qtdTotal = itens.reduce((s,it)=>s+(parseFloat(it.quantidade)||0),0);
+  const valorTotal = itens.reduce((s,it)=>s+((parseFloat(it.valorUnitarioUsado)||0)*(parseFloat(it.quantidade)||0)),0);
+  const el = document.getElementById('itens-totals');
+  if(!el) return;
+  el.innerHTML = totalItens ? `
+    <div class="item-totals-row">
+      <div class="item-total-box"><div class="num">${totalItens}</div><div class="lbl">Itens</div></div>
+      <div class="item-total-box"><div class="num">${qtdTotal}</div><div class="lbl">Qtd. Total</div></div>
+      <div class="item-total-box"><div class="num">${fmtUSD(valorTotal)}</div><div class="lbl">Valor Total (Produtos)</div></div>
+      ${currentRole!=='viewer' ? `<button class="btn" style="margin-left:auto;" onclick="useItemsTotalAsFOB(${valorTotal})">Usar como FOB (Custos)</button>` : ''}
+    </div>
+  ` : '';
+}
+
+async function updateItemField(idx, field, val){
+  const p = window.__editingProcess;
+  p.itens[idx][field] = val;
+  renderItemTotals();
+  await autoPersistCurrentProcess();
+}
+async function removeItem(idx){
+  const p = window.__editingProcess;
+  p.itens.splice(idx,1);
+  renderItensTab();
+  await autoPersistCurrentProcess();
+}
+function useItemsTotalAsFOB(valor){
+  const el = document.getElementById('c-fob');
+  if(el){ el.value = fmtNumberBR(valor); updateCostPreview(); }
+  alert('Valor copiado para o campo FOB (USD) na aba Custos. Clique em Salvar Processo para confirmar.');
+}
+
+let itemSearchTimeout = null;
+let __itemAutocompleteResults = [];
+function onItemPNInput(val){
+  clearTimeout(itemSearchTimeout);
+  const listEl = document.getElementById('item-autocomplete-list');
+  if(!val.trim()){ listEl.innerHTML=''; listEl.style.display='none'; return; }
+  itemSearchTimeout = setTimeout(async ()=>{
+    const results = await searchProducts('pn', val, 8);
+    __itemAutocompleteResults = results;
+    if(!results.length){
+      listEl.innerHTML = `<div class="item-autocomplete-option" style="color:var(--ink-red); cursor:pointer;" onclick="promptNewProductFromItem('${val.replace(/'/g,"\\'")}')">⚠️ Produto não encontrado — clique para cadastrar o PN "${val}"</div>`;
+    } else {
+      listEl.innerHTML = results.map((r,i)=>`
+        <div class="item-autocomplete-option" onclick="selectItemProduct(${i})">
+          <strong>${r.pn}</strong> — ${r.descricao||'sem descrição'} ${r.valorUnitario?'· '+fmtUSD(parseFloat(r.valorUnitario)):''}
+        </div>
+      `).join('');
+    }
+    listEl.style.display='block';
+  }, 300);
+}
+
+async function selectItemProduct(i){
+  const r = __itemAutocompleteResults[i];
+  if(!r) return;
+  const p = window.__editingProcess;
+  p.itens = p.itens || [];
+  p.itens.push({
+    id: uid(), pn: r.pn, descricao: r.descricao||'', ncm: r.ncm||'', fabricante: r.fabricante||'',
+    valorUnitarioMestre: r.valorUnitario||'', valorUnitarioUsado: r.valorUnitario||'', quantidade: 1,
+  });
+  document.getElementById('item-pn-input').value = '';
+  document.getElementById('item-autocomplete-list').innerHTML='';
+  document.getElementById('item-autocomplete-list').style.display='none';
+  renderItensTab();
+  await autoPersistCurrentProcess();
+}
+
+function promptNewProductFromItem(pn){
+  const listEl = document.getElementById('item-autocomplete-list');
+  const pnEsc = pn.replace(/'/g,"\\'");
+  listEl.innerHTML = `
+    <div style="padding:11px;">
+      <div class="form-hint" style="margin-bottom:8px;">Cadastro rápido do PN <strong>${pn}</strong>:</div>
+      <input type="text" id="quickadd-desc" placeholder="Descrição" style="width:100%;margin-bottom:6px;padding:7px 9px;border:1px solid var(--border-strong);border-radius:5px;font-size:12.5px;">
+      <input type="number" step="0.01" id="quickadd-valor" placeholder="Valor Unitário (USD)" style="width:100%;margin-bottom:6px;padding:7px 9px;border:1px solid var(--border-strong);border-radius:5px;font-size:12.5px;">
+      <input type="text" id="quickadd-ncm" placeholder="NCM" style="width:100%;margin-bottom:6px;padding:7px 9px;border:1px solid var(--border-strong);border-radius:5px;font-size:12.5px;">
+      <input type="text" id="quickadd-fab" placeholder="Fabricante" style="width:100%;margin-bottom:9px;padding:7px 9px;border:1px solid var(--border-strong);border-radius:5px;font-size:12.5px;">
+      <button class="btn btn-primary" style="width:100%;" onclick="quickAddProductAndItem('${pnEsc}')">Salvar e Adicionar ao Processo</button>
+    </div>
+  `;
+  listEl.style.display='block';
+}
+
+async function quickAddProductAndItem(pn){
+  const descricao = document.getElementById('quickadd-desc').value;
+  const valorUnitario = document.getElementById('quickadd-valor').value;
+  const ncm = document.getElementById('quickadd-ncm').value;
+  const fabricante = document.getElementById('quickadd-fab').value;
+  const userEmail = currentUser ? currentUser.email : '';
+  const data = { pn, descricao, valorUnitario, ncm, fabricante, ativo:true, createdAt:Date.now(), updatedAt:Date.now(),
+    history:[{ts:Date.now(), field:'Produto', valorAnterior:'', valorNovo:'Cadastrado a partir de um processo', userEmail}] };
+  try{
+    await db.collection('produtos').doc(pn).set(data);
+  }catch(e){
+    console.error(e);
+    alert('Não foi possível cadastrar o produto.');
+    return;
+  }
+  const p = window.__editingProcess;
+  p.itens = p.itens || [];
+  p.itens.push({ id:uid(), pn, descricao, ncm, fabricante, valorUnitarioMestre:valorUnitario, valorUnitarioUsado:valorUnitario, quantidade:1 });
+  document.getElementById('item-pn-input').value = '';
+  document.getElementById('item-autocomplete-list').style.display = 'none';
+  renderItensTab();
+  await autoPersistCurrentProcess();
 }
 
 function renderHistoryTab(){
@@ -1484,6 +1699,15 @@ function getStagesForProcess(p){
       }};
     }
 
+    if(s.key==='fase5' && isAereo){
+      const items = s.items.slice();
+      items[0] = 'Aprovar Draft de AWB';
+      return {...s, items, itemFields:{
+        0: [{key:'numeroBL', label:'Número do AWB', type:'text'}],
+        1: s.itemFields[1],
+      }};
+    }
+
     if(s.key==='fase6' && isAereo){
       const items = ['Chegada e presença'];
       const itemFields = {};
@@ -1495,10 +1719,9 @@ function getStagesForProcess(p){
       items.push('Chegada no Aeroporto de Confins');
       const arrivalItemIndex = items.length-1;
       itemFields[arrivalItemIndex] = [{key:'dataChegadaBetim', label:'Data de Chegada', type:'date'}];
-      items.push('Descarga em Betim');
+      items.push('Pagar numerário despachante');
       items.push('Registro da DUIMP');
       itemFields[items.length-1] = [{key:'numeroDUIMP', label:'Número da DUIMP', type:'text'},{key:'chaveAcessoDUIMP', label:'Chave de Acesso da DUIMP', type:'text'},{key:'dataRegistroDUIMP', label:'Data de Registro', type:'date'}];
-      items.push('Pagar numerário despachante');
       items.push('Testar NF');
       items.push('Desembaraço da DUIMP');
       itemFields[items.length-1] = [{key:'canalDesembaraco', label:'Canal', type:'select', options:['Verde','Amarelo','Vermelho','Cinza']},{key:'dataDesembaraco', label:'Data do Desembaraço', type:'date'}];
@@ -1532,6 +1755,8 @@ function initProcessData(p){
   p.checklist = p.checklist || {};
   p.docs = p.docs || {};
   p.docFiles = p.docFiles || {};
+  p.customDocs = p.customDocs || [];
+  p.itens = p.itens || [];
   getStagesForProcess(p).forEach(s=>{
     if(s.type==='payments'){
       s.items.forEach(it=>{
@@ -1555,10 +1780,31 @@ function stageComplete(p, stageKey){
   return stage.items.every((_,i)=>checked[i]===true);
 }
 
+function stageHasProgress(p, s){
+  if(s.type==='payments'){
+    return s.items.some(it=>(p.payments[it.key]||{}).checked);
+  }
+  return (p.checklist[s.key]||[]).some(Boolean);
+}
+
 function recomputeStatus(p){
   const stages = getStagesForProcess(p);
-  for(const s of stages){
-    if(!stageComplete(p, s.key)) return s.key;
+  /* Etapa atual = a mais avançada que já tem algum marco batido, seguindo dali
+     em diante pra primeira que ainda não está 100% completa. Isso evita que um
+     item pendente de uma fase anterior (ex: rascunho da DUIMP) trave o processo
+     numa etapa antiga quando ele já chegou fisicamente numa etapa posterior
+     (ex: chegada em Confins/Santos). O que falta pra trás vira alerta, não trava.
+     IMPORTANTE: a Fase de Pagamentos (tipo 'payments') NUNCA empurra essa
+     hierarquia pra frente — pagar algo adiantado (ex: frete) não significa que
+     desembaraço/remoção já avançaram. DUIMP → desembaraço → SEFAZ → remoção →
+     recebimento são estritamente sequenciais e não podem ser furados. */
+  let lastActiveIdx = 0;
+  stages.forEach((s,i)=>{
+    if(s.type==='payments') return;
+    if(stageHasProgress(p, s)) lastActiveIdx = i;
+  });
+  for(let i=lastActiveIdx; i<stages.length; i++){
+    if(!stageComplete(p, stages[i].key)) return stages[i].key;
   }
   return stages[stages.length-1].key;
 }
@@ -1601,42 +1847,48 @@ function getBucket(p){
   const rule = (cfg.rules||[]).find(r=>r.stageKey===p.status);
   if(rule) return 'custom:'+rule.id;
   if(p.tipo==='temporaria') return 'producao';
+
   const stages = getStagesForProcess(p);
+  const fase6 = stages.find(s=>s.key==='fase6');
+  const fase7 = stages.find(s=>s.key==='fase7');
+  const chegou = fase6 ? !!(p.checklist['fase6']||[])[fase6.arrivalItemIndex] : false;
+  const recebido = fase7 ? !!(p.checklist['fase7']||[])[fase7.receiptItemIndex] : false;
+
+  /* Entregue e Em Desembaraço dependem do marco físico real (chegada / recebimento em
+     estoque), não da posição abstrata da etapa. Isso evita que marcar um item qualquer
+     lá na frente (ex: um pagamento da Fase 8) jogue o processo pra Entregue sem a
+     remoção ter de fato acontecido. */
+  if(recebido) return 'entregue';
+  if(chegou) return 'desembaraco';
+
   const idx = stages.findIndex(s=>s.key===p.status);
-  if(idx<=3){
+  const fase4Idx = stages.findIndex(s=>s.key==='fase4');
+  if(idx<=fase4Idx){
     if(p.prontidao && daysBetween(todayStr(), p.prontidao) <= 0) return 'aguardando_embarque';
     return 'producao';
   }
-  if(idx===4){
-    const diasParaEmbarque = p.dataEmbarqueReal ? daysBetween(todayStr(), p.dataEmbarqueReal) : null;
-    if(diasParaEmbarque===null || diasParaEmbarque>0) return 'aguardando_embarque';
-    return 'transito';
-  }
-  if(idx===5){
-    const stage = stages[5];
-    const checked = p.checklist['fase6']||[];
-    return checked[stage.arrivalItemIndex] ? 'desembaraco' : 'transito';
-  }
-  if(idx===6){
-    const stage = stages[6];
-    const checked = p.checklist['fase7']||[];
-    return checked[stage.receiptItemIndex] ? 'entregue' : 'desembaraco';
-  }
-  if(idx>=7) return 'entregue';
-  return 'producao';
+  const diasParaEmbarque = p.dataEmbarqueReal ? daysBetween(todayStr(), p.dataEmbarqueReal) : null;
+  if(diasParaEmbarque===null || diasParaEmbarque>0) return 'aguardando_embarque';
+  return 'transito';
 }
 
 function currentStepLabel(p){
   const stages = getStagesForProcess(p);
-  const stage = stages.find(s=>s.key===p.status);
-  if(!stage) return '';
-  if(stage.type==='payments'){
-    const pend = stage.items.find(it=> !(p.payments[it.key]||{}).checked);
-    return pend ? `Pendente: ${pend.label}` : 'Concluído';
+  /* Procura o item pendente mais antigo em toda a jornada, não só dentro da fase
+     "atual" — já que a fase atual pode estar mais adiante por causa de um marco
+     físico (ex: já chegou), enquanto um item de uma fase anterior (ex: DDR) ainda
+     está pendente. */
+  for(const stage of stages){
+    if(stage.type==='payments'){
+      const pend = stage.items.find(it=> !(p.payments[it.key]||{}).checked);
+      if(pend) return `Pendente: ${pend.label}`;
+    } else {
+      const checked = p.checklist[stage.key]||[];
+      const idx = stage.items.findIndex((_,i)=>!checked[i]);
+      if(idx>=0) return `Pendente: ${stage.items[idx]}`;
+    }
   }
-  const checked = p.checklist[stage.key]||[];
-  const idx = stage.items.findIndex((_,i)=>!checked[i]);
-  return idx>=0 ? `Pendente: ${stage.items[idx]}` : 'Concluído';
+  return 'Concluído';
 }
 
 function computeCosts(p){
@@ -1705,6 +1957,7 @@ function render(){
         ${navItem('fornecedores','Fornecedores')}
         ${navItem('parceiros','Parceiros')}
         ${navItem('followup','Follow-up')}
+        ${navItem('bancoitens','📦 Banco de Itens')}
         ${navItem('indicadores','Indicadores')}
         ${currentRole==='admin' ? navItem('equipe','Equipe') : ''}
         ${currentRole==='admin' ? navItem('personalizacao','Personalização') : ''}
@@ -1748,6 +2001,7 @@ function viewTitle(){
   if(currentView==='parceiros') return 'Parceiros';
   if(currentView==='indicadores') return 'Indicadores de Referência';
   if(currentView==='followup') return 'Follow-up dos Processos';
+  if(currentView==='bancoitens') return 'Banco de Itens';
   if(currentView==='equipe') return 'Equipe';
   if(currentView==='personalizacao') return 'Personalização do Painel';
 }
@@ -1759,6 +2013,7 @@ function viewSubtitle(){
   if(currentView==='parceiros') return 'Agentes de carga, transportadoras, despachantes e outros parceiros';
   if(currentView==='indicadores') return 'Metas de acompanhamento mensal';
   if(currentView==='followup') return 'Todos os processos ativos, prontos para gerar e enviar por e-mail';
+  if(currentView==='bancoitens') return 'Base mestre de produtos — busque pelo PN, nome, NCM ou fabricante';
   if(currentView==='equipe') return 'Gerencie quem tem acesso e o nível de permissão de cada pessoa';
   if(currentView==='personalizacao') return 'Nomes, ícones e regras dos estágios que aparecem no Painel Geral';
 }
@@ -1772,6 +2027,7 @@ function renderView(){
   if(currentView==='parceiros') el.innerHTML = renderParceiros();
   if(currentView==='indicadores') el.innerHTML = renderIndicadores();
   if(currentView==='followup') el.innerHTML = renderFollowUpPage();
+  if(currentView==='bancoitens') renderBancoItensPage();
   if(currentView==='equipe') renderEquipe();
   if(currentView==='personalizacao') el.innerHTML = renderPersonalizacao();
 }
@@ -2069,6 +2325,528 @@ function renderDashboardResults(){
 }
 
 /* ---------- INDICADORES ---------- */
+/* ===================== BANCO DE ITENS (Master Data de Produtos) ===================== */
+const PRODUCT_FIELDS = [
+  {key:'pn', label:'PN (Part Number)'},
+  {key:'descricao', label:'Descrição'},
+  {key:'valorUnitario', label:'Valor Unitário (USD)', type:'number'},
+  {key:'ncm', label:'NCM'},
+  {key:'fabricante', label:'Fabricante'},
+  {key:'codigo', label:'Código de Imposto'},
+  {key:'peso', label:'Peso (kg)', type:'number'},
+  {key:'tipo', label:'Tipo'},
+  {key:'produto', label:'Produto (modelo)'},
+  {key:'codCatalogo', label:'Código Catálogo'},
+  {key:'registroAnvisa', label:'Registro Anvisa'},
+  {key:'descDetalhada', label:'Descrição Detalhada'},
+  {key:'obs', label:'Observações'},
+];
+
+let productSearchState = { field:'pn', query:'', results:[], loading:false };
+
+function sanitizePN(v){ return String(v==null?'':v).trim(); }
+
+async function searchProducts(field, query, limitN){
+  limitN = limitN || 30;
+  const q = String(query||'').trim();
+  if(!q) return [];
+  try{
+    let ref = db.collection('produtos').orderBy(field).startAt(q).endAt(q+'\uf8ff').limit(limitN);
+    const snap = await ref.get();
+    const out = [];
+    snap.forEach(doc=>out.push({id:doc.id, ...doc.data()}));
+    return out;
+  }catch(e){
+    console.error('Erro ao buscar produtos', e);
+    return [];
+  }
+}
+
+async function getProductByPN(pn){
+  try{
+    const doc = await db.collection('produtos').doc(sanitizePN(pn)).get();
+    return doc.exists ? {id:doc.id, ...doc.data()} : null;
+  }catch(e){
+    console.error('Erro ao buscar produto', e);
+    return null;
+  }
+}
+
+async function renderBancoItensPage(){
+  const el = document.getElementById('view-content');
+  el.innerHTML = `
+    <div class="product-search-bar">
+      <select id="product-search-field" onchange="runProductSearch()">
+        ${['pn','descricao','ncm','fabricante'].map(f=>`<option value="${f}" ${productSearchState.field===f?'selected':''}>${f==='pn'?'PN':f==='descricao'?'Nome/Descrição':f==='ncm'?'NCM':'Fabricante'}</option>`).join('')}
+      </select>
+      <input type="text" id="product-search-input" placeholder="Digite para buscar..." value="${productSearchState.query}" oninput="runProductSearch()">
+      ${currentRole!=='viewer' ? `
+        <button class="btn" onclick="openImportModal()">Importar Planilha</button>
+        <button class="btn btn-primary" onclick="openProductModal()">+ Novo Produto</button>
+      ` : ''}
+    </div>
+    <div id="product-results"></div>
+  `;
+  document.getElementById('product-results').innerHTML = `<div class="form-hint">Digite algo pra buscar (ex: parte do PN, nome do produto, NCM ou fabricante).</div>`;
+}
+
+async function runProductSearch(){
+  const field = document.getElementById('product-search-field').value;
+  const query = document.getElementById('product-search-input').value;
+  productSearchState.field = field;
+  productSearchState.query = query;
+  const el = document.getElementById('product-results');
+  if(!query.trim()){
+    el.innerHTML = `<div class="form-hint">Digite algo pra buscar (ex: parte do PN, nome do produto, NCM ou fabricante).</div>`;
+    return;
+  }
+  el.innerHTML = `<div class="form-hint">Buscando...</div>`;
+  const results = await searchProducts(field, query);
+  productSearchState.results = results;
+  if(!results.length){
+    el.innerHTML = `<div class="empty-state"><h3>Nenhum produto encontrado</h3><p>Confira o termo buscado ou cadastre um novo produto.</p></div>`;
+    return;
+  }
+  el.innerHTML = results.map(p=>`
+    <div class="product-row" onclick="openProductModal('${p.id.replace(/'/g,"\\'")}')">
+      <span class="pn">${p.pn||p.id}</span>
+      <span class="desc">${p.descricao||'—'} ${p.ativo===false?'<span class="product-inactive-badge">Inativo</span>':''}</span>
+      <span class="ncm">${p.ncm||'—'}</span>
+      <span class="fab">${p.fabricante||'—'}</span>
+      <span class="val">${p.valorUnitario?fmtUSD(parseFloat(p.valorUnitario)):'—'}</span>
+      <span></span>
+    </div>
+  `).join('');
+}
+
+async function openProductModal(pn){
+  const existing = pn ? await getProductByPN(pn) : null;
+  const p = existing || { pn:'', ativo:true, history:[] };
+  window.__editingProduct = JSON.parse(JSON.stringify(p));
+
+  const fieldsHtml = PRODUCT_FIELDS.map(f=>{
+    if(f.key==='pn' && existing) return `<div class="form-group"><label>${f.label}</label><input id="pf-${f.key}" value="${p[f.key]||''}"><div class="form-hint">Alterar o PN migra todo o histórico e os vínculos deste produto para o novo número.</div></div>`;
+    if(f.key==='valorUnitario' || f.key==='peso'){
+      return `<div class="form-group"><label>${f.label}</label><input id="pf-${f.key}" type="text" inputmode="decimal" value="${p[f.key]?fmtNumberBR(p[f.key]):''}" oninput="maskCurrencyInput(this)"></div>`;
+    }
+    return `<div class="form-group"><label>${f.label}</label><input id="pf-${f.key}" type="${f.type||'text'}" ${f.type==='number'?'step="0.01"':''} value="${p[f.key]!==undefined?p[f.key]:''}"></div>`;
+  }).join('');
+
+  const historyHtml = (p.history||[]).length ? (p.history||[]).slice().sort((a,b)=>b.ts-a.ts).map(h=>`
+    <div class="history-item">
+      <div class="history-date">${formatHistoryDate(h.ts)}${h.userEmail?' · '+h.userEmail:''}</div>
+      <div class="history-title">${h.field}</div>
+      <div class="history-detail">Anterior: ${h.valorAnterior===undefined||h.valorAnterior===''?'—':h.valorAnterior}<br>Novo: ${h.valorNovo}</div>
+    </div>
+  `).join('') : `<div class="form-hint">Nenhuma alteração registrada ainda.</div>`;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modal-overlay';
+  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  overlay.innerHTML = `
+    <div class="modal">
+      <div class="modal-header">
+        <h2>${existing?'Editar Produto':'Novo Produto'}</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="dados" onclick="switchTab('dados')">Dados</button>
+          ${existing?`<button class="tab-btn" data-tab="histprod" onclick="switchTab('histprod')">Histórico</button>`:''}
+        </div>
+        <div class="tab-pane active" id="tab-dados">
+          ${existing ? `
+            <div class="status-badge-row">
+              <span class="role-badge ${p.ativo===false?'viewer':'admin'}">${p.ativo===false?'Inativo':'Ativo'}</span>
+              <div class="status-badge-hint">Produtos não são excluídos — apenas marcados como inativos, pra preservar o histórico.</div>
+            </div>
+          ` : ''}
+          ${fieldsHtml}
+        </div>
+        ${existing?`<div class="tab-pane" id="tab-histprod">${historyHtml}</div>`:''}
+      </div>
+      <div class="modal-footer">
+        <div>${existing?`<button class="btn ${p.ativo===false?'':'btn-danger'}" onclick="toggleProductActive('${sanitizePN(p.pn)}', ${p.ativo===false})">${p.ativo===false?'Reativar':'Marcar como Inativo'}</button>`:'<span></span>'}</div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" onclick="closeModal()">${currentRole==='viewer'?'Fechar':'Cancelar'}</button>
+          ${currentRole!=='viewer' ? `<button class="btn btn-primary" onclick="saveProduct(${!!existing})">Salvar Produto</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function formatNCM(v){
+  const digits = String(v||'').replace(/\D/g,'');
+  if(!digits) return '';
+  const p = digits.padStart(8,'0').slice(-8);
+  return `${p.slice(0,4)}.${p.slice(4,6)}.${p.slice(6,8)}`;
+}
+function formatCodigoImposto(v){
+  const digits = String(v||'').replace(/\D/g,'');
+  if(!digits) return '';
+  const p = digits.padStart(7,'0').slice(-7);
+  return `${p.slice(0,4)}-${p.slice(4,7)}`;
+}
+function formatCodCatalogo(v){
+  const digits = String(v||'').replace(/\D/g,'');
+  if(!digits) return '';
+  return digits.padStart(10,'0').slice(-10);
+}
+
+async function saveProduct(isEdit){
+  if(!requireEditPermission()) return;
+  const pnFieldVal = document.getElementById('pf-pn').value;
+  const pn = sanitizePN(pnFieldVal);
+  if(!pn){ alert('Informe o PN do produto.'); return; }
+
+  const prev = window.__editingProduct || {};
+  const oldPn = sanitizePN(prev.pn);
+  const isRename = isEdit && oldPn && oldPn !== pn;
+
+  if(!isEdit || isRename){
+    const already = await getProductByPN(pn);
+    if(already){
+      alert('Este PN já está cadastrado. Abrindo o produto existente para edição.');
+      closeModal();
+      openProductModal(pn);
+      return;
+    }
+  }
+
+  const data = { pn };
+  PRODUCT_FIELDS.forEach(f=>{
+    if(f.key==='pn') return;
+    const el = document.getElementById('pf-'+f.key);
+    data[f.key] = el ? el.value : (prev[f.key]||'');
+    if((f.key==='valorUnitario' || f.key==='peso') && data[f.key]){
+      data[f.key] = String(parseBRMasked(data[f.key]));
+    }
+  });
+  if(data.ncm) data.ncm = formatNCM(data.ncm);
+  if(data.codigo) data.codigo = formatCodigoImposto(data.codigo);
+  if(data.codCatalogo) data.codCatalogo = formatCodCatalogo(data.codCatalogo);
+
+  const history = (prev.history||[]).slice();
+  const userEmail = currentUser ? currentUser.email : '';
+  if(isRename){
+    history.push({ ts: Date.now(), field:'PN', valorAnterior: oldPn, valorNovo: pn, userEmail });
+  }
+  PRODUCT_FIELDS.forEach(f=>{
+    if(f.key==='pn') return;
+    const antes = prev[f.key]!==undefined ? prev[f.key] : '';
+    const depois = data[f.key]!==undefined ? data[f.key] : '';
+    if(String(antes) !== String(depois)){
+      history.push({ ts: Date.now(), field: f.label, valorAnterior: antes, valorNovo: depois, userEmail });
+    }
+  });
+  data.history = history;
+  data.ativo = prev.ativo===false ? false : true;
+  data.createdAt = prev.createdAt || Date.now();
+  data.updatedAt = Date.now();
+
+  try{
+    await db.collection('produtos').doc(pn).set(data);
+    if(isRename){
+      await db.collection('produtos').doc(oldPn).delete();
+    }
+    closeModal();
+    if(currentView==='bancoitens') runProductSearch();
+  }catch(e){
+    console.error(e);
+    alert('Não foi possível salvar o produto.');
+  }
+}
+
+async function toggleProductActive(pn, makeActive){
+  if(!requireEditPermission()) return;
+  try{
+    await db.collection('produtos').doc(pn).set({ ativo: makeActive, updatedAt: Date.now() }, {merge:true});
+    closeModal();
+    if(currentView==='bancoitens') runProductSearch();
+  }catch(e){
+    console.error(e);
+    alert('Não foi possível atualizar o status do produto.');
+  }
+}
+
+/* ---------- IMPORTAÇÃO DE PLANILHA ---------- */
+window.__importState = null;
+
+function openImportModal(){
+  if(!requireEditPermission()) return;
+  window.__importState = { step:1, workbook:null, sheetName:null, headerRow:0, rows:[], mapping:{}, classified:[] };
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modal-overlay';
+  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:760px;">
+      <div class="modal-header">
+        <h2>Importar Planilha de Produtos</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body" id="import-modal-body">
+        <div class="import-drop">
+          <p style="margin-bottom:10px;">Selecione um arquivo .xlsx, .xls ou .csv com o seu banco de produtos.</p>
+          <input type="file" id="import-file-input" accept=".xlsx,.xls,.csv" onchange="handleImportFile(this)">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div></div>
+        <button class="btn" onclick="closeModal()">Fechar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function handleImportFile(inputEl){
+  const file = inputEl.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    try{
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, {type:'array'});
+      window.__importState.workbook = wb;
+      renderImportSheetChoice();
+    }catch(err){
+      console.error(err);
+      alert('Não foi possível ler esse arquivo. Confira se é um .xlsx, .xls ou .csv válido.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderImportSheetChoice(){
+  const wb = window.__importState.workbook;
+  const sheetName = wb.SheetNames[0];
+  window.__importState.sheetName = sheetName;
+  const body = document.getElementById('import-modal-body');
+  body.innerHTML = `
+    <div class="form-group">
+      <label>Qual aba da planilha usar?</label>
+      <select id="import-sheet-select" onchange="onImportSheetChange(this.value)">
+        ${wb.SheetNames.map(n=>`<option value="${n}">${n}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Qual linha é o cabeçalho (com os nomes das colunas)?</label>
+      <select id="import-header-row-select" onchange="onImportHeaderRowChange(this.value)"></select>
+    </div>
+    <div id="import-raw-preview" style="overflow-x:auto; max-height:220px; border:1px solid var(--border); border-radius:6px;"></div>
+    <div style="margin-top:16px; text-align:right;">
+      <button class="btn btn-primary" onclick="renderImportMapping()">Continuar para o Mapeamento</button>
+    </div>
+  `;
+  loadSheetRawRows(sheetName);
+}
+
+function loadSheetRawRows(sheetName){
+  const wb = window.__importState.workbook;
+  const sheet = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:'', blankrows:false});
+  window.__importState.rawRows = rows;
+  const headerSelect = document.getElementById('import-header-row-select');
+  headerSelect.innerHTML = rows.slice(0,15).map((r,i)=>`<option value="${i}">Linha ${i+1}: ${r.slice(0,4).filter(String).join(' | ').slice(0,60) || '(vazia)'}</option>`).join('');
+  // tenta adivinhar a linha de cabeçalho: a primeira com mais de 2 células de texto preenchidas
+  let guess = 0;
+  for(let i=0;i<Math.min(15,rows.length);i++){
+    const filled = rows[i].filter(c=>String(c).trim()!=='').length;
+    if(filled>=3){ guess = i; break; }
+  }
+  headerSelect.value = guess;
+  window.__importState.headerRow = guess;
+  renderRawPreview();
+}
+
+function onImportSheetChange(name){
+  window.__importState.sheetName = name;
+  loadSheetRawRows(name);
+}
+function onImportHeaderRowChange(val){
+  window.__importState.headerRow = parseInt(val);
+  renderRawPreview();
+}
+
+function renderRawPreview(){
+  const rows = window.__importState.rawRows;
+  const headerRow = window.__importState.headerRow;
+  const preview = rows.slice(headerRow, headerRow+6);
+  const el = document.getElementById('import-raw-preview');
+  el.innerHTML = `<table class="import-preview-table">
+    <thead><tr>${(preview[0]||[]).map(c=>`<th>${c||''}</th>`).join('')}</tr></thead>
+    <tbody>${preview.slice(1).map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function renderImportMapping(){
+  const rows = window.__importState.rawRows;
+  const headerRow = window.__importState.headerRow;
+  const headers = rows[headerRow] || [];
+  window.__importState.headers = headers;
+  const body = document.getElementById('import-modal-body');
+  body.innerHTML = `
+    <div class="form-hint" style="margin-bottom:12px;">Associe cada campo do sistema à coluna correspondente da sua planilha. Deixe em branco (—) o que não quiser importar.</div>
+    ${PRODUCT_FIELDS.map(f=>`
+      <div class="import-mapping-row">
+        <label style="font-size:13px; font-weight:600;">${f.label}${f.key==='pn'?' *':''}</label>
+        <select id="map-${f.key}">
+          <option value="">— não mapear —</option>
+          ${headers.map((h,idx)=>`<option value="${idx}" ${guessColumnMatch(f.key,h)?'selected':''}>${h||'(coluna '+(idx+1)+')'}</option>`).join('')}
+        </select>
+      </div>
+    `).join('')}
+    <div style="margin-top:16px; text-align:right; display:flex; gap:8px; justify-content:flex-end;">
+      <button class="btn" onclick="renderImportSheetChoice()">Voltar</button>
+      <button class="btn btn-primary" onclick="buildImportPreview()">Analisar Planilha</button>
+    </div>
+  `;
+}
+
+function guessColumnMatch(fieldKey, headerName){
+  const h = String(headerName||'').toLowerCase();
+  const guesses = {
+    pn: ['pn','part number','partnumber'],
+    descricao: ['descrição','descricao','nome'],
+    valorUnitario: ['valor unit','valor unitário','valor','preço'],
+    ncm: ['ncm'],
+    fabricante: ['fabricante'],
+    codigo: ['código','codigo'],
+    peso: ['peso'],
+    tipo: ['tipo'],
+    produto: ['produto'],
+    codCatalogo: ['cod catalogo','código catálogo','catalogo'],
+    registroAnvisa: ['anvisa','registro'],
+    descDetalhada: ['desc pt','descrição detalhada'],
+    obs: ['obs','observ'],
+  };
+  return (guesses[fieldKey]||[]).some(g=>h.includes(g));
+}
+
+async function buildImportPreview(){
+  const mapping = {};
+  PRODUCT_FIELDS.forEach(f=>{
+    const el = document.getElementById('map-'+f.key);
+    if(el && el.value!=='') mapping[f.key] = parseInt(el.value);
+  });
+  if(mapping.pn===undefined){ alert('É obrigatório mapear o campo PN.'); return; }
+  window.__importState.mapping = mapping;
+
+  const rows = window.__importState.rawRows.slice(window.__importState.headerRow+1);
+  const parsed = rows.map(r=>{
+    const obj = {};
+    PRODUCT_FIELDS.forEach(f=>{
+      if(mapping[f.key]!==undefined) obj[f.key] = r[mapping[f.key]]!==undefined ? String(r[mapping[f.key]]).trim() : '';
+    });
+    obj.pn = sanitizePN(obj.pn);
+    if(obj.ncm) obj.ncm = formatNCM(obj.ncm);
+    if(obj.codigo) obj.codigo = formatCodigoImposto(obj.codigo);
+    if(obj.codCatalogo) obj.codCatalogo = formatCodCatalogo(obj.codCatalogo);
+    return obj;
+  }).filter(o=>o.pn);
+
+  const body = document.getElementById('import-modal-body');
+  body.innerHTML = `<div class="form-hint">Analisando ${parsed.length} linha(s) contra o banco atual...</div>`;
+
+  let existingMap = {};
+  try{
+    const snap = await db.collection('produtos').get();
+    snap.forEach(doc=>{ existingMap[doc.id] = doc.data(); });
+  }catch(e){
+    console.error(e);
+  }
+
+  const seenPNs = new Set();
+  const classified = [];
+  parsed.forEach(row=>{
+    if(seenPNs.has(row.pn)) return; // duplicado dentro da própria planilha, ignora repetição
+    seenPNs.add(row.pn);
+    const existing = existingMap[row.pn];
+    if(!existing){
+      classified.push({...row, __status:'novo'});
+    } else {
+      const changedFields = PRODUCT_FIELDS.filter(f=>mapping[f.key]!==undefined && f.key!=='pn')
+        .filter(f=> String(existing[f.key]||'') !== String(row[f.key]||''));
+      classified.push({...row, __status: changedFields.length ? 'alterado' : 'inalterado', __changedFields: changedFields.map(f=>f.label)});
+    }
+  });
+  window.__importState.classified = classified;
+
+  const novos = classified.filter(c=>c.__status==='novo').length;
+  const alterados = classified.filter(c=>c.__status==='alterado').length;
+  const inalterados = classified.filter(c=>c.__status==='inalterado').length;
+
+  body.innerHTML = `
+    <div class="kpi-row" style="grid-template-columns:repeat(3,1fr);">
+      <div class="kpi-card" style="--kpi-accent:var(--ink-green)"><div class="kpi-label">Novos</div><div class="kpi-value">${novos}</div></div>
+      <div class="kpi-card" style="--kpi-accent:var(--ink-amber)"><div class="kpi-label">Alterados</div><div class="kpi-value">${alterados}</div></div>
+      <div class="kpi-card" style="--kpi-accent:var(--muted)"><div class="kpi-label">Sem Alteração</div><div class="kpi-value">${inalterados}</div></div>
+    </div>
+    <div style="overflow-x:auto; max-height:300px; border:1px solid var(--border); border-radius:6px;">
+      <table class="import-preview-table">
+        <thead><tr><th>Status</th><th>PN</th><th>Descrição</th><th>Alterações</th></tr></thead>
+        <tbody>
+          ${classified.slice(0,50).map(c=>`
+            <tr>
+              <td><span class="import-status-badge ${c.__status}">${c.__status}</span></td>
+              <td>${c.pn}</td>
+              <td>${c.descricao||'—'}</td>
+              <td>${(c.__changedFields||[]).join(', ')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      ${classified.length>50?`<div class="form-hint" style="padding:8px;">Mostrando as primeiras 50 de ${classified.length} linhas.</div>`:''}
+    </div>
+    <div style="margin-top:16px; text-align:right; display:flex; gap:8px; justify-content:flex-end;">
+      <button class="btn" onclick="renderImportMapping()">Voltar</button>
+      <button class="btn btn-primary" onclick="confirmImport()">Confirmar Importação (${novos+alterados} gravações)</button>
+    </div>
+  `;
+}
+
+async function confirmImport(){
+  const classified = window.__importState.classified.filter(c=>c.__status!=='inalterado');
+  const body = document.getElementById('import-modal-body');
+  body.innerHTML = `<div class="form-hint">Gravando ${classified.length} produto(s)...</div>`;
+  const userEmail = currentUser ? currentUser.email : '';
+  const CHUNK = 400;
+  let done = 0;
+  try{
+    for(let i=0;i<classified.length;i+=CHUNK){
+      const batch = db.batch();
+      const chunk = classified.slice(i, i+CHUNK);
+      chunk.forEach(row=>{
+        const ref = db.collection('produtos').doc(row.pn);
+        const data = {...row};
+        delete data.__status;
+        delete data.__changedFields;
+        data.ativo = true;
+        data.updatedAt = Date.now();
+        if(row.__status==='novo'){
+          data.createdAt = Date.now();
+          data.history = [{ts:Date.now(), field:'Produto', valorAnterior:'', valorNovo:'Importado via planilha', userEmail}];
+          batch.set(ref, data);
+        } else {
+          data.history = firebase.firestore.FieldValue.arrayUnion({ts:Date.now(), field:(row.__changedFields||[]).join(', '), valorAnterior:'(ver planilha anterior)', valorNovo:'Atualizado via planilha', userEmail});
+          batch.set(ref, data, {merge:true});
+        }
+      });
+      await batch.commit();
+      done += chunk.length;
+    }
+    body.innerHTML = `<div class="empty-state"><h3>Importação concluída</h3><p>${done} produto(s) gravado(s) com sucesso.</p><button class="btn btn-primary" onclick="closeModal()">Fechar</button></div>`;
+    if(currentView==='bancoitens') runProductSearch();
+  }catch(e){
+    console.error(e);
+    body.innerHTML = `<div class="empty-state"><h3>Erro na importação</h3><p>${e.message}</p><button class="btn" onclick="closeModal()">Fechar</button></div>`;
+  }
+}
+
 function renderIndicadores(){
   return `
     <table class="indicators-table">
@@ -2618,6 +3396,7 @@ function openProcessModal(id){
         <div class="tabs">
           <button class="tab-btn active" data-tab="geral" onclick="switchTab('geral')">Visão Geral</button>
           <button class="tab-btn" data-tab="etapas" onclick="switchTab('etapas')">Etapas</button>
+          <button class="tab-btn" data-tab="itens" onclick="switchTab('itens')">📦 Itens</button>
           <button class="tab-btn" data-tab="custos" onclick="switchTab('custos')">Custos</button>
           <button class="tab-btn" data-tab="docs" onclick="switchTab('docs')">Documentos</button>
           <button class="tab-btn" data-tab="desempenho" onclick="switchTab('desempenho')">Desempenho</button>
@@ -2636,6 +3415,9 @@ function openProcessModal(id){
           <div class="form-row">
             <div class="form-group"><label>Produto</label><input id="f-produto" value="${p.produto||''}" placeholder="Ex: Equipamento radiológico"></div>
             <div class="form-group"><label>Referência</label><input id="f-ref" value="${p.ref||''}" placeholder="Ex: M-014 (Morita) ou C-007 (Carestream)"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Referência do Fornecedor</label><input id="f-ref-fornecedor" value="${p.referenciaFornecedor||''}" placeholder="Nº do pedido/PO/invoice no sistema do fornecedor"></div>
           </div>
           <div class="form-row">
             <div class="form-group"><label>Fornecedor</label>
@@ -2718,31 +3500,45 @@ function openProcessModal(id){
           <div id="etapas-container"></div>
         </div>
 
+        <div class="tab-pane" id="tab-itens">
+          ${currentRole!=='viewer' ? `
+          <div class="item-autocomplete-wrap" style="margin-bottom:14px;">
+            <input type="text" id="item-pn-input" placeholder="Digite o PN do produto..." style="width:100%; padding:10px 12px; border:1px solid var(--border-strong); border-radius:6px; font-size:13.5px;" oninput="onItemPNInput(this.value)">
+            <div class="item-autocomplete-list" id="item-autocomplete-list" style="display:none;"></div>
+          </div>
+          ` : ''}
+          <div class="item-row" style="background:var(--paper); font-size:10.5px; font-weight:700; text-transform:uppercase; color:var(--muted); letter-spacing:0.03em;">
+            <span>PN</span><span>Descrição</span><span>Valor Unit.</span><span>Quantidade</span><span>Valor Total</span><span></span>
+          </div>
+          <div id="itens-list"></div>
+          <div id="itens-totals"></div>
+        </div>
+
         <div class="tab-pane" id="tab-custos">
           <div class="form-row">
-            <div class="form-group"><label>Valor FOB (USD)</label><input type="number" step="0.01" id="c-fob" value="${p.fob||''}" oninput="updateCostPreview()"></div>
-            <div class="form-group"><label>Frete Internacional (USD)</label><input type="number" step="0.01" id="c-frete" value="${p.frete||''}" oninput="updateCostPreview()"></div>
+            <div class="form-group"><label>Valor FOB (USD)</label><input type="text" inputmode="decimal" id="c-fob" value="${p.fob?fmtNumberBR(p.fob):''}" oninput="maskCurrencyInput(this); updateCostPreview();"></div>
+            <div class="form-group"><label>Frete Internacional (USD)</label><input type="text" inputmode="decimal" id="c-frete" value="${p.frete?fmtNumberBR(p.frete):''}" oninput="maskCurrencyInput(this); updateCostPreview();"></div>
           </div>
           <div class="form-row">
-            <div class="form-group"><label>Seguro Internacional (USD)</label><input type="number" step="0.01" id="c-seguro" value="${p.seguro||''}" oninput="updateCostPreview()"></div>
+            <div class="form-group"><label>Seguro Internacional (USD)</label><input type="text" inputmode="decimal" id="c-seguro" value="${p.seguro?fmtNumberBR(p.seguro):''}" oninput="maskCurrencyInput(this); updateCostPreview();"></div>
             <div class="form-group"><label>Câmbio (BRL/USD)</label><input type="number" step="0.0001" id="c-cambio" value="${p.cambio||''}" oninput="updateCostPreview(); onCambioManualEdit();"><div class="form-hint" id="cambio-status">${p.cambioManual ? '✏️ Valor definido manualmente' : ''}</div></div>
           </div>
           <div class="form-hint" style="margin:-6px 0 12px 0;">Seguro negociado a 0,09% do valor da carga; comunique a seguradora apenas se a carga ultrapassar R$ 4 milhões.</div>
           <div class="form-row">
-            <div class="form-group"><label>II — Imp. Importação (R$)</label><input type="number" step="0.01" id="c-ii" value="${p.ii||''}" oninput="updateCostPreview()"></div>
-            <div class="form-group"><label>IPI (R$)</label><input type="number" step="0.01" id="c-ipi" value="${p.ipi||''}" oninput="updateCostPreview()"></div>
+            <div class="form-group"><label>II — Imp. Importação (R$)</label><input type="text" inputmode="decimal" id="c-ii" value="${p.ii?fmtNumberBR(p.ii):''}" oninput="maskCurrencyInput(this); updateCostPreview();"></div>
+            <div class="form-group"><label>IPI (R$)</label><input type="text" inputmode="decimal" id="c-ipi" value="${p.ipi?fmtNumberBR(p.ipi):''}" oninput="maskCurrencyInput(this); updateCostPreview();"></div>
           </div>
           <div class="form-row">
-            <div class="form-group"><label>PIS (R$)</label><input type="number" step="0.01" id="c-pis" value="${p.pis||''}" oninput="updateCostPreview()"></div>
-            <div class="form-group"><label>COFINS (R$)</label><input type="number" step="0.01" id="c-cofins" value="${p.cofins||''}" oninput="updateCostPreview()"></div>
+            <div class="form-group"><label>PIS (R$)</label><input type="text" inputmode="decimal" id="c-pis" value="${p.pis?fmtNumberBR(p.pis):''}" oninput="maskCurrencyInput(this); updateCostPreview();"></div>
+            <div class="form-group"><label>COFINS (R$)</label><input type="text" inputmode="decimal" id="c-cofins" value="${p.cofins?fmtNumberBR(p.cofins):''}" oninput="maskCurrencyInput(this); updateCostPreview();"></div>
           </div>
           <div class="form-row">
-            <div class="form-group"><label>ICMS (R$)</label><input type="number" step="0.01" id="c-icms" value="${p.icms||''}" oninput="updateCostPreview()"></div>
-            <div class="form-group"><label>Outras Despesas (R$)</label><input type="number" step="0.01" id="c-despesas" value="${p.despesas||''}" oninput="updateCostPreview()"></div>
+            <div class="form-group"><label>ICMS (R$)</label><input type="text" inputmode="decimal" id="c-icms" value="${p.icms?fmtNumberBR(p.icms):''}" oninput="maskCurrencyInput(this); updateCostPreview();"></div>
+            <div class="form-group"><label>Outras Despesas (R$)</label><input type="text" inputmode="decimal" id="c-despesas" value="${p.despesas?fmtNumberBR(p.despesas):''}" oninput="maskCurrencyInput(this); updateCostPreview();"></div>
           </div>
           <div class="form-group">
             <label>Custo Orçado (R$) <span style="font-weight:400; text-transform:none; font-style:italic;">— opcional, usado na Análise de Desempenho</span></label>
-            <input type="number" step="0.01" id="c-orcado" value="${p.custoOrcado||''}">
+            <input type="text" inputmode="decimal" id="c-orcado" value="${p.custoOrcado?fmtNumberBR(p.custoOrcado):''}" oninput="maskCurrencyInput(this);">
           </div>
           <div class="form-group">
             <label>Regime Fiscal do Item</label>
@@ -2794,6 +3590,7 @@ function openProcessModal(id){
   initTemperaturaUI(p);
   initAeroportoUI(p);
   renderHistoryTab();
+  renderItensTab();
   document.getElementById('desempenho-content').innerHTML = renderDesempenhoTab();
   renderDocsTab();
   if(!existing) fetchDollarQuoteIfNeeded();
@@ -2851,7 +3648,10 @@ function renderEtapasTab(){
         return `<div class="payment-row ${rec.checked?'checked':''}">
           <div class="doc-check" style="cursor:pointer;" onclick="togglePaymentCheck('${it.key}')">${rec.checked?'✓':''}</div>
           <div class="payment-label" onclick="togglePaymentCheck('${it.key}')">${label}</div>
-          <input type="number" step="0.01" class="payment-value" placeholder="Valor pago (R$)" value="${rec.valor||''}" oninput="updatePaymentValue('${it.key}', this.value)">
+          <div class="payment-value-wrap">
+            <span class="payment-value-prefix">R$</span>
+            <input type="text" inputmode="decimal" class="payment-value" placeholder="0,00" value="${rec.valor?fmtNumberBR(rec.valor):''}" oninput="maskCurrencyInput(this); updatePaymentValue('${it.key}', parseBRMasked(this.value));">
+          </div>
         </div>`;
       }).join('');
     } else {
@@ -2922,38 +3722,79 @@ function slugifyDocType(docType){
     .replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
 }
 
+function renderDocRow(key, label, p, canEdit, removable){
+  const checked = p.docs && p.docs[key];
+  const file = p.docFiles[key];
+  const inputId = 'file-input-'+slugifyDocType(key);
+  const keyEsc = key.replace(/'/g,"\\'");
+  return `
+    <div class="doc-item-block">
+      <div class="doc-item ${checked?'checked':''}" onclick="toggleDoc(this, '${keyEsc}')" data-doc="${keyEsc}">
+        <div class="doc-check">${checked?'✓':''}</div>
+        <span>${label}</span>
+      </div>
+      <div class="doc-file-row">
+        ${file ? `
+          <span class="doc-file-name">📎 ${file.name}</span>
+          <a href="${file.url}" target="_blank" rel="noopener" class="btn" style="padding:4px 9px; font-size:11px;">Ver / Baixar</a>
+          ${canEdit ? `
+            <label class="btn" style="padding:4px 9px; font-size:11px; cursor:pointer;">Substituir<input type="file" id="${inputId}" style="display:none;" onchange="uploadDocFile(this,'${keyEsc}')"></label>
+            <button class="btn btn-danger" style="padding:4px 9px; font-size:11px;" onclick="deleteDocFile('${keyEsc}')">Excluir</button>
+          ` : ''}
+        ` : (canEdit ? `
+          <label class="btn" style="padding:5px 11px; font-size:11.5px; cursor:pointer;">+ Anexar arquivo<input type="file" id="${inputId}" style="display:none;" onchange="uploadDocFile(this,'${keyEsc}')"></label>
+          <span class="doc-upload-status" id="status-${slugifyDocType(key)}"></span>
+        ` : `<span class="form-hint">Nenhum arquivo anexado</span>`)}
+        ${removable && canEdit ? `<button class="btn btn-danger" style="padding:4px 9px; font-size:11px; margin-left:auto;" onclick="removeCustomDoc('${keyEsc}')">Remover</button>` : ''}
+      </div>
+    </div>
+  `;
+}
+
 function renderDocsTab(){
   const p = window.__editingProcess;
   p.docFiles = p.docFiles || {};
+  p.customDocs = p.customDocs || [];
   const el = document.getElementById('docs-list');
   if(!el) return;
   const canEdit = currentRole!=='viewer';
-  el.innerHTML = `<div class="doc-checklist">${getDocTypesForProcess(p).map(d=>{
-    const checked = p.docs && p.docs[d];
-    const file = p.docFiles[d];
-    const inputId = 'file-input-'+slugifyDocType(d);
-    return `
-      <div class="doc-item-block">
-        <div class="doc-item ${checked?'checked':''}" onclick="toggleDoc(this, '${d.replace(/'/g,"\\'")}')" data-doc="${d.replace(/'/g,"\\'")}">
-          <div class="doc-check">${checked?'✓':''}</div>
-          <span>${d}</span>
-        </div>
-        <div class="doc-file-row">
-          ${file ? `
-            <span class="doc-file-name">📎 ${file.name}</span>
-            <a href="${file.url}" target="_blank" rel="noopener" class="btn" style="padding:4px 9px; font-size:11px;">Ver / Baixar</a>
-            ${canEdit ? `
-              <label class="btn" style="padding:4px 9px; font-size:11px; cursor:pointer;">Substituir<input type="file" id="${inputId}" style="display:none;" onchange="uploadDocFile(this,'${d.replace(/'/g,"\\'")}')"></label>
-              <button class="btn btn-danger" style="padding:4px 9px; font-size:11px;" onclick="deleteDocFile('${d.replace(/'/g,"\\'")}')">Excluir</button>
-            ` : ''}
-          ` : (canEdit ? `
-            <label class="btn" style="padding:5px 11px; font-size:11.5px; cursor:pointer;">+ Anexar arquivo<input type="file" id="${inputId}" style="display:none;" onchange="uploadDocFile(this,'${d.replace(/'/g,"\\'")}')"></label>
-            <span class="doc-upload-status" id="status-${slugifyDocType(d)}"></span>
-          ` : `<span class="form-hint">Nenhum arquivo anexado</span>`)}
-        </div>
-      </div>
-    `;
-  }).join('')}</div>`;
+
+  const fixedRows = getDocTypesForProcess(p).map(d=>renderDocRow(d, d, p, canEdit, false)).join('');
+  const customRows = p.customDocs.map(cd=>renderDocRow('custom:'+cd.id, cd.name, p, canEdit, true)).join('');
+  const addRow = canEdit ? `
+    <div style="display:flex; gap:8px; margin-top:10px;">
+      <input type="text" id="new-custom-doc-name" placeholder="Ex: Segunda Fatura, Certificado de Origem..." style="flex:1; padding:9px 11px; border:1px solid var(--border-strong); border-radius:6px; font-size:13px;">
+      <button class="btn" onclick="addCustomDoc(document.getElementById('new-custom-doc-name').value); document.getElementById('new-custom-doc-name').value='';">+ Outro Documento</button>
+    </div>
+  ` : '';
+
+  el.innerHTML = `<div class="doc-checklist">${fixedRows}${customRows}</div>${addRow}`;
+}
+
+async function addCustomDoc(name){
+  if(!requireEditPermission()) return;
+  if(!name || !name.trim()) return;
+  const p = window.__editingProcess;
+  p.customDocs = p.customDocs || [];
+  p.customDocs.push({ id: uid(), name: name.trim() });
+  renderDocsTab();
+  await autoPersistCurrentProcess();
+}
+
+async function removeCustomDoc(key){
+  if(!requireEditPermission()) return;
+  if(!confirm('Remover este documento personalizado? O arquivo anexado (se houver) também será excluído.')) return;
+  const p = window.__editingProcess;
+  const id = key.replace('custom:','');
+  const info = p.docFiles && p.docFiles[key];
+  if(info && info.path){
+    try{ await storage.ref(info.path).delete(); }catch(e){ console.log('Arquivo já não existia', e); }
+  }
+  if(p.docFiles) delete p.docFiles[key];
+  if(p.docs) delete p.docs[key];
+  p.customDocs = (p.customDocs||[]).filter(cd=>cd.id!==id);
+  renderDocsTab();
+  await autoPersistCurrentProcess();
 }
 
 async function autoPersistCurrentProcess(){
@@ -3015,17 +3856,17 @@ async function deleteDocFile(docType){
 
 function collectCostFields(){
   return {
-    fob: document.getElementById('c-fob').value,
-    frete: document.getElementById('c-frete').value,
-    seguro: document.getElementById('c-seguro').value,
+    fob: parseBRMasked(document.getElementById('c-fob').value),
+    frete: parseBRMasked(document.getElementById('c-frete').value),
+    seguro: parseBRMasked(document.getElementById('c-seguro').value),
     cambio: document.getElementById('c-cambio').value,
-    ii: document.getElementById('c-ii').value,
-    ipi: document.getElementById('c-ipi').value,
-    pis: document.getElementById('c-pis').value,
-    cofins: document.getElementById('c-cofins').value,
-    icms: document.getElementById('c-icms').value,
-    despesas: document.getElementById('c-despesas').value,
-    custoOrcado: document.getElementById('c-orcado').value,
+    ii: parseBRMasked(document.getElementById('c-ii').value),
+    ipi: parseBRMasked(document.getElementById('c-ipi').value),
+    pis: parseBRMasked(document.getElementById('c-pis').value),
+    cofins: parseBRMasked(document.getElementById('c-cofins').value),
+    icms: parseBRMasked(document.getElementById('c-icms').value),
+    despesas: parseBRMasked(document.getElementById('c-despesas').value),
+    custoOrcado: parseBRMasked(document.getElementById('c-orcado').value),
     regime: document.getElementById('c-regime') ? document.getElementById('c-regime').value : '',
   };
 }
@@ -3064,6 +3905,7 @@ function collectProcessFormData(){
     history: window.__editingProcess.history || [],
     produto: document.getElementById('f-produto').value.trim(),
     ref: document.getElementById('f-ref').value.trim(),
+    referenciaFornecedor: document.getElementById('f-ref-fornecedor').value.trim(),
     supplierId: document.getElementById('f-supplier').value,
     origemPais: document.getElementById('f-origem').value,
     incoterm: document.getElementById('f-incoterm').value,
@@ -3085,6 +3927,8 @@ function collectProcessFormData(){
     obs: document.getElementById('f-obs').value,
     docs: docs,
     docFiles: docFiles,
+    customDocs: window.__editingProcess.customDocs || [],
+    itens: window.__editingProcess.itens || [],
     ...collectCostFields()
   };
 }
