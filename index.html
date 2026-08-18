@@ -1024,7 +1024,14 @@ function openProcessViewModal(id, event){
     return `<div style="margin-bottom:14px;"><div style="font-weight:700;font-size:13px;margin-bottom:6px;">${s.label}</div><div class="view-check-list">${itemsHtml}</div></div>`;
   }).join('');
 
-  const docsHtml = `<div class="view-check-list">${getDocTypesForProcess(p).map(d=>`<div class="view-check-item ${p.docs&&p.docs[d]?'done':''}"><span class="vc">${p.docs&&p.docs[d]?'✓':''}</span>${d}</div>`).join('')}</div>`;
+  const docFilesRef = p.docFiles || {};
+  const docsHtml = `<div class="view-check-list">${getDocTypesForProcess(p).map(d=>{
+    const file = docFilesRef[d];
+    return `<div class="view-check-item ${p.docs&&p.docs[d]?'done':''}" style="justify-content:space-between;">
+      <span><span class="vc">${p.docs&&p.docs[d]?'✓':''}</span>${d}</span>
+      ${file ? `<a href="${file.url}" target="_blank" rel="noopener" class="btn" style="padding:3px 9px; font-size:10.5px;">Ver / Baixar</a>` : ''}
+    </div>`;
+  }).join('')}</div>`;
 
   const containersHtml = (extra.containersList && extra.containersList.length) ? `
     <div class="view-grid" style="margin-top:8px;">
@@ -3068,7 +3075,7 @@ function collectProcessFormData(){
     containersQty: document.getElementById('f-containers').value,
     aeroportoEmbarque: document.getElementById('f-aero-embarque') ? document.getElementById('f-aero-embarque').value : '',
     aeroportoDesembarque: document.getElementById('f-aero-desembarque') ? document.getElementById('f-aero-desembarque').value : '',
-    aeroportoDestinoFinal: window.__editingProcess.aeroportoDestinoFinal,
+    aeroportoDestinoFinal: window.__editingProcess.aeroportoDestinoFinal === undefined ? null : window.__editingProcess.aeroportoDestinoFinal,
     aeroportoDestino: document.getElementById('f-aero-destino') ? document.getElementById('f-aero-destino').value : '',
     temperaturaControlada: !!window.__editingProcess.temperaturaControlada,
     temperaturaValor: document.getElementById('f-temperatura').value,
