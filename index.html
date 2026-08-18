@@ -2949,6 +2949,25 @@ function renderDocsTab(){
   }).join('')}</div>`;
 }
 
+async function autoPersistCurrentProcess(){
+  const p = window.__editingProcess;
+  if(!p) return;
+  const data = collectProcessFormData();
+  if(!data.produto) return; // processo novo ainda sem nome — evita salvar rascunho vazio sozinho
+  const idx = state.processes.findIndex(x=>x.id===data.id);
+  const prev = idx>=0 ? state.processes[idx] : null;
+  detectHistoryChanges(prev, data);
+  const newKey = currentPendingKey(data);
+  if(prev && prev.pendingKey===newKey){
+    data.pendingSince = prev.pendingSince || todayStr();
+  } else {
+    data.pendingSince = todayStr();
+  }
+  data.pendingKey = newKey;
+  if(idx>=0) state.processes[idx] = data; else state.processes.push(data);
+  await persistState();
+}
+
 async function uploadDocFile(inputEl, docType){
   if(!requireEditPermission()) return;
   const file = inputEl.files[0];
@@ -2966,10 +2985,11 @@ async function uploadDocFile(inputEl, docType){
     p.docs = p.docs || {};
     p.docs[docType] = true;
     renderDocsTab();
+    await autoPersistCurrentProcess();
   }catch(e){
     console.error(e);
     if(statusEl) statusEl.textContent = '';
-    alert('Não foi possível enviar o arquivo. Confira se o Storage foi ativado e as regras foram publicadas.');
+    alert('Não foi possível enviar o arquivo. Confira se o Storage foi ativado, se as regras foram publicadas e se o CORS do bucket está configurado.');
   }
 }
 
@@ -2983,6 +3003,7 @@ async function deleteDocFile(docType){
   }
   if(p.docFiles) delete p.docFiles[docType];
   renderDocsTab();
+  await autoPersistCurrentProcess();
 }
 
 function collectCostFields(){
