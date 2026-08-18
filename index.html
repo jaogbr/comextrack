@@ -165,6 +165,26 @@ main{flex:1; min-width:0; display:flex; flex-direction:column;}
   padding:6px 10px; font-size:11.5px; font-weight:600; margin-top:7px; line-height:1.5;
 }
 .process-card.has-alert, .transit-card.has-alert{border-color:var(--ink-red); box-shadow:0 0 0 1px var(--ink-red-bg);}
+
+.eye-btn{
+  position:absolute; top:10px; right:10px; background:var(--paper); border:1px solid var(--border-strong);
+  border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; font-size:14px; z-index:2;
+}
+.eye-btn:hover{background:var(--card); border-color:var(--ink-blue);}
+.process-card, .transit-card{position:relative;}
+
+.view-section-title{font-family:'Zilla Slab',serif; font-weight:700; font-size:14.5px; margin:18px 0 10px 0; color:var(--navy); text-transform:uppercase; letter-spacing:0.03em;}
+.view-section-title:first-child{margin-top:0;}
+.view-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px;}
+.view-field{background:var(--paper); border:1px solid var(--border); border-radius:6px; padding:8px 10px;}
+.view-field .view-label{display:block; font-size:10px; text-transform:uppercase; color:var(--muted); font-weight:600; letter-spacing:0.03em; margin-bottom:3px;}
+.view-field .view-value{font-size:13px; font-weight:500;}
+.view-check-list{display:flex; flex-direction:column; gap:5px;}
+.view-check-item{display:flex; align-items:center; gap:8px; font-size:12.5px; padding:5px 8px; border-radius:5px;}
+.view-check-item.done{color:var(--ink-green);}
+.view-check-item .vc{width:14px; height:14px; border-radius:4px; border:2px solid var(--border-strong); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff;}
+.view-check-item.done .vc{background:var(--ink-green); border-color:var(--ink-green);}
 .pending-since{font-size:11px; color:var(--ink-red); margin-top:4px; font-weight:600;}
 
 .process-ref-badge{min-width:64px; text-align:center; padding:6px 4px;}
@@ -193,6 +213,8 @@ body.dark-mode .config-icon, body.dark-mode .config-label, body.dark-mode .confi
 }
 body.dark-mode .doc-item, body.dark-mode .stage-header, body.dark-mode .stage-body{background:#1A222E;}
 body.dark-mode .theme-toggle-btn{background:#232E3D; color:#fff; border-color:#3A4A5F;}
+body.dark-mode .process-ref-badge .ref-value{color:#E8A25C;}
+body.dark-mode .kpi-card, body.dark-mode .process-card, body.dark-mode .transit-card, body.dark-mode .supplier-card, body.dark-mode .contact-card{background:var(--card);}
 
 .process-side{text-align:right; white-space:nowrap;}
 .process-value{font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:14px;}
@@ -214,7 +236,7 @@ body.dark-mode .theme-toggle-btn{background:#232E3D; color:#fff; border-color:#3
 .transit-logi{font-size:11.5px; color:var(--text); margin-top:4px; display:flex; gap:12px; flex-wrap:wrap;}
 .transit-logi b{color:var(--muted); font-weight:600;}
 .transit-days{text-align:right; white-space:nowrap;}
-.transit-days .big{font-family:'Zilla Slab',serif; font-size:19px; font-weight:700;}
+.transit-days .big{font-family:'IBM Plex Mono',monospace; font-size:17px; font-weight:700; letter-spacing:0.01em;}
 .transit-days .small{font-size:11px; color:var(--muted);}
 .transit-days.late .big{color:var(--ink-red);}
 
@@ -743,6 +765,123 @@ function renderAlertBanner(p){
   const alerts = getProcessAlerts(p);
   if(!alerts.length) return '';
   return `<div class="alert-banner">⚠️ ${alerts.join(' · ')}</div>`;
+}
+
+function canalColor(canal){
+  const map = {'Verde':'#1F7A5C','Amarelo':'#A5730F','Vermelho':'#B8441F','Cinza':'#6B7785'};
+  return map[canal] || null;
+}
+function canalBadgeHtml(canal){
+  if(!canal) return '';
+  const color = canalColor(canal);
+  if(!color) return canal;
+  return `<span style="color:${color};font-weight:700;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:5px;vertical-align:1px;"></span>${canal}</span>`;
+}
+
+function viewFieldHtml(label, value){
+  return `<div class="view-field"><span class="view-label">${label}</span><span class="view-value">${value||'—'}</span></div>`;
+}
+
+function openProcessViewModal(id, event){
+  if(event) event.stopPropagation();
+  const p = state.processes.find(x=>x.id===id);
+  if(!p) return;
+  const fornecedor = state.suppliers.find(s=>s.id===p.supplierId);
+  const costs = computeCosts(p);
+  const stages = getStagesForProcess(p);
+  const extra = p.extra || {};
+  const destino = p.modal==='aereo' ? 'Aeroporto de Confins' : 'Porto Seco de Betim';
+
+  const etapasHtml = stages.map(s=>{
+    let itemsHtml = '';
+    if(s.type==='payments'){
+      itemsHtml = s.items.map(it=>{
+        const rec = (p.payments && p.payments[it.key]) || {checked:false, valor:''};
+        const v = parseFloat(rec.valor)||0;
+        return `<div class="view-check-item ${rec.checked?'done':''}"><span class="vc">${rec.checked?'✓':''}</span>${it.label}${v?` — ${fmtBRL(v)}`:''}</div>`;
+      }).join('');
+    } else {
+      const checked = p.checklist[s.key]||[];
+      itemsHtml = s.items.map((label,idx)=>`<div class="view-check-item ${checked[idx]?'done':''}"><span class="vc">${checked[idx]?'✓':''}</span>${label}</div>`).join('');
+    }
+    return `<div style="margin-bottom:14px;"><div style="font-weight:700;font-size:13px;margin-bottom:6px;">${s.label}</div><div class="view-check-list">${itemsHtml}</div></div>`;
+  }).join('');
+
+  const docsHtml = `<div class="view-check-list">${DOC_TYPES.map(d=>`<div class="view-check-item ${p.docs&&p.docs[d]?'done':''}"><span class="vc">${p.docs&&p.docs[d]?'✓':''}</span>${d}</div>`).join('')}</div>`;
+
+  const containersHtml = (extra.containersList && extra.containersList.length) ? `
+    <div class="view-grid" style="margin-top:8px;">
+      ${extra.containersList.map((c,i)=>viewFieldHtml('Container #'+(i+1), (c.container||'—')+' / Lacre: '+(c.lacre||'—'))).join('')}
+    </div>` : '';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modal-overlay';
+  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  overlay.innerHTML = `
+    <div class="modal">
+      <div class="modal-header">
+        <h2>${p.produto||'Processo'} <span style="font-family:'IBM Plex Mono',monospace; font-size:14px; color:var(--muted);">· ${p.ref||''}</span></h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="status-badge-row">
+          <div class="stamp ${stageInfoFor(p,p.status).cls}">${stageInfoFor(p,p.status).label}</div>
+          <div class="status-badge-hint">${Math.round(processProgressRatio(p)*100)}% concluído · Visualização somente leitura</div>
+        </div>
+
+        <div class="view-section-title">Identificação</div>
+        <div class="view-grid">
+          ${viewFieldHtml('Fornecedor', fornecedor?fornecedorNameHtml(fornecedor):'—')}
+          ${viewFieldHtml('Tipo', p.tipo==='temporaria'?'Admissão Temporária':'Importação Definitiva')}
+          ${viewFieldHtml('Data do Pedido', fmtDate(p.dataPedido))}
+          ${viewFieldHtml('Prontidão Prevista', fmtDate(p.prontidao))}
+        </div>
+
+        <div class="view-section-title">Dados da Importação</div>
+        <div class="view-grid">
+          ${viewFieldHtml('Origem', (countryFlag(p.origemPais)?countryFlag(p.origemPais)+' ':'')+(p.origemPais||'—'))}
+          ${viewFieldHtml('Destino', destino)}
+          ${viewFieldHtml('Modal', modalIcon(p.modal)+' '+modalLabel(p.modal))}
+          ${viewFieldHtml('Incoterm', p.incoterm)}
+          ${viewFieldHtml('DI / DUIMP', extra.numeroDUIMP)}
+          ${viewFieldHtml('Canal', canalBadgeHtml(extra.canalDesembaraco))}
+          ${viewFieldHtml('Agente de Cargas', extra.agenteCarga)}
+          ${viewFieldHtml('Despachante', extra.despachante)}
+          ${viewFieldHtml('Transportadora (DTA)', extra.transportadoraDTA)}
+          ${viewFieldHtml('Navio', extra.navio)}
+          ${viewFieldHtml('Viagem', extra.viagem)}
+          ${viewFieldHtml('Freetime', extra.freetime ? extra.freetime+' dias' : '')}
+          ${viewFieldHtml('Número do BL', extra.numeroBL)}
+          ${viewFieldHtml('Embarque Real', fmtDate(p.dataEmbarqueReal))}
+          ${viewFieldHtml('Chegada Prevista', fmtDate(p.chegadaPrevista))}
+          ${viewFieldHtml('Controle de Temperatura', p.temperaturaControlada ? (p.temperaturaValor==='outro'?p.temperaturaOutro:p.temperaturaValor+'°C') : 'Não')}
+        </div>
+        ${containersHtml}
+
+        <div class="view-section-title">Etapas</div>
+        ${etapasHtml}
+
+        <div class="view-section-title">Documentos</div>
+        ${docsHtml}
+
+        <div class="view-section-title">Custos</div>
+        <div class="view-grid">
+          ${viewFieldHtml('CIF (BRL)', fmtBRL(costs.cifBrl))}
+          ${viewFieldHtml('Impostos', fmtBRL(costs.ii+costs.ipi+costs.pis+costs.cofins+costs.icms))}
+          ${viewFieldHtml('Pagamentos (Fase 8)', fmtBRL(costs.paymentsTotal))}
+          ${viewFieldHtml('Custo Total', fmtBRL(costs.total))}
+        </div>
+
+        ${p.obs ? `<div class="view-section-title">Observações</div><div class="view-field">${p.obs}</div>` : ''}
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-pdf" onclick="closeModal(); openProcessModal('${p.id}');">Abrir para editar</button>
+        <button class="btn" onclick="closeModal()">Fechar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
 }
 
 function fornecedorNameHtml(fornecedor){
@@ -1331,6 +1470,7 @@ function processCard(p, note){
 
   return `
   <div class="process-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessModal('${p.id}')">
+    <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo">👁️</button>
     ${refBadgeHtml(p)}
     <div class="process-main">
       <h3>${p.produto || 'Sem descrição'}<span class="phase-mini">${info.label.replace(/^Fase \d+ · /,'')}</span></h3>
@@ -1365,6 +1505,7 @@ function producaoCard(p){
   }).join('');
   return `
   <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessModal('${p.id}')">
+    <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo">👁️</button>
     ${refBadgeHtml(p)}
     <div>
       <h3 style="font-size:15px;font-weight:600;">${p.produto||'Sem descrição'}<span class="phase-mini">${stageInfoFor(p,p.status).label.replace(/^Fase \d+ · /,'')}</span></h3>
@@ -1397,6 +1538,7 @@ function aguardandoEmbarqueCard(p){
   if(extra.agenteCarga) logiParts.push(`<span><b>Agente:</b> ${extra.agenteCarga}</span>`);
   return `
   <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessModal('${p.id}')">
+    <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo">👁️</button>
     ${refBadgeHtml(p)}
     <div>
       <h3 style="font-size:15px;font-weight:600;">${p.produto||'Sem descrição'}</h3>
@@ -1423,7 +1565,7 @@ function desembaracoCard(p){
   const infoParts = [];
   if(extra.dataChegadaBetim) infoParts.push(`<span><b>Chegada:</b> ${fmtDate(extra.dataChegadaBetim)}</span>`);
   if(extra.numeroDUIMP) infoParts.push(`<span><b>DUIMP:</b> ${extra.numeroDUIMP}</span>`);
-  if(extra.canalDesembaraco) infoParts.push(`<span><b>Canal:</b> ${extra.canalDesembaraco}</span>`);
+  if(extra.canalDesembaraco) infoParts.push(`<span><b>Canal:</b> ${canalBadgeHtml(extra.canalDesembaraco)}</span>`);
   if(extra.despachante) infoParts.push(`<span><b>Despachante:</b> ${extra.despachante}</span>`);
   let pendingHtml = '';
   if(p.pendingSince){
@@ -1432,6 +1574,7 @@ function desembaracoCard(p){
   }
   return `
   <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessModal('${p.id}')">
+    <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo">👁️</button>
     ${refBadgeHtml(p)}
     <div>
       <h3 style="font-size:15px;font-weight:600;"><img src="${DESEMBARACO_ICON}" alt="" style="width:16px;height:16px;object-fit:contain;vertical-align:-3px;margin-right:5px;">${p.produto||'Sem descrição'}</h3>
@@ -1463,6 +1606,7 @@ function transitoCard(p){
   if(extra.transportadoraDTA) logiParts.push(`<span><b>DTA:</b> ${extra.transportadoraDTA}</span>`);
   return `
   <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessModal('${p.id}')">
+    <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo">👁️</button>
     ${refBadgeHtml(p)}
     <div>
       <h3 style="font-size:15px;font-weight:600;">${p.produto||'Sem descrição'}</h3>
@@ -1608,10 +1752,11 @@ function renderExtraFieldInput(f, p){
     return `<div class="mini-field"><label>${f.label}</label><div style="padding:6px 8px;font-size:12px;background:#fff;border:1px solid var(--border-strong);border-radius:5px;">${v}</div></div>`;
   }
   if(f.type==='select'){
+    const preview = f.key==='canalDesembaraco' && val ? `<div style="margin-top:5px;">${canalBadgeHtml(val)}</div>` : '';
     return `<div class="mini-field"><label>${f.label}</label><select onchange="updateExtraField('${f.key}', this.value)">
       <option value="">—</option>
       ${f.options.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('')}
-    </select></div>`;
+    </select>${preview}</div>`;
   }
   if(f.type==='partner'){
     const options = state.partners.filter(pt=>pt.tipo===f.partnerType).map(pt=>pt.empresa);
@@ -1678,7 +1823,7 @@ function initTemperaturaUI(p){
 function updateExtraField(key, val){
   window.__editingProcess.extra = window.__editingProcess.extra || {};
   window.__editingProcess.extra[key] = val;
-  if(key==='modalidadePagamento'){ renderEtapasTab(); }
+  if(key==='modalidadePagamento' || key==='canalDesembaraco'){ renderEtapasTab(); }
 }
 function updatePaymentValue(key, val){
   const p = window.__editingProcess;
