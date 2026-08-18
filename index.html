@@ -1284,6 +1284,10 @@ function formatHistoryDate(ts){
 }
 
 /* ---------- ITENS DO PROCESSO ---------- */
+let editingItemIds = new Set();
+function startEditingItem(id){ editingItemIds.add(id); renderItensTab(); }
+function finishEditingItem(id){ editingItemIds.delete(id); renderItensTab(); }
+
 function renderItensTab(){
   const p = window.__editingProcess;
   p.itens = p.itens || [];
@@ -1292,16 +1296,36 @@ function renderItensTab(){
   const canEdit = currentRole!=='viewer';
   el.innerHTML = p.itens.length ? p.itens.map((it,idx)=>{
     const valorAlterado = it.valorUnitarioMestre!==undefined && it.valorUnitarioMestre!=='' && String(it.valorUnitarioMestre)!==String(it.valorUnitarioUsado);
+    const alteradoHtml = valorAlterado ? `<br><span class="form-hint" style="color:var(--ink-amber);">✏️ Valor alterado manualmente — cadastrado: ${fmtUSD(parseFloat(it.valorUnitarioMestre)||0)}</span>` : '';
+
+    if(canEdit && editingItemIds.has(it.id)){
+      return `
+      <div class="item-row">
+        <span class="item-pn">${it.pn}</span>
+        <span class="item-desc">${it.descricao||'—'}${alteradoHtml}</span>
+        <input type="text" inputmode="decimal" value="${it.valorUnitarioUsado?fmtNumberBR(it.valorUnitarioUsado):''}" oninput="maskCurrencyInput(this); updateItemField(${idx},'valorUnitarioUsado', parseBRMasked(this.value));" title="Valor unitário usado neste processo" style="font-family:'IBM Plex Mono',monospace; font-weight:700;">
+        <input type="number" step="1" value="${it.quantidade}" oninput="updateItemField(${idx},'quantidade', this.value)" style="font-family:'IBM Plex Mono',monospace; font-weight:700;">
+        <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; text-align:right;">${fmtUSD((parseFloat(it.valorUnitarioUsado)||0)*(parseFloat(it.quantidade)||0))}</span>
+        <button class="btn btn-primary" style="padding:4px 10px; font-size:11px;" onclick="finishEditingItem('${it.id}')">OK</button>
+      </div>
+    `;
+    }
+
     return `
-    <div class="item-row">
-      <span class="item-pn">${it.pn}</span>
-      <span class="item-desc">${it.descricao||'—'}${valorAlterado ? `<br><span class="form-hint" style="color:var(--ink-amber);">✏️ Valor alterado manualmente — cadastrado: ${fmtUSD(parseFloat(it.valorUnitarioMestre)||0)}</span>` : ''}</span>
-      <input type="text" inputmode="decimal" value="${it.valorUnitarioUsado?fmtNumberBR(it.valorUnitarioUsado):''}" ${canEdit?'':'disabled'} oninput="maskCurrencyInput(this); updateItemField(${idx},'valorUnitarioUsado', parseBRMasked(this.value));" title="Valor unitário usado neste processo" style="font-family:'IBM Plex Mono',monospace; font-weight:700;">
-      <input type="number" step="1" value="${it.quantidade}" ${canEdit?'':'disabled'} oninput="updateItemField(${idx},'quantidade', this.value)" style="font-family:'IBM Plex Mono',monospace; font-weight:700;">
-      <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; text-align:right;">${fmtUSD((parseFloat(it.valorUnitarioUsado)||0)*(parseFloat(it.quantidade)||0))}</span>
-      ${canEdit?`<button class="btn btn-danger" style="padding:4px 7px; font-size:11px;" onclick="removeItem(${idx})">×</button>`:'<span></span>'}
-    </div>
-  `;
+      <div class="item-row">
+        <span class="item-pn">${it.pn}</span>
+        <span class="item-desc">${it.descricao||'—'}${alteradoHtml}</span>
+        <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px;">${fmtUSD(parseFloat(it.valorUnitarioUsado)||0)}</span>
+        <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px;">${it.quantidade}</span>
+        <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; text-align:right;">${fmtUSD((parseFloat(it.valorUnitarioUsado)||0)*(parseFloat(it.quantidade)||0))}</span>
+        ${canEdit ? `
+          <div style="display:flex; gap:4px;">
+            <button class="btn" style="padding:4px 7px; font-size:11px;" onclick="startEditingItem('${it.id}')" title="Editar">✎</button>
+            <button class="btn btn-danger" style="padding:4px 7px; font-size:11px;" onclick="removeItem(${idx})" title="Excluir">×</button>
+          </div>
+        ` : '<span></span>'}
+      </div>
+    `;
   }).join('') : `<div class="form-hint">Nenhum item adicionado ainda.</div>`;
   renderItemTotals();
 }
@@ -1369,10 +1393,12 @@ async function selectItemProduct(i){
   if(!r) return;
   const p = window.__editingProcess;
   p.itens = p.itens || [];
+  const newId = uid();
   p.itens.push({
-    id: uid(), pn: r.pn, descricao: r.descricao||'', ncm: r.ncm||'', fabricante: r.fabricante||'',
+    id: newId, pn: r.pn, descricao: r.descricao||'', ncm: r.ncm||'', fabricante: r.fabricante||'',
     valorUnitarioMestre: r.valorUnitario||'', valorUnitarioUsado: r.valorUnitario||'', quantidade: 1,
   });
+  editingItemIds.add(newId);
   document.getElementById('item-pn-input').value = '';
   document.getElementById('item-autocomplete-list').innerHTML='';
   document.getElementById('item-autocomplete-list').style.display='none';
@@ -1413,7 +1439,9 @@ async function quickAddProductAndItem(pn){
   }
   const p = window.__editingProcess;
   p.itens = p.itens || [];
-  p.itens.push({ id:uid(), pn, descricao, ncm, fabricante, valorUnitarioMestre:valorUnitario, valorUnitarioUsado:valorUnitario, quantidade:1 });
+  const newId = uid();
+  p.itens.push({ id:newId, pn, descricao, ncm, fabricante, valorUnitarioMestre:valorUnitario, valorUnitarioUsado:valorUnitario, quantidade:1 });
+  editingItemIds.add(newId);
   document.getElementById('item-pn-input').value = '';
   document.getElementById('item-autocomplete-list').style.display = 'none';
   renderItensTab();
@@ -3590,6 +3618,7 @@ function openProcessModal(id){
   initTemperaturaUI(p);
   initAeroportoUI(p);
   renderHistoryTab();
+  editingItemIds = new Set();
   renderItensTab();
   document.getElementById('desempenho-content').innerHTML = renderDesempenhoTab();
   renderDocsTab();
