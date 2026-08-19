@@ -78,6 +78,12 @@ body{
   transition:background 0.15s, color 0.15s;
 }
 .nav-item:hover{background:var(--navy-light); color:#fff;}
+.nav-item-reorder-row{display:flex; align-items:center; gap:4px; margin-bottom:2px;}
+.nav-reorder-btn{background:var(--navy-light); border:none; color:#AEBBCC; border-radius:5px; width:26px; height:26px; cursor:pointer; font-size:12px; flex-shrink:0;}
+.nav-reorder-btn:hover{color:#fff;}
+.nav-reorder-btn:disabled{opacity:0.25; cursor:default;}
+.nav-reorder-toggle{width:100%; margin-top:10px; padding:8px 12px; background:none; border:1px dashed #4A5A70; border-radius:6px; color:#AEBBCC; font-size:11.5px; cursor:pointer;}
+.nav-reorder-toggle:hover{color:#fff; border-color:#7A8AA0;}
 .nav-item.active{background:var(--navy-lighter); color:#fff;}
 .nav-item .dot{width:6px; height:6px; border-radius:50%; background:currentColor; opacity:0; flex-shrink:0;}
 .nav-item.active .dot{opacity:1; background:#E8A25C;}
@@ -182,6 +188,11 @@ main{flex:1; min-width:0; display:flex; flex-direction:column;}
 .view-field{background:var(--paper); border:1px solid var(--border); border-radius:6px; padding:8px 10px;}
 .view-field .view-label{display:block; font-size:10px; text-transform:uppercase; color:var(--muted); font-weight:600; letter-spacing:0.03em; margin-bottom:3px;}
 .view-field .view-value{font-size:13px; font-weight:500;}
+.view-field .view-value-row{display:flex; align-items:center; gap:6px;}
+.copy-icon-btn{background:none; border:none; cursor:pointer; opacity:0.3; font-size:11px; padding:2px; line-height:1; flex-shrink:0;}
+.copy-icon-btn:hover{opacity:0.9;}
+.copy-toast{position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(8px); background:var(--navy); color:#fff; padding:8px 18px; border-radius:20px; font-size:12.5px; font-weight:600; opacity:0; transition:opacity 0.25s ease, transform 0.25s ease; z-index:9999; box-shadow:0 6px 18px rgba(0,0,0,0.2);}
+.copy-toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
 .view-check-list{display:flex; flex-direction:column; gap:5px;}
 .view-check-item{display:flex; align-items:center; gap:8px; font-size:12.5px; padding:5px 8px; border-radius:5px;}
 .view-check-item.done{color:var(--ink-green);}
@@ -698,6 +709,7 @@ const STAGE_DEFS = [
     itemFields:{
       0:[{key:'numeroBL', label:'Número do BL', type:'text'}],
       1:[{key:'despachante', label:'Despachante', type:'partner', partnerType:'Despachante'}],
+      4:[{key:'dataRascunhoDUIMP', label:'Data do Rascunho', type:'date'}],
     }},
   {key:'fase6', label:'Fase 6 · Chegada, Trânsito e Desembaraço', cls:'stamp-desembaraco',
     items:['Solicitar DTA','Chegada e presença','Agendar DTA','Chegada no Recinto de Desembaraço','Descarga no Recinto de Desembaraço','Pagar numerário despachante','Registro da DUIMP','Testar NF','Desembaraço da DUIMP','Liberação SEFAZ'],
@@ -1252,8 +1264,41 @@ function canalBadgeHtml(canal){
   return `<span style="color:${color};font-weight:700;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:5px;vertical-align:1px;"></span>${canal}</span>`;
 }
 
+function stripHtmlTags(html){
+  return String(html==null?'':html).replace(/<[^>]*>/g,'').replace(/&nbsp;/g,' ').trim();
+}
 function viewFieldHtml(label, value){
-  return `<div class="view-field"><span class="view-label">${label}</span><span class="view-value">${value||'—'}</span></div>`;
+  const display = (value===undefined || value===null || value==='') ? '—' : value;
+  const plain = stripHtmlTags(display);
+  const canCopy = plain && plain!=='—';
+  return `<div class="view-field">
+    <span class="view-label">${label}</span>
+    <span class="view-value-row">
+      <span class="view-value">${display}</span>
+      ${canCopy ? `<button class="copy-icon-btn" onclick="copyToClipboard('${plain.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n')}')" title="Copiar">📋</button>` : ''}
+    </span>
+  </div>`;
+}
+async function copyToClipboard(text){
+  try{
+    await navigator.clipboard.writeText(text);
+    showCopyToast();
+  }catch(e){
+    console.error('Não foi possível copiar', e);
+  }
+}
+function showCopyToast(){
+  const existing = document.querySelector('.copy-toast');
+  if(existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.className = 'copy-toast';
+  toast.textContent = 'Copiado';
+  document.body.appendChild(toast);
+  requestAnimationFrame(()=>toast.classList.add('show'));
+  setTimeout(()=>{
+    toast.classList.remove('show');
+    setTimeout(()=>toast.remove(), 300);
+  }, 1300);
 }
 
 function openProcessViewModal(id, event){
@@ -1920,6 +1965,7 @@ function getStagesForProcess(p){
       return {...s, items, itemFields:{
         0: [{key:'numeroBL', label:'Número do AWB', type:'text'}],
         1: s.itemFields[1],
+        4: s.itemFields[4],
       }};
     }
 
@@ -2163,18 +2209,7 @@ function render(){
         </div>
       </div>
       <nav class="nav">
-        ${navItem('dashboard','📊 Painel')}
-        ${navItem('processos','📋 Processos')}
-        ${navItem('finalizados','✅ Finalizados')}
-        ${navItem('fornecedores','🏭 Fornecedores')}
-        ${navItem('parceiros','🤝 Parceiros')}
-        ${navItem('followup','📧 Follow-up')}
-        ${navItem('bancoitens','📦 Banco de Itens')}
-        ${navItem('rotas','🗺️ Rotas')}
-        ${navItem('produtosmestre','🏷️ Produtos')}
-        ${navItem('indicadores','🎯 Indicadores')}
-        ${currentRole==='admin' ? navItem('equipe','👥 Equipe') : ''}
-        ${currentRole==='admin' ? navItem('personalizacao','🎨 Personalização') : ''}
+        ${renderNavHtml()}
       </nav>
       <div class="sidebar-footer">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
@@ -2201,6 +2236,66 @@ function render(){
     </main>
   `;
   renderView();
+}
+
+const NAV_ITEMS = [
+  {key:'dashboard', label:'📊 Painel'},
+  {key:'processos', label:'📋 Processos'},
+  {key:'finalizados', label:'✅ Finalizados'},
+  {key:'fornecedores', label:'🏭 Fornecedores'},
+  {key:'parceiros', label:'🤝 Parceiros'},
+  {key:'followup', label:'📧 Follow-up'},
+  {key:'bancoitens', label:'📦 Banco de Itens'},
+  {key:'rotas', label:'🗺️ Rotas'},
+  {key:'produtosmestre', label:'🏷️ Produtos'},
+  {key:'indicadores', label:'🎯 Indicadores'},
+  {key:'equipe', label:'👥 Equipe', adminOnly:true},
+  {key:'personalizacao', label:'🎨 Personalização', adminOnly:true},
+];
+let navReorderMode = false;
+
+function getNavOrder(){
+  try{
+    const saved = JSON.parse(localStorage.getItem('comextrack_nav_order')||'null');
+    if(Array.isArray(saved) && saved.length){
+      const byKey = {}; NAV_ITEMS.forEach(i=>byKey[i.key]=i);
+      const ordered = saved.map(k=>byKey[k]).filter(Boolean);
+      NAV_ITEMS.forEach(i=>{ if(!saved.includes(i.key)) ordered.push(i); });
+      return ordered;
+    }
+  }catch(e){}
+  return NAV_ITEMS.slice();
+}
+function saveNavOrder(items){
+  try{ localStorage.setItem('comextrack_nav_order', JSON.stringify(items.map(i=>i.key))); }catch(e){}
+}
+function toggleNavReorderMode(){
+  navReorderMode = !navReorderMode;
+  render();
+}
+function moveNavItem(key, dir){
+  const items = getNavOrder();
+  const idx = items.findIndex(i=>i.key===key);
+  const newIdx = idx+dir;
+  if(newIdx<0 || newIdx>=items.length) return;
+  [items[idx], items[newIdx]] = [items[newIdx], items[idx]];
+  saveNavOrder(items);
+  render();
+}
+function renderNavHtml(){
+  const items = getNavOrder().filter(i=> !i.adminOnly || currentRole==='admin');
+  const body = items.map((i,idx)=>{
+    if(navReorderMode){
+      return `<div class="nav-item-reorder-row">
+        <button class="nav-item ${currentView===i.key?'active':''}" style="flex:1;" onclick="setView('${i.key}')"><span class="dot"></span>${i.label}</button>
+        <button class="nav-reorder-btn" onclick="moveNavItem('${i.key}',-1)" ${idx===0?'disabled':''}>↑</button>
+        <button class="nav-reorder-btn" onclick="moveNavItem('${i.key}',1)" ${idx===items.length-1?'disabled':''}>↓</button>
+      </div>`;
+    }
+    return navItem(i.key, i.label);
+  }).join('');
+  const toggleBtn = `<button class="nav-reorder-toggle" onclick="toggleNavReorderMode()">${navReorderMode?'✓ Concluir reordenação':'⇅ Reordenar abas'}</button>`;
+  return body + toggleBtn;
 }
 
 function navItem(key,label){
@@ -3024,6 +3119,33 @@ function renderProdutosMestreList(){
   el.innerHTML = header + sectionsHtml;
 }
 
+function renderPMDesempenhoHtml(pr){
+  const historico = pr.historicoProcessos || [];
+  if(!historico.length){
+    return `<div class="form-hint">Nenhum processo finalizado vinculado a este produto ainda. Conforme processos que usarem este modelo forem concluídos, as médias de prazo e custo aparecem aqui automaticamente.</div>`;
+  }
+  const leadTimes = historico.filter(h=>h.leadTimeDias!=null).map(h=>h.leadTimeDias);
+  const custos = historico.filter(h=>h.custoTotal!=null).map(h=>h.custoTotal);
+  const mediaLead = leadTimes.length ? (leadTimes.reduce((a,b)=>a+b,0)/leadTimes.length) : null;
+  const mediaCusto = custos.length ? (custos.reduce((a,b)=>a+b,0)/custos.length) : null;
+  return `
+    <div class="item-totals-row" style="margin-top:0;">
+      <div class="item-total-box"><div class="num">${historico.length}</div><div class="lbl">Processos Concluídos</div></div>
+      <div class="item-total-box"><div class="num">${mediaLead!==null?mediaLead.toFixed(1):'—'}</div><div class="lbl">Lead Time Médio (dias)</div></div>
+      <div class="item-total-box"><div class="num">${mediaCusto!==null?fmtBRL(mediaCusto):'—'}</div><div class="lbl">Custo Médio</div></div>
+    </div>
+    <div class="form-hint" style="margin-top:14px; margin-bottom:8px;">Últimos processos:</div>
+    <table class="indicators-table">
+      <thead><tr><th>Referência</th><th>Lead Time</th><th>Custo Total</th><th>Concluído em</th></tr></thead>
+      <tbody>
+        ${historico.slice().sort((a,b)=>new Date(b.dataFinalizacao)-new Date(a.dataFinalizacao)).slice(0,15).map(h=>`
+          <tr><td>${h.ref||'—'}</td><td>${h.leadTimeDias!=null?h.leadTimeDias+' dias':'—'}</td><td>${h.custoTotal!=null?fmtBRL(h.custoTotal):'—'}</td><td>${fmtDate(h.dataFinalizacao)}</td></tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
 function openProdutoMestreModal(id){
   const existing = id ? (window.__produtosMestre||[]).find(p=>p.id===id) : null;
   const pr = existing || {id:uid(), nome:'', ativo:true, history:[]};
@@ -3051,6 +3173,7 @@ function openProdutoMestreModal(id){
       <div class="modal-body">
         <div class="tabs">
           <button class="tab-btn active" data-tab="dados" onclick="switchTab('dados')">Dados</button>
+          ${existing?`<button class="tab-btn" data-tab="pm-desempenho" onclick="switchTab('pm-desempenho')">Desempenho</button>`:''}
           ${existing?`<button class="tab-btn" data-tab="histprod" onclick="switchTab('histprod')">Histórico</button>`:''}
         </div>
         <div class="tab-pane active" id="tab-dados">
@@ -3070,9 +3193,48 @@ function openProdutoMestreModal(id){
               ${COUNTRY_LIST.map(c=>`<option value="${c.name}" ${pr.origemPais===c.name?'selected':''}>${c.name}</option>`).join('')}
             </select>
           </div>
+          <div class="form-group"><label>Modal de Transporte</label>
+            <select id="pm-modal" onchange="onPMModalChange(this.value)">
+              <option value="maritimo" ${pr.modal!=='aereo'?'selected':''}>Marítimo</option>
+              <option value="aereo" ${pr.modal==='aereo'?'selected':''}>Aéreo</option>
+            </select>
+          </div>
+          <div id="pm-maritimo-portos-wrap" style="display:${pr.modal==='aereo'?'none':'block'};">
+            <div class="form-row">
+              <div class="form-group"><label>Porto de Embarque</label><input id="pm-porto-embarque" value="${pr.portoEmbarque||''}"></div>
+              <div class="form-group"><label>Porto de Destino</label><input id="pm-porto-destino" value="${pr.portoDestino||''}"></div>
+            </div>
+          </div>
+          <div id="pm-aereo-portos-wrap" style="display:${pr.modal==='aereo'?'block':'none'};">
+            <div class="form-row">
+              <div class="form-group"><label>Aeroporto de Embarque</label><input id="pm-aero-embarque" value="${pr.aeroportoEmbarque||''}"></div>
+              <div class="form-group"><label>Aeroporto de Desembarque</label><input id="pm-aero-desembarque" value="${pr.aeroportoDesembarque||''}"></div>
+            </div>
+            <div class="form-group">
+              <label>O aeroporto de desembarque é o destino final?</label>
+              <div class="type-toggle">
+                <button type="button" class="pm-aerofinal-toggle-btn" data-val="nao" onclick="togglePMAeroportoFinal(false)">Não</button>
+                <button type="button" class="pm-aerofinal-toggle-btn" data-val="sim" onclick="togglePMAeroportoFinal(true)">Sim</button>
+              </div>
+            </div>
+            <div class="form-group" id="pm-aero-destino-wrap" style="display:none;">
+              <label>Aeroporto de Destino Final</label>
+              <input id="pm-aero-destino" value="${pr.aeroportoDestino||''}">
+            </div>
+          </div>
           <div class="form-row">
-            <div class="form-group"><label>Porto de Embarque</label><input id="pm-porto-embarque" value="${pr.portoEmbarque||''}"></div>
-            <div class="form-group"><label>Porto de Destino</label><input id="pm-porto-destino" value="${pr.portoDestino||''}"></div>
+            <div class="form-group"><label>Tamanho do Container</label>
+              <select id="pm-container-tamanho">
+                <option value="">— não aplicável —</option>
+                ${['20\'','40\'','40\' HC','45\' HC'].map(t=>`<option value="${t}" ${pr.containerTamanho===t?'selected':''}>${t}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group"><label>Tipo de Container</label>
+              <select id="pm-container-tipo">
+                <option value="">— não aplicável —</option>
+                ${['Dry (padrão)','Reefer (refrigerado)','Open Top','Flat Rack','Tanque'].map(t=>`<option value="${t}" ${pr.containerTipo===t?'selected':''}>${t}</option>`).join('')}
+              </select>
+            </div>
           </div>
           <div class="form-group">
             <label>Controle de Temperatura</label>
@@ -3095,6 +3257,7 @@ function openProdutoMestreModal(id){
             </div>
           </div>
         </div>
+        ${existing?`<div class="tab-pane" id="tab-pm-desempenho">${renderPMDesempenhoHtml(pr)}</div>`:''}
         ${existing?`<div class="tab-pane" id="tab-histprod">${historyHtml}</div>`:''}
       </div>
       <div class="modal-footer">
@@ -3110,8 +3273,20 @@ function openProdutoMestreModal(id){
   document.querySelectorAll('.pm-temp-toggle-btn').forEach(b=>b.classList.toggle('active', (b.dataset.val==='sim')===!!pr.temperaturaControlada));
   document.getElementById('pm-temp-wrap').style.display = pr.temperaturaControlada ? 'block' : 'none';
   document.querySelectorAll('.pm-genset-toggle-btn').forEach(b=>b.classList.toggle('active', (b.dataset.val==='sim')===!!pr.genset));
+  document.querySelectorAll('.pm-aerofinal-toggle-btn').forEach(b=>b.classList.toggle('active', pr.aeroportoDestinoFinal!==undefined && (b.dataset.val==='sim')===!!pr.aeroportoDestinoFinal));
+  document.getElementById('pm-aero-destino-wrap').style.display = pr.aeroportoDestinoFinal===true ? 'none' : 'block';
 }
 
+function onPMModalChange(val){
+  window.__editingProdutoMestre.modal = val;
+  document.getElementById('pm-maritimo-portos-wrap').style.display = val==='aereo' ? 'none' : 'block';
+  document.getElementById('pm-aereo-portos-wrap').style.display = val==='aereo' ? 'block' : 'none';
+}
+function togglePMAeroportoFinal(val){
+  window.__editingProdutoMestre.aeroportoDestinoFinal = val;
+  document.querySelectorAll('.pm-aerofinal-toggle-btn').forEach(b=>b.classList.toggle('active', (b.dataset.val==='sim')===val));
+  document.getElementById('pm-aero-destino-wrap').style.display = val ? 'none' : 'block';
+}
 function togglePMTemperatura(val){
   window.__editingProdutoMestre.temperaturaControlada = val;
   document.querySelectorAll('.pm-temp-toggle-btn').forEach(b=>b.classList.toggle('active', (b.dataset.val==='sim')===val));
@@ -3127,13 +3302,21 @@ async function saveProdutoMestre(isEdit){
   const nome = document.getElementById('pm-nome').value.trim();
   if(!nome){ alert('Informe o nome do produto.'); return; }
   const prev = window.__editingProdutoMestre || {};
+  const modal = document.getElementById('pm-modal').value;
   const data = {
     id: prev.id,
     nome,
     supplierId: document.getElementById('pm-supplier').value,
     origemPais: document.getElementById('pm-origem').value,
+    modal,
     portoEmbarque: document.getElementById('pm-porto-embarque').value.trim(),
     portoDestino: document.getElementById('pm-porto-destino').value.trim(),
+    aeroportoEmbarque: document.getElementById('pm-aero-embarque').value.trim(),
+    aeroportoDesembarque: document.getElementById('pm-aero-desembarque').value.trim(),
+    aeroportoDestinoFinal: prev.aeroportoDestinoFinal===undefined ? null : prev.aeroportoDestinoFinal,
+    aeroportoDestino: document.getElementById('pm-aero-destino').value.trim(),
+    containerTamanho: document.getElementById('pm-container-tamanho').value,
+    containerTipo: document.getElementById('pm-container-tipo').value,
     temperaturaControlada: !!prev.temperaturaControlada,
     temperaturaMin: document.getElementById('pm-temp-min').value,
     temperaturaMax: document.getElementById('pm-temp-max').value,
@@ -3142,7 +3325,7 @@ async function saveProdutoMestre(isEdit){
 
   const history = (prev.history||[]).slice();
   const userEmail = currentUser ? currentUser.email : '';
-  const compareFields = ['nome','supplierId','origemPais','portoEmbarque','portoDestino','temperaturaControlada','temperaturaMin','temperaturaMax','genset'];
+  const compareFields = ['nome','supplierId','origemPais','modal','portoEmbarque','portoDestino','aeroportoEmbarque','aeroportoDesembarque','containerTamanho','containerTipo','temperaturaControlada','temperaturaMin','temperaturaMax','genset'];
   compareFields.forEach(k=>{
     const antes = prev[k]!==undefined ? prev[k] : '';
     const depois = data[k]!==undefined ? data[k] : '';
@@ -3470,6 +3653,10 @@ async function renderIndicadores(){
   renderIndicatorsTable();
 }
 
+let editingIndicatorIds = new Set();
+function startEditingIndicator(id){ editingIndicatorIds.add(id); renderIndicatorsTable(); }
+function finishEditingIndicator(id){ editingIndicatorIds.delete(id); renderIndicatorsTable(); }
+
 function renderIndicatorsTable(){
   const el = document.getElementById('view-content');
   const canEdit = currentRole!=='viewer';
@@ -3478,16 +3665,27 @@ function renderIndicatorsTable(){
     <table class="indicators-table">
       <thead><tr><th>Indicador</th><th>Meta</th><th>Frequência</th>${canEdit?'<th></th>':''}</tr></thead>
       <tbody>
-        ${indicators.map(i=>`
+        ${indicators.map(i=>{
+          const isEditing = canEdit && editingIndicatorIds.has(i.id);
+          if(isEditing){
+            return `
+            <tr>
+              <td><input type="text" value="${i.name}" style="width:100%; border:1px solid var(--border-strong); border-radius:5px; padding:5px 7px; font-size:13px;" onchange="updateIndicatorField('${i.id}','name',this.value)"></td>
+              <td class="meta-col"><input type="text" value="${i.meta}" style="width:100%; border:1px solid var(--border-strong); border-radius:5px; padding:5px 7px; font-size:13px; font-family:'IBM Plex Mono',monospace;" onchange="updateIndicatorField('${i.id}','meta',this.value)"></td>
+              <td><select style="border:1px solid var(--border-strong); border-radius:5px; padding:5px 7px; font-size:13px;" onchange="updateIndicatorField('${i.id}','freq',this.value)">
+                ${['Diário','Semanal','Mensal','Trimestral','Anual'].map(f=>`<option value="${f}" ${i.freq===f?'selected':''}>${f}</option>`).join('')}
+              </select></td>
+              <td><button class="btn btn-primary" style="padding:4px 9px; font-size:11px;" onclick="finishEditingIndicator('${i.id}')">OK</button></td>
+            </tr>`;
+          }
+          return `
           <tr>
-            <td>${canEdit?`<input type="text" value="${i.name}" style="width:100%; border:1px solid var(--border-strong); border-radius:5px; padding:5px 7px; font-size:13px;" onchange="updateIndicatorField('${i.id}','name',this.value)">`:i.name}</td>
-            <td class="meta-col">${canEdit?`<input type="text" value="${i.meta}" style="width:100%; border:1px solid var(--border-strong); border-radius:5px; padding:5px 7px; font-size:13px; font-family:'IBM Plex Mono',monospace;" onchange="updateIndicatorField('${i.id}','meta',this.value)">`:i.meta}</td>
-            <td>${canEdit?`<select style="border:1px solid var(--border-strong); border-radius:5px; padding:5px 7px; font-size:13px;" onchange="updateIndicatorField('${i.id}','freq',this.value)">
-              ${['Diário','Semanal','Mensal','Trimestral','Anual'].map(f=>`<option value="${f}" ${i.freq===f?'selected':''}>${f}</option>`).join('')}
-            </select>`:i.freq}</td>
-            ${canEdit?`<td><button class="btn btn-danger" style="padding:4px 9px; font-size:11px;" onclick="removeIndicator('${i.id}')">Excluir</button></td>`:''}
-          </tr>
-        `).join('')}
+            <td>${i.name}</td>
+            <td class="meta-col">${i.meta}</td>
+            <td>${i.freq}</td>
+            ${canEdit?`<td style="display:flex; gap:6px;"><button class="btn" style="padding:4px 8px; font-size:11px;" onclick="startEditingIndicator('${i.id}')" title="Editar">✎</button><button class="btn btn-danger" style="padding:4px 9px; font-size:11px;" onclick="removeIndicator('${i.id}')">Excluir</button></td>`:''}
+          </tr>`;
+        }).join('')}
       </tbody>
     </table>
     ${canEdit?`<button class="btn btn-primary" style="margin-top:14px;" onclick="addIndicator()">+ Novo Indicador</button>`:''}
@@ -3502,7 +3700,9 @@ function updateIndicatorField(id, field, val){
 async function addIndicator(){
   if(!requireEditPermission()) return;
   window.__indicators = window.__indicators || [];
-  window.__indicators.push({id:uid(), name:'Novo indicador', meta:'', freq:'Mensal'});
+  const newId = uid();
+  window.__indicators.push({id:newId, name:'Novo indicador', meta:'', freq:'Mensal'});
+  editingIndicatorIds.add(newId);
   renderIndicatorsTable();
   await saveIndicators();
 }
@@ -3799,7 +3999,7 @@ function renderParceiros(){
           ${list.map(c=>`
             <div class="contact-card" onclick="openPartnerModal('${c.id}')">
               <div class="contact-name">${c.empresa}</div>
-              <div class="contact-role">${c.contato||'—'}${c.zonaRecinto?' · '+c.zonaRecinto:''}</div>
+              <div class="contact-role">${c.contato||'—'}${c.cidade?' · '+c.cidade:''}${c.zonaRecinto?' · '+c.zonaRecinto:''}</div>
               <div class="contact-phone">${c.phone||''}</div>
             </div>
           `).join('')}
@@ -3808,6 +4008,31 @@ function renderParceiros(){
     `;
   };
   return header + PARTNER_TYPES.map(groupHtml).join('');
+}
+
+function computeDespachantePerformance(empresaNome){
+  if(!empresaNome) return {totalProcessos:0, comAmbasDatas:0, mediaTempo:null};
+  const doEste = state.processes.filter(p => p.extra && p.extra.despachante===empresaNome);
+  const tempos = doEste
+    .filter(p => p.extra.dataRascunhoDUIMP && p.extra.dataRegistroDUIMP)
+    .map(p => daysBetween(p.extra.dataRascunhoDUIMP, p.extra.dataRegistroDUIMP))
+    .filter(d => d>=0);
+  const mediaTempo = tempos.length ? (tempos.reduce((a,b)=>a+b,0)/tempos.length) : null;
+  return { totalProcessos: doEste.length, comAmbasDatas: tempos.length, mediaTempo };
+}
+
+function renderDespachantePerformanceHtml(empresaNome){
+  const stats = computeDespachantePerformance(empresaNome);
+  if(stats.totalProcessos===0){
+    return `<div class="form-hint">Nenhum processo vinculado a este despachante ainda.</div>`;
+  }
+  let html = `<div class="form-hint">${stats.totalProcessos} processo(s) com este despachante.</div>`;
+  if(stats.comAmbasDatas>0){
+    html += `<div class="form-hint">Tempo médio entre Rascunho e Registro da DUIMP: <strong>${stats.mediaTempo.toFixed(1)} dias</strong> (baseado em ${stats.comAmbasDatas} processo(s) com as duas datas preenchidas).</div>`;
+  } else {
+    html += `<div class="form-hint">Ainda não há processos com Rascunho e Registro da DUIMP preenchidos pra calcular o tempo médio.</div>`;
+  }
+  return html;
 }
 
 function openPartnerModal(id){
@@ -3836,7 +4061,20 @@ function openPartnerModal(id){
           </select>
           <div class="form-hint">Zona Primária aparece na etapa "Chegada e Presença". Zona Secundária aparece na etapa "Chegada no Recinto de Desembaraço".</div>
         </div>
+        <div class="form-group" id="pt-cidade-wrap" style="display:${s.tipo==='Recinto Alfandegado'?'block':'none'};">
+          <label>Cidade</label>
+          <input list="cidades-recinto-datalist" id="pt-cidade" value="${s.cidade||''}" placeholder="Digite ou escolha a cidade">
+          <datalist id="cidades-recinto-datalist">
+            ${['Santos','Betim','Guarulhos','Confins (Belo Horizonte)','Itajaí','Navegantes','Paranaguá','Rio de Janeiro','Salvador','Recife (Suape)','Manaus','Vitória','São Paulo','Uberlândia','Vila Velha','Itapoá','São Francisco do Sul'].map(c=>`<option value="${c}">`).join('')}
+          </datalist>
+        </div>
         <div class="form-group"><label>Empresa</label><input id="pt-empresa" value="${s.empresa||''}" placeholder="Ex: Zigma, Biotech, Nelson Heusi..."></div>
+        ${(existing && existing.tipo==='Despachante') ? `
+          <div class="form-group">
+            <label>Desempenho (Rascunho → Registro da DUIMP)</label>
+            ${renderDespachantePerformanceHtml(existing.empresa)}
+          </div>
+        ` : ''}
         <div class="form-group"><label>Contato</label><input id="pt-contato" value="${s.contato||''}" placeholder="Nome da pessoa de contato"></div>
         <div class="form-group"><label>Telefone</label><input id="pt-phone" value="${s.phone||''}"></div>
         <div class="form-group"><label>E-mail</label><input id="pt-email" value="${s.email||''}"></div>
@@ -3856,6 +4094,7 @@ function openPartnerModal(id){
 
 function onPartnerTipoChange(tipo){
   document.getElementById('pt-zona-wrap').style.display = tipo==='Recinto Alfandegado' ? 'block' : 'none';
+  document.getElementById('pt-cidade-wrap').style.display = tipo==='Recinto Alfandegado' ? 'block' : 'none';
 }
 
 async function savePartner(id){
@@ -3867,6 +4106,7 @@ async function savePartner(id){
     tipo: document.getElementById('pt-tipo').value,
     empresa,
     zonaRecinto: document.getElementById('pt-zona') ? document.getElementById('pt-zona').value : '',
+    cidade: document.getElementById('pt-cidade') ? document.getElementById('pt-cidade').value.trim() : '',
     contato: document.getElementById('pt-contato').value.trim(),
     phone: document.getElementById('pt-phone').value.trim(),
     email: document.getElementById('pt-email').value.trim(),
@@ -4119,13 +4359,25 @@ function openProcessModal(id){
             <div class="status-badge-hint">O status é atualizado automaticamente conforme você marca os itens na aba <strong>Etapas</strong>.</div>
           </div>
           <div class="form-row">
+            <div class="form-group"><label>Fornecedor</label>
+              <select id="f-supplier" onchange="onSupplierChange(this.value)"><option value="">Selecione...</option>${supplierOptions}</select>
+            </div>
+            <div class="form-group"><label>País de Origem</label>
+              <select id="f-origem"><option value="">Selecione...</option>${origemOptionsHtml}</select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Referência</label><input id="f-ref" value="${p.ref||''}" placeholder="Ex: M-014 (Morita) ou C-007 (Carestream)"></div>
+            <div class="form-group"><label>Referência do Fornecedor</label><input id="f-ref-fornecedor" value="${p.referenciaFornecedor||''}" placeholder="Nº do pedido/PO/invoice no sistema do fornecedor"></div>
+          </div>
+          <div class="form-row">
             <div class="form-group">
               <label>Produto Mestre (opcional)</label>
               <div style="display:flex; gap:8px;">
                 <select id="f-produto-mestre" style="flex:1;"><option value="">Nenhum / preencher manualmente</option></select>
                 <button type="button" class="btn" onclick="applyProdutoMestre()">Aplicar</button>
               </div>
-              ${p.produtoMestreNome ? `<div class="form-hint">Modelo aplicado: <strong>${p.produtoMestreNome}</strong></div>` : ''}
+              ${p.produtoMestreNome ? `<div class="form-hint">Modelo aplicado: <strong>${p.produtoMestreNome}</strong></div>` : `<div class="form-hint">Mostra só os produtos cadastrados para o fornecedor selecionado acima.</div>`}
             </div>
             <div class="form-group">
               <label>Rota (opcional)</label>
@@ -4138,18 +4390,6 @@ function openProcessModal(id){
           </div>
           <div class="form-row">
             <div class="form-group" id="produto-field-wrap" style="display:${p.produtoMestreNome?'none':'block'};"><label>Produto</label><input id="f-produto" value="${p.produto||''}" placeholder="Ex: Equipamento radiológico">${produtoMestreOverrideHint(p,'produto',p.produto)}</div>
-            <div class="form-group"><label>Referência</label><input id="f-ref" value="${p.ref||''}" placeholder="Ex: M-014 (Morita) ou C-007 (Carestream)"></div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label>Referência do Fornecedor</label><input id="f-ref-fornecedor" value="${p.referenciaFornecedor||''}" placeholder="Nº do pedido/PO/invoice no sistema do fornecedor"></div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label>Fornecedor</label>
-              <select id="f-supplier" onchange="onSupplierChange(this.value)"><option value="">Selecione...</option>${supplierOptions}</select>
-            </div>
-            <div class="form-group"><label>País de Origem</label>
-              <select id="f-origem"><option value="">Selecione...</option>${origemOptionsHtml}</select>
-            </div>
           </div>
           <div class="form-row">
             <div class="form-group"><label>Incoterm</label>
@@ -4167,6 +4407,9 @@ function openProcessModal(id){
           <div class="form-row">
             <div class="form-group"><label>Data do Pedido</label><input type="date" id="f-datapedido" value="${p.dataPedido||''}"></div>
             <div class="form-group"><label>Prontidão da Carga</label><input type="date" id="f-prontidao" value="${p.prontidao||''}"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Previsão de Entrada em Estoque</label><input type="date" id="f-previsao-estoque" value="${p.previsaoEntradaEstoque||''}"></div>
           </div>
           <div class="form-row">
             <div class="form-group"><label>Data de Embarque Real</label><input type="date" id="f-dataembarquereal" value="${p.dataEmbarqueReal||''}"></div>
@@ -4367,7 +4610,11 @@ function refreshProdutoMestreSelect(){
   const sel = document.getElementById('f-produto-mestre');
   if(!sel) return;
   const p = window.__editingProcess;
-  const list = (window.__produtosMestre||[]).filter(x=>x.ativo!==false);
+  const supplierSel = document.getElementById('f-supplier');
+  const currentSupplierId = supplierSel ? supplierSel.value : '';
+  const list = (window.__produtosMestre||[])
+    .filter(x=>x.ativo!==false)
+    .filter(x=> !currentSupplierId || x.supplierId===currentSupplierId);
   sel.innerHTML = '<option value="">Nenhum / preencher manualmente</option>' +
     list.map(pr=>`<option value="${pr.id}" ${p.produtoMestreId===pr.id?'selected':''}>${pr.nome}</option>`).join('');
 }
@@ -4433,6 +4680,20 @@ async function applyProdutoMestre(){
   p.produtoMestreId = template.id;
   p.produtoMestreNome = template.nome;
   p.produtoMestreSnapshot = snapshot;
+
+  const historico = template.historicoProcessos || [];
+  const leadTimes = historico.filter(h=>h.leadTimeDias!=null).map(h=>h.leadTimeDias);
+  if(leadTimes.length){
+    const mediaLead = Math.round(leadTimes.reduce((a,b)=>a+b,0)/leadTimes.length);
+    const dataPedidoEl = document.getElementById('f-datapedido');
+    const previsaoEl = document.getElementById('f-previsao-estoque');
+    if(dataPedidoEl && dataPedidoEl.value && previsaoEl && !previsaoEl.value){
+      const base = new Date(dataPedidoEl.value+'T00:00:00');
+      base.setDate(base.getDate()+mediaLead);
+      previsaoEl.value = base.toISOString().slice(0,10);
+    }
+  }
+
   alert(`Modelo "${template.nome}" aplicado. Você ainda pode ajustar qualquer campo neste processo específico, sem alterar o modelo mestre.`);
   await autoPersistCurrentProcess();
 }
@@ -4474,6 +4735,7 @@ function onSupplierChange(val){
   const current = sel.value;
   sel.innerHTML = '<option value="">Selecione...</option>' + countries.map(c=>`<option value="${c}" ${c===current?'selected':''}>${c}</option>`).join('');
   if(!countries.includes(current)) sel.value = '';
+  refreshProdutoMestreSelect();
 }
 
 function changeProcessType(tipo){
@@ -4802,6 +5064,7 @@ function collectProcessFormData(){
     origemPais: document.getElementById('f-origem').value,
     incoterm: document.getElementById('f-incoterm').value,
     dataPedido: document.getElementById('f-datapedido').value,
+    previsaoEntradaEstoque: document.getElementById('f-previsao-estoque').value,
     prontidao: document.getElementById('f-prontidao').value,
     dataEmbarqueReal: document.getElementById('f-dataembarquereal').value,
     chegadaPrevista: document.getElementById('f-chegada').value,
@@ -4853,8 +5116,29 @@ async function saveProcess(){
   data.pendingKey = newKey;
   if(idx>=0) state.processes[idx] = data; else state.processes.push(data);
   await persistState();
+  syncProdutoMestreHistorico(data);
   closeModal();
   render();
+}
+
+async function syncProdutoMestreHistorico(p){
+  if(!p.produtoMestreId || !isProcessDone(p)) return;
+  try{
+    const leadTimeDias = p.dataPedido ? daysBetween(p.dataPedido, todayStr()) : null;
+    const custoTotal = computeCosts(p).total;
+    const entry = { processoId:p.id, ref:p.ref||'', leadTimeDias, custoTotal, dataFinalizacao: todayStr() };
+    const docRef = db.collection('produtosMestre').doc(p.produtoMestreId);
+    const doc = await docRef.get();
+    if(!doc.exists) return;
+    const dataAtual = doc.data();
+    const historico = (dataAtual.historicoProcessos||[]).filter(h=>h.processoId!==p.id);
+    historico.push(entry);
+    await docRef.set({historicoProcessos: historico}, {merge:true});
+    const idx = (window.__produtosMestre||[]).findIndex(x=>x.id===p.produtoMestreId);
+    if(idx>=0) window.__produtosMestre[idx].historicoProcessos = historico;
+  }catch(e){
+    console.error('Não foi possível sincronizar o histórico do Produto Mestre', e);
+  }
 }
 
 async function deleteProcess(id){
@@ -4944,9 +5228,19 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);font-size:9.5pt;bac
     ${field('Status Atual', statusLabel)}
   </div>
   <div class="row">
+    ${field('Referência', data.ref)}
+    ${field('Referência do Fornecedor', data.referenciaFornecedor)}
+    ${field('Tipo de Processo', data.tipo==='temporaria'?'Admissão Temporária':'Importação Definitiva')}
+  </div>
+  ${data.produtoMestreNome || (data.rotaAplicada&&data.rotaAplicada.nome) ? `
+  <div class="row">
+    ${data.produtoMestreNome?field('Produto Mestre Utilizado', data.produtoMestreNome):''}
+    ${data.rotaAplicada&&data.rotaAplicada.nome?field('Rota Utilizada', data.rotaAplicada.nome):''}
+  </div>` : ''}
+  <div class="row">
     ${field('Data de Abertura', fmtDate(data.dataPedido))}
     ${field('Prontidão da Carga', fmtDate(data.prontidao))}
-    ${field('Tipo de Processo', data.tipo==='temporaria'?'Admissão Temporária':'Importação Definitiva')}
+    ${field('Previsão de Entrada em Estoque', fmtDate(data.previsaoEntradaEstoque))}
   </div>
 
   <div class="sec-bar">2. Dados da Importação</div>
@@ -5023,6 +5317,15 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);font-size:9.5pt;bac
   <div class="row">
     ${field('Custo Total Estimado', fmtBRL(costs.total))}
   </div>
+  ${(() => {
+    const pagamentosComDados = Object.entries(data.payments||{}).filter(([k,v])=>v && (v.pedidoSap||v.dataVencimento));
+    if(!pagamentosComDados.length) return '';
+    const nomesFixos = {freteInternacional:'Frete Internacional', dta:'DTA', prestacaoDespachante:'Prestação Despachante'};
+    const nomesCustom = {}; (data.customPayments||[]).forEach(cp=>nomesCustom['custom:'+cp.id]=cp.name);
+    return `<div class="row">` + pagamentosComDados.map(([k,v])=>
+      field(nomesFixos[k]||nomesCustom[k]||k, `Pedido SAP: ${v.pedidoSap||'—'} · Vencimento: ${fmtDate(v.dataVencimento)}`)
+    ).join('') + `</div>`;
+  })()}
 
   <div class="sec-bar">7. Observações</div>
   <div class="obs-box">${data.obs || '—'}</div>
