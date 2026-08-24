@@ -698,6 +698,7 @@ const STAGE_DEFS = [
     itemFields:{
       1:[{key:'agenteCarga', label:'Agente de Cargas', type:'partner', partnerType:'Agente de Cargas'}],
       2:[
+        {key:'numeroBooking', label:'Número do Booking', type:'text'},
         {key:'navio', label:'Navio', type:'text'},
         {key:'viagem', label:'Viagem', type:'text'},
         {key:'freetime', label:'Freetime (dias)', type:'number'},
@@ -1141,6 +1142,19 @@ function containerReturnDate(p){
   const dt = new Date(baseDate+'T00:00:00');
   dt.setDate(dt.getDate()+dias);
   return { date: dt.toISOString().slice(0,10), estimated: !extra.dataChegadaBetim };
+}
+
+/* Índice do item "Devolução do vazio" dentro da Fase 7 — não existe no modal aéreo.
+   Resolvido dinamicamente a partir da definição da fase, em vez de fixo, pra não
+   quebrar se a lista de itens da Fase 7 mudar no futuro. */
+function isContainerReturnDone(p){
+  const stages = getStagesForProcess(p);
+  const fase7 = stages.find(s=>s.key==='fase7');
+  if(!fase7) return false;
+  const idx = fase7.items.indexOf('Devolução do vazio');
+  if(idx<0) return false;
+  const checked = p.checklist['fase7']||[];
+  return !!checked[idx];
 }
 
 function getProcessAlerts(p){
@@ -1895,6 +1909,258 @@ function openFollowUpPreview(){
   document.body.appendChild(overlay);
 }
 
+/* ---------- GERAÇÃO DE E-MAILS POR PROCESSO ---------- */
+/* Ponto de extensão: cada template novo (ex: "Follow-up de Embarque", "Aviso de Chegada")
+   deve virar uma função generateEmail{Nome}(p) retornando {subject, bodyHtml, bodyText}, mais
+   um botão na aba "E-mails" chamando open{Nome}Preview(). O primeiro template é o de Nota Fiscal. */
+
+/* "Bom dia" antes do meio-dia, "Boa tarde" até 18h, "Boa noite" depois — usado em todos os
+   templates de e-mail pra não sair sempre "Bom dia" independente da hora de geração. */
+function greetingByHour(){
+  const h = new Date().getHours();
+  if(h < 12) return 'Bom dia!';
+  if(h < 18) return 'Boa tarde!';
+  return 'Boa noite!';
+}
+
+function generateEmailNotaFiscalText(p){
+  const fornecedor = state.suppliers.find(s=>s.id===p.supplierId);
+  const extra = p.extra || {};
+  const ref = p.ref || ('REF-'+p.id.slice(0,6).toUpperCase());
+  const numeroNF = extra.numeroNF || '[Nº DA NF]';
+  const numeroDUIMP = extra.numeroDUIMP || '[Nº DA DUIMP]';
+  const chaveDUIMP = extra.chaveAcessoDUIMP || '[CHAVE DE ACESSO DA DUIMP]';
+  const produtoNome = (p.produto||'').trim();
+  const produtoUpper = produtoNome ? produtoNome.toUpperCase() : '[PRODUTO]';
+  const fornecedorNome = fornecedor ? fornecedor.name : '[FORNECEDOR]';
+  const dataRecebimento = fmtDate(todayStr());
+  const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const subject = `NF ${numeroNF} - NACIONALIZAÇÃO - ${produtoUpper} - ${(fornecedorNome||'').toUpperCase()} - ${ref}`;
+
+  const itens = p.itens || [];
+  const introHtml = `Segue a NF ${esc(numeroNF)}, referente à nacionalização da importação ${produtoNome?('dos '+esc(produtoUpper)):'[dos/das PRODUTO]'} ${esc(fornecedorNome)} recebida no estoque do [LOCAL DO ESTOQUE] em ${esc(dataRecebimento)}.`;
+
+  const thStyle = 'border:1px solid #333; padding:6px 10px; background:#e9edf5; font-weight:700; text-align:left; font-size:13px;';
+  const tdStyle = 'border:1px solid #333; padding:6px 10px; font-size:13px;';
+  const tdStyleRight = tdStyle + ' text-align:right;';
+
+  const linhasHtml = itens.length
+    ? itens.map(it=> `<tr><td style="${tdStyle}">${esc(it.pn)}</td><td style="${tdStyle}">${esc(it.descricao)}</td><td style="${tdStyleRight}">${esc(it.quantidade)}</td></tr>`).join('')
+    : `<tr><td colspan="3" style="${tdStyle}">[Nenhum item cadastrado no processo — adicione na aba Itens]</td></tr>`;
+
+  const tabelaHtml = `<table style="border-collapse:collapse; width:100%; margin:10px 0;">
+    <thead><tr><th style="${thStyle}">PN</th><th style="${thStyle}">ITEM</th><th style="${thStyle} text-align:right;">QTD</th></tr></thead>
+    <tbody>${linhasHtml}</tbody>
+  </table>`;
+
+  const bodyHtml = `<p>${greetingByHour()}</p>
+<p>${introHtml}</p>
+${tabelaHtml}
+<p>DUIMP: ${esc(numeroDUIMP)}<br>Chave de Acesso: ${esc(chaveDUIMP)}</p>
+<p>Anexos: NF ${esc(numeroNF)}.pdf e Extrato da DUIMP.</p>`;
+
+  const linhasTexto = itens.length
+    ? itens.map(it=> `${it.pn}\t${it.descricao||''}\t${it.quantidade}`).join('\n')
+    : '[Nenhum item cadastrado no processo — adicione na aba Itens]';
+  const bodyText = `${greetingByHour()}\n\nSegue a NF ${numeroNF}, referente à nacionalização da importação ${produtoNome?('dos '+produtoUpper):'[dos/das PRODUTO]'} ${fornecedorNome} recebida no estoque do [LOCAL DO ESTOQUE] em ${dataRecebimento}.\n\nPN\tITEM\tQTD\n${linhasTexto}\n\nDUIMP: ${numeroDUIMP}\nChave de Acesso: ${chaveDUIMP}\n\nAnexos: NF ${numeroNF}.pdf e Extrato da DUIMP.\n`;
+
+  return { subject, bodyHtml, bodyText };
+}
+
+function openEmailNotaFiscalPreview(){
+  const p = window.__editingProcess;
+  const { subject, bodyHtml, bodyText } = generateEmailNotaFiscalText(p);
+  openEmailPreview(subject, bodyHtml, bodyText, 'E-mail — Nota Fiscal');
+}
+
+/* Busca o parceiro Despachante selecionado na Fase 5 do processo (extra.despachante guarda
+   o nome/"empresa" do parceiro, não o id — mesmo padrão usado nos outros campos type:'partner'). */
+function getDespachantePartner(p){
+  const nome = p.extra && p.extra.despachante;
+  if(!nome) return null;
+  return state.partners.find(pt=>pt.tipo==='Despachante' && pt.empresa===nome) || null;
+}
+function getDespachanteContatos(p){
+  const partner = getDespachantePartner(p);
+  if(!partner) return [];
+  return (partner.contatosEmail||[]).filter(c=>c.nome || c.email);
+}
+
+function generateEmailDespachanteText(p){
+  const extra = p.extra || {};
+  const ref = p.ref || ('REF-'+p.id.slice(0,6).toUpperCase());
+  const fornecedor = state.suppliers.find(s=>s.id===p.supplierId);
+  const fornecedorNome = fornecedor ? fornecedor.name : '[FORNECEDOR]';
+  const isAereo = p.modal==='aereo';
+  const despachantePartner = getDespachantePartner(p);
+  const contatos = getDespachanteContatos(p);
+  const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const mentionNames = contatos.length
+    ? contatos.map(c=>'@'+(c.nome||c.email))
+    : ['[cadastre os contatos deste despachante em Parceiros → Contatos para E-mail]'];
+
+  const bookingNumero = extra.numeroBooking || '[Nº DO BOOKING]';
+  const transporteLabel = isAereo ? 'AWB / Companhia Aérea' : 'Navio / Viagem';
+  const transporteValor = isAereo
+    ? ([extra.numeroAWB, extra.ciaAerea].filter(Boolean).join(' / ') || '[AWB / COMPANHIA AÉREA]')
+    : ([extra.navio, extra.viagem].filter(Boolean).join(' / ') || '[NAVIO / VIAGEM]');
+
+  const localEmbarque = isAereo ? p.aeroportoEmbarque : p.portoEmbarque;
+  const origemTexto = [localEmbarque, p.origemPais].filter(Boolean).join(' - ') || '[LOCAL DE EMBARQUE]';
+  const dataEmbarque = p.dataEmbarqueReal ? fmtDate(p.dataEmbarqueReal) : '[DATA DE EMBARQUE]';
+
+  const localDestino = isAereo ? (p.aeroportoDestinoFinal ? p.aeroportoDesembarque : p.aeroportoDestino) : p.portoDestino;
+  const destinoTexto = localDestino || '[LOCAL DE CHEGADA]';
+  const dataChegada = p.chegadaPrevista ? fmtDate(p.chegadaPrevista) : '[DATA PREVISTA]';
+
+  const refrigeradaTexto = p.temperaturaControlada
+    ? `SIM, ${p.temperaturaValor==='outro' ? (p.temperaturaOutro||'[FAIXA]') : '+'+p.temperaturaValor+'°C'}`
+    : 'NÃO';
+
+  const docTransporte = isAereo ? 'AWB' : 'BL';
+
+  const subject = `Abertura de Processo - ${despachantePartner?despachantePartner.empresa:'Despachante'} - ${ref} - ${fornecedorNome}`;
+
+  const bodyHtml = `<p>${greetingByHour()}</p>
+<p>Adicionando nosso despachante para dar seguimento nos procedimentos de liberação e abertura do processo.</p>
+<p>${mentionNames.map(esc).join('; ')}</p>
+<p>
+Referência do processo: ${esc(ref)}.<br>
+Booking: ${esc(bookingNumero)}<br>
+${esc(transporteLabel)}: ${esc(transporteValor)}<br>
+Embarque ${esc(origemTexto)}: ${esc(dataEmbarque)}<br>
+Previsão de chegada - ${esc(destinoTexto)}: ${esc(dataChegada)}<br>
+Carga refrigerada: ${esc(refrigeradaTexto)}
+</p>
+<p>Em anexo envio a fatura, packing list, ${docTransporte}, pré-análise e planilha com lotes/sn e datas de fabricação e vencimento.</p>`;
+
+  const bodyText = `${greetingByHour()}\n\nAdicionando nosso despachante para dar seguimento nos procedimentos de liberação e abertura do processo.\n\n${mentionNames.join('; ')}\nReferência do processo: ${ref}.\nBooking: ${bookingNumero}\n${transporteLabel}: ${transporteValor}\nEmbarque ${origemTexto}: ${dataEmbarque}\nPrevisão de chegada - ${destinoTexto}: ${dataChegada}\nCarga refrigerada: ${refrigeradaTexto}\n\nEm anexo envio a fatura, packing list, ${docTransporte}, pré-análise e planilha com lotes/sn e datas de fabricação e vencimento.\n`;
+
+  const ccList = contatos.map(c=>c.email).filter(Boolean);
+
+  return { subject, bodyHtml, bodyText, ccList };
+}
+
+function openEmailDespachantePreview(){
+  const p = window.__editingProcess;
+  if(!(p.extra && p.extra.despachante)){
+    alert('Este processo ainda não tem um Despachante selecionado (aba Etapas → Fase 5). Selecione um despachante antes de gerar o e-mail.');
+    return;
+  }
+  const { subject, bodyHtml, bodyText, ccList } = generateEmailDespachanteText(p);
+  openEmailPreview(subject, bodyHtml, bodyText, 'E-mail — Para o Despachante', ccList);
+}
+
+/* Modal genérico de preview (assunto + corpo editáveis) — reaproveitável por qualquer template futuro.
+   O corpo é renderizado num contenteditable (não textarea) para preservar a tabela de itens como
+   uma tabela HTML de verdade ao copiar e colar num cliente de e-mail (Gmail/Outlook etc.).
+   ccList (opcional) mostra um campo "Cc" no topo com os e-mails a colocar em cópia (ex: contatos
+   do despachante cadastrados em Parceiros), com botão próprio de copiar. */
+function openEmailPreview(subject, bodyHtml, bodyText, title, ccList){
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'email-overlay';
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  const ccValue = (ccList||[]).join('; ');
+  const ccHtml = (ccList && ccList.length) ? `
+        <div class="form-group">
+          <label>Cc — e-mails do despachante para colocar em cópia</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="email-cc-text" value="${ccValue.replace(/"/g,'&quot;')}" style="flex:1; padding:9px 11px; border:1px solid var(--border-strong); border-radius:6px; font-size:13px;">
+            <button class="btn" style="white-space:nowrap;" onclick="copyEmailCcToClipboard()">Copiar E-mails</button>
+          </div>
+        </div>
+  ` : (ccList ? `<div class="form-hint" style="margin-bottom:12px;">⚠️ Nenhum e-mail de contato cadastrado para este despachante ainda — cadastre em Parceiros → editar o despachante → "Contatos para E-mail".</div>` : '');
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:680px;">
+      <div class="modal-header">
+        <h2>${title||'E-mail'}</h2>
+        <button class="modal-close" onclick="document.getElementById('email-overlay').remove()">×</button>
+      </div>
+      <div class="modal-body">
+        ${ccHtml}
+        <div class="form-group">
+          <label>Assunto</label>
+          <input type="text" id="email-subject-text" value="${String(subject).replace(/"/g,'&quot;')}" style="width:100%; padding:9px 11px; border:1px solid var(--border-strong); border-radius:6px; font-size:13px; font-weight:600;">
+        </div>
+        <div class="form-group">
+          <label>Corpo do E-mail <span style="font-weight:400; text-transform:none; font-style:italic;">— clique e edite direto aqui</span></label>
+          <div id="email-body-text" contenteditable="true" style="width:100%; min-height:340px; font-family:Arial,Helvetica,sans-serif; font-size:13px; line-height:1.6; padding:14px; border:1px solid var(--border-strong); border-radius:6px; background:#fff; overflow:auto;">${bodyHtml}</div>
+        </div>
+        <div class="form-hint">Campos entre colchetes (ex: [LOCAL DO ESTOQUE]) não têm dado cadastrado no processo — preencha antes de enviar. Ao copiar, a tabela de itens é mantida como tabela ao colar no e-mail.</div>
+      </div>
+      <div class="modal-footer">
+        <div></div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" onclick="document.getElementById('email-overlay').remove()">Fechar</button>
+          <button class="btn" onclick="copyEmailSubjectToClipboard()">Copiar Assunto</button>
+          <button class="btn btn-primary" onclick="copyEmailBodyToClipboard()">Copiar Corpo</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.dataset.bodyTextFallback = bodyText;
+}
+
+function copyEmailCcToClipboard(){
+  const el = document.getElementById('email-cc-text');
+  el.select();
+  try{
+    document.execCommand('copy');
+    alert('E-mails de cópia (Cc) copiados!');
+  }catch(e){
+    alert('Não foi possível copiar automaticamente. Selecione o texto manualmente.');
+  }
+}
+
+function copyEmailSubjectToClipboard(){
+  const el = document.getElementById('email-subject-text');
+  el.select();
+  try{
+    document.execCommand('copy');
+    alert('Assunto copiado!');
+  }catch(e){
+    alert('Não foi possível copiar automaticamente. Selecione o texto manualmente.');
+  }
+}
+
+function copyEmailBodyToClipboard(){
+  const el = document.getElementById('email-body-text');
+  try{
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    const ok = document.execCommand('copy');
+    selection.removeAllRanges();
+    if(ok){
+      alert('Corpo do e-mail copiado (com a tabela)! Agora é só colar no seu cliente de e-mail.');
+      return;
+    }
+    throw new Error('execCommand retornou false');
+  }catch(e){
+    const overlay = document.getElementById('email-overlay');
+    const fallback = overlay ? overlay.dataset.bodyTextFallback : el.innerText;
+    const ta = document.createElement('textarea');
+    ta.value = fallback || el.innerText;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try{
+      document.execCommand('copy');
+      alert('Corpo copiado como texto simples (sem tabela) — seu navegador não suportou a cópia rica.');
+    }catch(e2){
+      alert('Não foi possível copiar automaticamente. Selecione o texto manualmente.');
+    }
+    document.body.removeChild(ta);
+  }
+}
+
 function getSupplierColor(fornecedor){
   if(!fornecedor) return 'var(--muted)';
   if(fornecedor.color) return fornecedor.color;
@@ -1953,6 +2219,7 @@ function getStagesForProcess(p){
       return {...s, containersItemIndex: undefined, itemFields:{
         1: s.itemFields[1],
         2: [
+          {key:'numeroBooking', label:'Número do Booking', type:'text'},
           {key:'numeroAWB', label:'AWB', type:'text'},
           {key:'ciaAerea', label:'Companhia Aérea', type:'text'},
         ],
@@ -2162,13 +2429,16 @@ function computeCosts(p){
   const ipi = parseFloat(p.ipi)||0;
   const pis = parseFloat(p.pis)||0;
   const cofins = parseFloat(p.cofins)||0;
-  const icms = parseFloat(p.icms)||0;
+  /* RET-MG (regime "revenda") substitui o recolhimento do ICMS na entrada — o campo não
+     deve compor o custo enquanto esse regime estiver selecionado. */
+  const icmsAplicavel = p.regime !== 'revenda';
+  const icms = icmsAplicavel ? (parseFloat(p.icms)||0) : 0;
   const despesas = parseFloat(p.despesas)||0;
   const paymentsTotal = p.payments ? Object.values(p.payments).reduce((s,r)=>s+(parseFloat(r.valor)||0),0) : 0;
   /* Total NÃO soma o frete do campo acima (que é só referência para o CIF) — o frete
      de verdade é o valor pago marcado na Fase 8, já incluído em paymentsTotal. */
   const total = fobBrl + seguroBrl + ii + ipi + pis + cofins + icms + despesas + paymentsTotal;
-  return {cifUsd, cifBrl, fobBrl, seguroBrl, ii, ipi, pis, cofins, icms, despesas, paymentsTotal, total};
+  return {cifUsd, cifBrl, fobBrl, seguroBrl, ii, ipi, pis, cofins, icms, icmsAplicavel, despesas, paymentsTotal, total};
 }
 
 /* Carregamento agora é feito por attachDataListener() após o login (ver script de autenticação acima) */
@@ -2560,16 +2830,25 @@ function clearPageFilters(pageKey){
 
 function renderDashboard(){
   const cfg = getDashboardConfig();
-  const stageOptions = ['producao','aguardando_embarque','transito','desembaraco','entregue', ...cfg.rules.map(r=>'custom:'+r.id)];
+  const stageOptions = dashboardBucketOrder(cfg);
   const universe = state.processes.filter(p=>getBucket(p)!=='finalizados');
   const filterBar = renderFilterBar('dashboard', universe, stageOptions);
   return filterBar + `<div id="dashboard-results">${renderDashboardResults()}</div>`;
 }
 
+/* Ordem de exibição do Painel: processos mais adiantados no fluxo aparecem primeiro
+   (no topo), os mais iniciais ficam por último (embaixo). Usada tanto nos cards de
+   KPI quanto nas seções do corpo e no filtro de etapa, pra manter tudo consistente. */
+function dashboardBucketOrder(cfg){
+  cfg = cfg || getDashboardConfig();
+  const ascending = ['producao','aguardando_embarque','transito','desembaraco','entregue', ...cfg.rules.map(r=>'custom:'+r.id)];
+  return ascending.reverse();
+}
+
 function renderDashboardResults(){
   const cfg = getDashboardConfig();
   const f = pageFilters.dashboard;
-  const bucketOrder = ['producao','aguardando_embarque','transito','desembaraco','entregue', ...cfg.rules.map(r=>'custom:'+r.id)];
+  const bucketOrder = dashboardBucketOrder(cfg);
   const buckets = {};
   bucketOrder.forEach(id=>buckets[id]=[]);
   const filteredProcesses = state.processes.filter(p=>processMatchesFilter(p,f));
@@ -2755,6 +3034,8 @@ async function openProductModal(pn){
     </div>
   `).join('') : `<div class="form-hint">Nenhuma alteração registrada ainda.</div>`;
 
+  const usageHtml = existing ? renderProductUsageHistory(p.pn) : '';
+
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
@@ -2768,7 +3049,8 @@ async function openProductModal(pn){
       <div class="modal-body">
         <div class="tabs">
           <button class="tab-btn active" data-tab="dados" onclick="switchTab('dados')">Dados</button>
-          ${existing?`<button class="tab-btn" data-tab="histprod" onclick="switchTab('histprod')">Histórico</button>`:''}
+          ${existing?`<button class="tab-btn" data-tab="usoprocessos" onclick="switchTab('usoprocessos')">📦 Usado em Processos</button>`:''}
+          ${existing?`<button class="tab-btn" data-tab="histprod" onclick="switchTab('histprod')">Histórico de Alterações</button>`:''}
         </div>
         <div class="tab-pane active" id="tab-dados">
           ${existing ? `
@@ -2779,6 +3061,7 @@ async function openProductModal(pn){
           ` : ''}
           ${fieldsHtml}
         </div>
+        ${existing?`<div class="tab-pane" id="tab-usoprocessos">${usageHtml}</div>`:''}
         ${existing?`<div class="tab-pane" id="tab-histprod">${historyHtml}</div>`:''}
       </div>
       <div class="modal-footer">
@@ -2791,6 +3074,52 @@ async function openProductModal(pn){
     </div>
   `;
   document.body.appendChild(overlay);
+}
+
+/* Histórico de uso em processos: em quais referências este item (PN) já foi trazido e em
+   que quantidade. É calculado na hora (varre state.processes), nunca precisa ser salvo à
+   parte — assim aparece automaticamente assim que o item é adicionado a qualquer processo,
+   sem risco de ficar desatualizado. */
+function getProductUsageHistory(pn){
+  const alvo = sanitizePN(pn);
+  const rows = [];
+  (state.processes||[]).forEach(proc=>{
+    (proc.itens||[]).forEach(it=>{
+      if(sanitizePN(it.pn) === alvo){
+        const fornecedor = state.suppliers.find(s=>s.id===proc.supplierId);
+        rows.push({
+          processId: proc.id,
+          ref: proc.ref || ('REF-'+proc.id.slice(0,6).toUpperCase()),
+          fornecedor: fornecedor ? fornecedor.name : '—',
+          quantidade: parseFloat(it.quantidade)||0,
+          dataPedido: proc.dataPedido || '',
+          statusLabel: stageInfoFor(proc, proc.status).label,
+          isDone: isProcessDone(proc),
+        });
+      }
+    });
+  });
+  rows.sort((a,b)=> (b.dataPedido||'').localeCompare(a.dataPedido||''));
+  return rows;
+}
+
+function renderProductUsageHistory(pn){
+  const rows = getProductUsageHistory(pn);
+  if(!rows.length){
+    return `<div class="form-hint">Este item ainda não foi adicionado a nenhum processo. Assim que for usado em algum, aparece aqui automaticamente.</div>`;
+  }
+  const totalQtd = rows.reduce((s,r)=>s+r.quantidade, 0);
+  const rowsHtml = rows.map(r=>`
+    <div class="history-item" style="cursor:pointer;" onclick="closeModal(); openProcessModal('${r.processId}');" title="Abrir processo">
+      <div class="history-date">${r.dataPedido?fmtDate(r.dataPedido):'Data não informada'} · ${r.fornecedor}${r.isDone?' · Finalizado':''}</div>
+      <div class="history-title">${r.ref}</div>
+      <div class="history-detail">Quantidade trazida: <strong>${r.quantidade}</strong> · Status: ${r.statusLabel}</div>
+    </div>
+  `).join('');
+  return `
+    <div class="form-hint" style="margin-bottom:10px;">${rows.length} processo(s) já trouxeram este item · Quantidade total: <strong>${totalQtd}</strong></div>
+    ${rowsHtml}
+  `;
 }
 
 function formatNCM(v){
@@ -3741,7 +4070,7 @@ function processProgressRatio(p){
 
 function renderProcessos(){
   const universe = state.processes.filter(p=>getBucket(p)!=='finalizados');
-  const stageOptions = ['producao','aguardando_embarque','transito','desembaraco','entregue'];
+  const stageOptions = dashboardBucketOrder();
   const filterBar = renderFilterBar('processos', universe, stageOptions);
   return filterBar + `<div id="processos-results">${renderProcessosResults()}</div>`;
 }
@@ -3896,7 +4225,7 @@ function desembaracoCard(p){
   if(extra.canalDesembaraco) infoParts.push(`<span><b>Canal:</b> ${canalBadgeHtml(extra.canalDesembaraco)}</span>`);
   if(extra.despachante) infoParts.push(`<span><b>Despachante:</b> ${extra.despachante}</span>`);
   const devolucao = containerReturnDate(p);
-  if(devolucao) infoParts.push(`<span><b>Devolução container:</b> ${fmtDate(devolucao.date)}${devolucao.estimated?' (estimada)':''}</span>`);
+  if(devolucao && !isContainerReturnDone(p)) infoParts.push(`<span><b>Devolução container:</b> ${fmtDate(devolucao.date)}${devolucao.estimated?' (estimada)':''}</span>`);
   let pendingHtml = '';
   if(p.pendingSince){
     const dias = daysBetween(p.pendingSince, todayStr());
@@ -4038,6 +4367,7 @@ function renderDespachantePerformanceHtml(empresaNome){
 function openPartnerModal(id){
   const existing = id ? state.partners.find(p=>p.id===id) : null;
   const s = existing || {id:uid()};
+  window.__editingPartnerContatos = JSON.parse(JSON.stringify(s.contatosEmail||[]));
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
@@ -4078,6 +4408,12 @@ function openPartnerModal(id){
         <div class="form-group"><label>Contato</label><input id="pt-contato" value="${s.contato||''}" placeholder="Nome da pessoa de contato"></div>
         <div class="form-group"><label>Telefone</label><input id="pt-phone" value="${s.phone||''}"></div>
         <div class="form-group"><label>E-mail</label><input id="pt-email" value="${s.email||''}"></div>
+        <div class="form-group" id="pt-contatos-wrap" style="display:${s.tipo==='Despachante'?'block':'none'};">
+          <label>Contatos para E-mail (nome + e-mail)</label>
+          <div class="form-hint" style="margin-bottom:8px;">Usados para montar automaticamente as menções (@Nome) e a cópia (Cc) do e-mail de abertura de processo com o despachante.</div>
+          <div id="pt-contatos-list">${renderPartnerContatosRows()}</div>
+          <button type="button" class="btn" style="margin-top:6px;" onclick="addPartnerContatoRow()">+ Adicionar Contato</button>
+        </div>
         <div class="form-group"><label>Observações</label><textarea id="pt-notes">${s.notes||''}</textarea></div>
       </div>
       <div class="modal-footer">
@@ -4092,15 +4428,46 @@ function openPartnerModal(id){
   document.body.appendChild(overlay);
 }
 
+function renderPartnerContatosRows(){
+  const rows = window.__editingPartnerContatos || [];
+  if(!rows.length) return `<div class="form-hint">Nenhum contato adicionado ainda.</div>`;
+  return rows.map((c,idx)=>`
+    <div class="form-row" style="align-items:flex-end; gap:8px; margin-bottom:6px;">
+      <div class="form-group" style="flex:1; margin-bottom:0;"><label>Nome</label><input type="text" value="${(c.nome||'').replace(/"/g,'&quot;')}" oninput="updatePartnerContatoField(${idx},'nome',this.value)" placeholder="Nome do contato"></div>
+      <div class="form-group" style="flex:1; margin-bottom:0;"><label>E-mail</label><input type="email" value="${(c.email||'').replace(/"/g,'&quot;')}" oninput="updatePartnerContatoField(${idx},'email',this.value)" placeholder="email@empresa.com"></div>
+      <button type="button" class="btn btn-danger" style="padding:8px 10px;" onclick="removePartnerContatoRow(${idx})" title="Remover">×</button>
+    </div>
+  `).join('');
+}
+function addPartnerContatoRow(){
+  window.__editingPartnerContatos = window.__editingPartnerContatos || [];
+  window.__editingPartnerContatos.push({nome:'', email:''});
+  const el = document.getElementById('pt-contatos-list');
+  if(el) el.innerHTML = renderPartnerContatosRows();
+}
+function removePartnerContatoRow(idx){
+  window.__editingPartnerContatos.splice(idx,1);
+  const el = document.getElementById('pt-contatos-list');
+  if(el) el.innerHTML = renderPartnerContatosRows();
+}
+function updatePartnerContatoField(idx, field, val){
+  if(window.__editingPartnerContatos && window.__editingPartnerContatos[idx]) window.__editingPartnerContatos[idx][field] = val;
+}
+
 function onPartnerTipoChange(tipo){
   document.getElementById('pt-zona-wrap').style.display = tipo==='Recinto Alfandegado' ? 'block' : 'none';
   document.getElementById('pt-cidade-wrap').style.display = tipo==='Recinto Alfandegado' ? 'block' : 'none';
+  const contatosWrap = document.getElementById('pt-contatos-wrap');
+  if(contatosWrap) contatosWrap.style.display = tipo==='Despachante' ? 'block' : 'none';
 }
 
 async function savePartner(id){
   if(!requireEditPermission()) return;
   const empresa = document.getElementById('pt-empresa').value.trim();
   if(!empresa){ alert('Informe o nome da empresa.'); return; }
+  const contatosEmail = (window.__editingPartnerContatos||[])
+    .map(c=>({ nome:(c.nome||'').trim(), email:(c.email||'').trim() }))
+    .filter(c=>c.nome || c.email);
   const data = {
     id,
     tipo: document.getElementById('pt-tipo').value,
@@ -4110,6 +4477,7 @@ async function savePartner(id){
     contato: document.getElementById('pt-contato').value.trim(),
     phone: document.getElementById('pt-phone').value.trim(),
     email: document.getElementById('pt-email').value.trim(),
+    contatosEmail,
     notes: document.getElementById('pt-notes').value.trim(),
   };
   const idx = state.partners.findIndex(p=>p.id===id);
@@ -4347,6 +4715,7 @@ function openProcessModal(id){
           <button class="tab-btn" data-tab="docs" onclick="switchTab('docs')">Documentos</button>
           <button class="tab-btn" data-tab="desempenho" onclick="switchTab('desempenho')">Desempenho</button>
           <button class="tab-btn" data-tab="historico" onclick="switchTab('historico')">Histórico</button>
+          <button class="tab-btn" data-tab="emails" onclick="switchTab('emails')">✉️ E-mails</button>
         </div>
 
         <div class="tab-pane active" id="tab-geral">
@@ -4512,7 +4881,7 @@ function openProcessModal(id){
             <div class="form-group"><label>COFINS (R$)</label><input type="text" inputmode="decimal" id="c-cofins" value="${p.cofins?fmtNumberBR(p.cofins):''}" oninput="maskCurrencyInput(this); updateCostPreview();"></div>
           </div>
           <div class="form-row">
-            <div class="form-group"><label>ICMS (R$)</label><input type="text" inputmode="decimal" id="c-icms" value="${p.icms?fmtNumberBR(p.icms):''}" oninput="maskCurrencyInput(this); updateCostPreview();"></div>
+            <div class="form-group" id="c-icms-group"><label>ICMS (R$)</label><input type="text" inputmode="decimal" id="c-icms" value="${p.icms?fmtNumberBR(p.icms):''}" oninput="maskCurrencyInput(this); updateCostPreview();"></div>
             <div class="form-group"><label>Outras Despesas (R$)</label><input type="text" inputmode="decimal" id="c-despesas" value="${p.despesas?fmtNumberBR(p.despesas):''}" oninput="maskCurrencyInput(this); updateCostPreview();"></div>
           </div>
           <div class="form-group">
@@ -4521,11 +4890,12 @@ function openProcessModal(id){
           </div>
           <div class="form-group">
             <label>Regime Fiscal do Item</label>
-            <select id="c-regime">
+            <select id="c-regime" onchange="onRegimeChange()">
               <option value="revenda" ${p.regime==='revenda'?'selected':''}>Revenda (RET-MG aplicável)</option>
               <option value="consumo" ${p.regime==='consumo'?'selected':''}>Consumo (ICMS normal, sem RET-MG)</option>
               <option value="demonstracao" ${p.regime==='demonstracao'?'selected':''}>Demonstração / Feira</option>
             </select>
+            <div class="form-hint" id="regime-icms-hint" style="${p.regime==='revenda'?'':'display:none;'}">Regime RET-MG: o ICMS não é recolhido na entrada, por isso o campo fica oculto.</div>
           </div>
           <table class="cost-table" id="cost-preview"></table>
           <div class="cost-note">* Os impostos (II, IPI, PIS, COFINS, ICMS) são de preenchimento livre em R$, já que a base de cálculo varia por item — use o valor apurado pelo despachante. O campo Frete acima serve apenas para calcular o CIF de referência (base de cálculo de impostos); o frete que entra no <strong>custo total</strong> é o valor pago marcado na Fase 8 (Pagamentos), evitando contar o frete duas vezes.</div>
@@ -4550,6 +4920,28 @@ function openProcessModal(id){
             <button class="btn btn-pdf" onclick="openFollowUpPreview()">Gerar Follow-up para E-mail</button>
           </div>
         </div>
+
+        <div class="tab-pane" id="tab-emails">
+          <div class="form-hint" style="margin-bottom:14px;">Gere o assunto e o corpo do e-mail já preenchidos com os dados do processo. O texto fica editável antes de copiar — ajuste o que for preciso e cole no seu cliente de e-mail. Anexe manualmente os arquivos da aba Documentos.</div>
+          <div class="followup-card">
+            <div class="followup-card-header">
+              <div>
+                <span class="followup-produto">E-mail — Nota Fiscal</span>
+              </div>
+            </div>
+            <div class="form-hint" style="margin-bottom:10px;">Avisa que a NF chegou/foi nacionalizada, com a lista de PN/Item/Qtd e os dados da DUIMP.</div>
+            <button class="btn btn-pdf" onclick="openEmailNotaFiscalPreview()">Gerar E-mail de Nota Fiscal</button>
+          </div>
+          <div class="followup-card">
+            <div class="followup-card-header">
+              <div>
+                <span class="followup-produto">E-mail — Para o Despachante</span>
+              </div>
+            </div>
+            <div class="form-hint" style="margin-bottom:10px;">Apresenta o despachante ao processo (booking, navio/viagem ou AWB, embarque, chegada prevista e temperatura), já mencionando os contatos cadastrados e sugerindo os e-mails para Cc.</div>
+            <button class="btn btn-pdf" onclick="openEmailDespachantePreview()">Gerar E-mail para o Despachante</button>
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
         <div style="display:flex; gap:8px;">
@@ -4564,6 +4956,7 @@ function openProcessModal(id){
     </div>
   `;
   document.body.appendChild(overlay);
+  toggleIcmsField();
   updateCostPreview();
   renderEtapasTab();
   initTemperaturaUI(p);
@@ -5025,10 +5418,26 @@ function collectCostFields(){
   };
 }
 
+function toggleIcmsField(){
+  const regime = document.getElementById('c-regime') ? document.getElementById('c-regime').value : '';
+  const grp = document.getElementById('c-icms-group');
+  const hint = document.getElementById('regime-icms-hint');
+  const isRet = regime === 'revenda';
+  if(grp) grp.style.display = isRet ? 'none' : '';
+  if(hint) hint.style.display = isRet ? '' : 'none';
+}
+function onRegimeChange(){
+  toggleIcmsField();
+  updateCostPreview();
+}
+
 function updateCostPreview(){
   const fields = collectCostFields();
-  const costs = computeCosts({...fields, payments: window.__editingProcess ? window.__editingProcess.payments : {}});
+  const p = window.__editingProcess;
+  const costs = computeCosts({...fields, payments: p ? p.payments : {}});
   const el = document.getElementById('cost-preview');
+  const icmsAplicavel = fields.regime !== 'revenda';
+  const paymentRows = paymentBreakdownRows(p);
   el.innerHTML = `
     <tr><td>CIF (USD) — referência p/ base de cálculo</td><td>${fmtUSD(costs.cifUsd)}</td></tr>
     <tr><td>CIF (BRL) — referência p/ base de cálculo</td><td>${fmtBRL(costs.cifBrl)}</td></tr>
@@ -5038,11 +5447,30 @@ function updateCostPreview(){
     <tr><td>IPI</td><td>${fmtBRL(costs.ipi)}</td></tr>
     <tr><td>PIS</td><td>${fmtBRL(costs.pis)}</td></tr>
     <tr><td>COFINS</td><td>${fmtBRL(costs.cofins)}</td></tr>
-    <tr><td>ICMS</td><td>${fmtBRL(costs.icms)}</td></tr>
+    ${icmsAplicavel ? `<tr><td>ICMS</td><td>${fmtBRL(costs.icms)}</td></tr>` : ''}
     <tr><td>Outras Despesas</td><td>${fmtBRL(costs.despesas)}</td></tr>
-    <tr><td>Pagamentos da Fase 8 (inclui o frete real pago)</td><td>${fmtBRL(costs.paymentsTotal)}</td></tr>
+    ${paymentRows.map(r=>`<tr><td>${r.label}</td><td>${fmtBRL(r.valor)}</td></tr>`).join('')}
     <tr class="total"><td>Custo Total Estimado</td><td>${fmtBRL(costs.total)}</td></tr>
   `;
+}
+
+/* Lista os pagamentos da Fase 8 separadamente (fixos + personalizados), cada um com seu
+   próprio valor — usado tanto no preview da aba Custos quanto na Capa em PDF. */
+function paymentBreakdownRows(p){
+  if(!p) return [];
+  const payments = p.payments || {};
+  const nomesFixos = {freteInternacional:'Frete Internacional', dta:'DTA', prestacaoDespachante:'Prestação Despachante'};
+  const rows = Object.keys(nomesFixos).map(key=>{
+    const rec = payments[key];
+    const valor = rec ? (parseFloat(rec.valor)||0) : 0;
+    return { key, label: nomesFixos[key] + (rec && rec.checked ? '' : ' (pendente)'), valor };
+  });
+  (p.customPayments||[]).forEach(cp=>{
+    const rec = payments['custom:'+cp.id];
+    const valor = rec ? (parseFloat(rec.valor)||0) : 0;
+    rows.push({ key:'custom:'+cp.id, label: cp.name + (rec && rec.checked ? '' : ' (pendente)'), valor });
+  });
+  return rows.filter(r=>r.valor>0 || (payments[r.key]&&payments[r.key].checked));
 }
 
 function collectProcessFormData(){
@@ -5198,7 +5626,7 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);font-size:9.5pt;bac
 .sheet{width:190mm;max-width:190mm;margin:0 auto;padding:0;}
 .head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--bar);padding-bottom:8px;margin-bottom:14px;}
 .head h1{font-size:19pt;color:var(--title);margin:0;}
-.head .ref{font-size:12pt;font-weight:700;color:var(--bar);background:var(--fill);padding:7px 14px;border-radius:4px;}
+.head .ref{font-size:22pt;font-weight:800;color:var(--bar);background:var(--fill);padding:8px 18px;border-radius:4px;letter-spacing:.3px;}
 .sec-bar{background:var(--bar);color:#fff;font-size:9.5pt;font-weight:700;letter-spacing:.5px;padding:6px 10px;text-transform:uppercase;margin-top:16px; break-after:avoid; page-break-after:avoid;}
 .row{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px; break-inside:avoid; page-break-inside:avoid;}
 .f{flex:1 1 150px;min-width:150px;}
@@ -5311,20 +5739,16 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);font-size:9.5pt;bac
   <div class="row">
     ${field('CIF (BRL) — referência', fmtBRL(costs.cifBrl))}
     ${field('FOB + Seguro (BRL)', fmtBRL(costs.fobBrl+costs.seguroBrl))}
-    ${field('Impostos (II+IPI+PIS+COFINS+ICMS)', fmtBRL(costs.ii+costs.ipi+costs.pis+costs.cofins+costs.icms))}
+    ${field(costs.icmsAplicavel ? 'Impostos (II+IPI+PIS+COFINS+ICMS)' : 'Impostos (II+IPI+PIS+COFINS) — RET-MG', fmtBRL(costs.ii+costs.ipi+costs.pis+costs.cofins+costs.icms))}
     ${field('Pagamentos da Fase 8 (inclui frete real)', fmtBRL(costs.paymentsTotal))}
   </div>
   <div class="row">
     ${field('Custo Total Estimado', fmtBRL(costs.total))}
   </div>
   ${(() => {
-    const pagamentosComDados = Object.entries(data.payments||{}).filter(([k,v])=>v && (v.pedidoSap||v.dataVencimento));
-    if(!pagamentosComDados.length) return '';
-    const nomesFixos = {freteInternacional:'Frete Internacional', dta:'DTA', prestacaoDespachante:'Prestação Despachante'};
-    const nomesCustom = {}; (data.customPayments||[]).forEach(cp=>nomesCustom['custom:'+cp.id]=cp.name);
-    return `<div class="row">` + pagamentosComDados.map(([k,v])=>
-      field(nomesFixos[k]||nomesCustom[k]||k, `Pedido SAP: ${v.pedidoSap||'—'} · Vencimento: ${fmtDate(v.dataVencimento)}`)
-    ).join('') + `</div>`;
+    const rows = paymentBreakdownRows(data);
+    if(!rows.length) return '';
+    return `<div class="row">` + rows.map(r => field(r.label, fmtBRL(r.valor))).join('') + `</div>`;
   })()}
 
   <div class="sec-bar">7. Observações</div>
