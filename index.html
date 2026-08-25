@@ -265,6 +265,8 @@ main{flex:1; min-width:0; display:flex; flex-direction:column;}
 .product-row .fab{font-size:12px; color:var(--muted);}
 .product-row .val{font-family:'IBM Plex Mono',monospace; font-size:12.5px; text-align:right;}
 .product-inactive-badge{font-size:9.5px; font-weight:700; text-transform:uppercase; background:var(--paper); color:var(--muted); padding:2px 7px; border-radius:10px; border:1px solid var(--border-strong);}
+.nav-alert-badge{display:inline-block; min-width:16px; padding:1px 5px; font-size:10px; font-weight:700; background:var(--ink-red); color:#fff; border-radius:9px; margin-left:6px; vertical-align:middle;}
+.ex-badge{font-size:9.5px; font-weight:700; text-transform:uppercase; background:rgba(217,119,6,.12); color:#b45309; padding:2px 7px; border-radius:10px; border:1px solid rgba(217,119,6,.35);}
 
 .import-drop{border:2px dashed var(--border-strong); border-radius:10px; padding:30px; text-align:center; color:var(--muted); margin-bottom:16px;}
 .import-mapping-row{display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:center; padding:8px 0; border-bottom:1px solid var(--border);}
@@ -453,6 +455,32 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .cost-table td:last-child{text-align:right; font-family:'IBM Plex Mono',monospace;}
 .cost-table tr.total td{font-weight:700; border-top:2px solid var(--text); border-bottom:none; padding-top:10px;}
 .cost-note{font-size:11.5px; color:var(--muted); margin-top:10px; line-height:1.5; font-style:italic;}
+
+/* ---------- Provisionamento ---------- */
+.prov-section{background:var(--card); border:1px solid var(--border); border-radius:8px; padding:16px 18px;}
+.prov-section-title{font-size:11px; font-weight:800; letter-spacing:.6px; color:var(--muted); margin-bottom:10px;}
+.prov-line{padding:10px 0; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;}
+.prov-line:last-child{border-bottom:none;}
+.prov-line-label{font-size:13px; color:var(--text);}
+.prov-line-value{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:14px; display:flex; align-items:center; gap:8px;}
+.prov-line-total{border-top:1px solid var(--border-strong); margin-top:4px; padding-top:12px;}
+.prov-line-total .prov-line-value{font-size:16px;}
+.prov-line-grand-total .prov-line-label{font-size:13px; font-weight:800; letter-spacing:.4px;}
+.prov-line-grand-total .prov-line-value{font-size:20px; font-weight:800; color:var(--navy);}
+.prov-edit-btn{background:none; border:none; cursor:pointer; font-size:11.5px; color:var(--muted); padding:2px 4px;}
+.prov-edit-btn:hover{color:var(--text);}
+.prov-details{margin:4px 0 10px; font-size:12px;}
+.prov-details summary{cursor:pointer; color:var(--muted); font-size:11.5px; padding:2px 0;}
+.prov-warning{font-size:12px; color:var(--ink-red); background:rgba(220,38,38,.08); border:1px solid rgba(220,38,38,.25); border-radius:6px; padding:8px 10px; margin:6px 0;}
+.prov-mini-table{width:100%; border-collapse:collapse; font-size:11.5px; margin-top:6px;}
+.prov-mini-table th{text-align:right; font-size:10px; text-transform:uppercase; color:var(--muted); padding:4px 6px; border-bottom:2px solid var(--text);}
+.prov-mini-table th:first-child, .prov-mini-table th:nth-child(2){text-align:left;}
+.prov-mini-table td{padding:5px 6px; border-bottom:1px solid var(--border); text-align:right; font-family:'IBM Plex Mono',monospace;}
+.prov-mini-table td:first-child, .prov-mini-table td:nth-child(2){text-align:left; font-family:inherit;}
+.prov-mini-table tr.total td{font-weight:700; border-top:2px solid var(--text); border-bottom:none;}
+.prov-conf-badge{display:inline-block; font-size:9px; text-transform:uppercase; font-weight:700; padding:1px 6px; border-radius:8px; background:rgba(217,119,6,.12); color:#b45309; border:1px solid rgba(217,119,6,.35); cursor:help; margin-left:4px; vertical-align:1px;}
+.prov-conf-badge.prov-conf-ok{background:rgba(22,163,74,.12); color:#15803d; border-color:rgba(22,163,74,.35);}
+.prov-multiplier-badge{display:inline-block; font-size:10.5px; font-weight:700; color:var(--navy); background:rgba(30,58,138,.08); border:1px solid rgba(30,58,138,.25); padding:2px 8px; border-radius:10px; margin-left:6px; vertical-align:1px; font-family:'IBM Plex Mono',monospace;}
 
 .doc-checklist{display:flex; flex-direction:column; gap:8px;}
 .doc-item-block{border:1px solid var(--border); border-radius:6px; overflow:hidden;}
@@ -653,8 +681,12 @@ function attachDataListener(){
       state.suppliers = d.suppliers || [];
       state.partners = (d.partners && d.partners.length) ? d.partners : DEFAULT_PARTNERS.map(p=>({...p}));
       state.dashboardConfig = d.dashboardConfig || null;
+      state.ncms = (d.ncms && d.ncms.length) ? d.ncms : DEFAULT_NCMS.map(n=>({...n}));
     } else {
-      state = { processes:[], suppliers:[], partners: DEFAULT_PARTNERS.map(p=>({...p})) };
+      state = { processes:[], suppliers:[], partners: DEFAULT_PARTNERS.map(p=>({...p})), ncms: DEFAULT_NCMS.map(n=>({...n})) };
+    }
+    if(autoFillKnownNcmAliquotas() && currentRole!=='viewer'){
+      persistState();
     }
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
@@ -691,7 +723,7 @@ const STAGE_DEFS = [
     items:['Conferência da Proforma','Pedido no SAP','Confirmação de prontidão'],
     itemFields:{ 1:[{key:'numeroPedidoSAP', label:'Número do Pedido', type:'text'}] }},
   {key:'fase3', label:'Fase 3 · Pagamento e Câmbio', cls:'stamp-porto',
-    items:['Pagamento'],
+    items:['Pagamento','Provisionamento Financeiro'],
     extraFields:[{key:'modalidadePagamento', label:'Modalidade de Pagamento (se aplicável)', type:'select', options:['Adiantado','Factoring']}]},
   {key:'fase4', label:'Fase 4 · Frete e Embarque', cls:'stamp-embarcado',
     items:['Cotação agente de cargas','Definição agente de cargas','Booking'],
@@ -982,7 +1014,75 @@ const DEFAULT_PARTNERS = [
   {id:'seed-8', tipo:'Agente de Cargas', empresa:'Nippon Express', contato:'Tatiana Takao', phone:'(11) 3583-3850'},
 ];
 
-let state = { processes: [], suppliers: [], partners: [] };
+/* NCMs usadas com frequência, já com as alíquotas vigentes (planilha fornecida em 24/08/2026).
+   Fonte: base de referência do usuário — se a Receita/CAMEX atualizar, ajuste na aba NCM
+   (isso vai gerar o alerta de alíquota alterada automaticamente). */
+const NCM_ALIQUOTAS_CONHECIDAS = {
+  '3701.10.10': {ii:0,    ipi:0,    pis:2.1,  cofins:9.65},
+  '3701.10.21': {ii:0,    ipi:0,    pis:2.1,  cofins:9.65},
+  '3707.90.10': {ii:12.6, ipi:9.75, pis:2.1,  cofins:9.65},
+  '3707.90.29': {ii:12.6, ipi:9.75, pis:2.1,  cofins:9.65},
+  '4016.99.90': {ii:16,   ipi:11.7, pis:2.1,  cofins:9.65},
+  '4911.99.00': {ii:14.4, ipi:0,    pis:2.1,  cofins:9.65},
+  '7320.90.00': {ii:16,   ipi:9.75, pis:2.1,  cofins:9.65},
+  '7408.19.00': {ii:10.8, ipi:0,    pis:2.1,  cofins:9.65},
+  '8421.39.90': {ii:12.6, ipi:0,    pis:2.1,  cofins:9.65},
+  '8471.90.12': {ii:12.6, ipi:9.75, pis:2.1,  cofins:9.65},
+  '8501.10.19': {ii:18,   ipi:6.5,  pis:3.12, cofins:14.37},
+  '8503.00.10': {ii:12.6, ipi:6.5,  pis:2.1,  cofins:10.25},
+  '8504.40.10': {ii:18,   ipi:5,    pis:2.1,  cofins:9.65},
+  '8504.40.90': {ii:20,   ipi:9.75, pis:2.1,  cofins:10.25},
+  '8505.90.80': {ii:12.6, ipi:9.75, pis:2.1,  cofins:9.65},
+  '8507.60.00': {ii:18,   ipi:11.25,pis:2.1,  cofins:9.65},
+  '8517.62.41': {ii:25,   ipi:15,   pis:2.1,  cofins:9.65},
+  '8523.51.10': {ii:12.8, ipi:9.75, pis:2.1,  cofins:9.65},
+  '8523.51.90': {ii:14.4, ipi:15,   pis:2.1,  cofins:9.65},
+  '8539.21.90': {ii:18,   ipi:9.75, pis:2.1,  cofins:9.65},
+  '8540.20.20': {ii:20,   ipi:6.5,  pis:2.1,  cofins:9.65},
+  '8543.70.99': {ii:10.8, ipi:6.5,  pis:2.1,  cofins:9.65},
+  '8543.90.10': {ii:10.8, ipi:6.5,  pis:2.1,  cofins:9.65},
+  '8544.42.00': {ii:8,    ipi:5,    pis:2.1,  cofins:9.65},
+  '9002.90.90': {ii:14.4, ipi:9.75, pis:2.1,  cofins:9.65},
+  '9018.49.99': {ii:14.4, ipi:5.2,  pis:2.1,  cofins:9.65},
+  '9022.12.00': {ii:0,    ipi:3.25, pis:2.1,  cofins:9.65},
+  '9022.13.11': {ii:12.6, ipi:3.25, pis:2.1,  cofins:9.65},
+  '9022.90.91': {ii:20,   ipi:3.25, pis:2.1,  cofins:9.65},
+  '9022.13.19': {ii:11.2, ipi:3.25, pis:2.1,  cofins:9.65},
+  '9022.13.90': {ii:7.2,  ipi:3.25, pis:2.1,  cofins:9.65},
+  '3919.90.90': {ii:16,   ipi:9.75, pis:2.1,  cofins:9.65},
+  '4821.10.00': {ii:14.4, ipi:0,    pis:2.1,  cofins:9.65},
+};
+
+const DEFAULT_NCMS = Object.keys(NCM_ALIQUOTAS_CONHECIDAS).map((ncm,i)=>{
+  const al = NCM_ALIQUOTAS_CONHECIDAS[ncm];
+  return {
+    id:'seed-ncm-'+(i+1), ncm, descricao:'', ii:String(al.ii), ipi:String(al.ipi), pis:String(al.pis), cofins:String(al.cofins),
+    ativo:true, history:[], pendingAlerts:[],
+  };
+});
+
+/* Preenche automaticamente as alíquotas conhecidas em qualquer NCM já cadastrada que ainda
+   esteja vazia (ex: quem já usava o app antes desta planilha existir). Só preenche o que
+   está em branco — nunca sobrescreve um valor que alguém já editou manualmente — e não
+   dispara alerta de "alíquota alterada", já que preencher um campo vazio não é uma mudança. */
+function autoFillKnownNcmAliquotas(){
+  let changed = false;
+  (state.ncms||[]).forEach(n=>{
+    const known = NCM_ALIQUOTAS_CONHECIDAS[n.ncm];
+    if(!known) return;
+    const vazio = (v)=> v===undefined || v===null || v==='';
+    if(vazio(n.ii) && vazio(n.ipi) && vazio(n.pis) && vazio(n.cofins)){
+      n.ii = String(known.ii); n.ipi = String(known.ipi); n.pis = String(known.pis); n.cofins = String(known.cofins);
+      n.history = n.history || [];
+      n.history.push({ ts: Date.now(), field:'Preenchimento inicial (planilha de alíquotas)', valorAnterior:'', valorNovo:`II ${known.ii}% · IPI ${known.ipi}% · PIS ${known.pis}% · COFINS ${known.cofins}%`, userEmail: currentUser?currentUser.email:'' });
+      changed = true;
+    }
+  });
+  return changed;
+}
+
+
+let state = { processes: [], suppliers: [], partners: [], ncms: [] };
 let currentView = 'dashboard';
 let saveTimer = null;
 
@@ -1134,6 +1234,228 @@ function renderDesempenhoTab(){
   return html;
 }
 
+/* ---------- Renderização da aba Provisionamento ---------- */
+/* Cada seção calculada (impostos, armazenagem, total) vive num container próprio que só ELA
+   atualiza (updateProvPreview) — os campos de input (frete, período, honorários) nunca são
+   recriados a cada recálculo, senão o cursor/foco do usuário pularia a cada tecla digitada
+   (mesmo padrão já usado no #cost-preview da aba Custos). */
+function renderProvisionamentoTab(){
+  const container = document.getElementById('provisionamento-content');
+  if(!container) return;
+  const p = window.__editingProcess;
+  const extra = p.extra || {};
+  const isAereo = p.modal === 'aereo';
+  const honorarios = getHonorariosDespachante(p);
+  const freteMoeda = extra.provFreteMoeda || 'USD';
+
+  container.innerHTML = `
+    <div class="form-hint" style="margin-bottom:16px;">Estimativa dos valores a pagar nesta importação. Impostos (e, quando aplicável, armazenagem) são recalculados automaticamente a partir dos itens do processo, do câmbio e das alíquotas da aba NCM — só os honorários do despachante são digitados manualmente.</div>
+
+    <div class="prov-section">
+      <div class="prov-section-title">DESPACHANTE</div>
+      <div class="prov-line">
+        <div class="prov-line-label">Honorários do despachante</div>
+        <div class="prov-line-value" id="prov-honorarios-display">
+          ${honorarios.valor ? fmtBRL(honorarios.valor) : '<span style="color:var(--muted); font-style:italic; font-weight:400;">Não definido</span>'}
+          <button type="button" class="prov-edit-btn" onclick="toggleProvHonorariosEdit(true)" title="Editar">✏️ Editar</button>
+        </div>
+      </div>
+      <div class="form-hint" id="prov-honorarios-origem" style="margin-top:-6px; margin-bottom:8px;">${honorarios.origem==='partner' ? `Puxado automaticamente do cadastro de <strong>${honorarios.partnerNome}</strong> em Parceiros. Editando aqui, vira um valor fixo só deste processo.` : honorarios.origem==='manual' ? 'Valor definido manualmente para este processo.' : (getDespachantePartner(p) ? 'Este despachante ainda não tem Honorários Padrão cadastrado em Parceiros — defina aqui ou lá.' : 'Selecione o despachante na aba Etapas (Fase 5) para puxar o valor cadastrado, ou defina manualmente aqui.')}</div>
+      <div class="prov-line" id="prov-honorarios-edit" style="display:none;">
+        <div class="prov-line-label">Novo valor (R$)</div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="text" inputmode="decimal" id="prov-honorarios-input" value="${honorarios.valor?fmtNumberBR(honorarios.valor):''}" oninput="maskCurrencyInput(this);" placeholder="0,00" style="max-width:160px; padding:8px 10px; border:1px solid var(--border-strong); border-radius:6px;">
+          <button type="button" class="btn btn-primary" onclick="saveProvHonorarios()">Salvar</button>
+          <button type="button" class="btn" onclick="toggleProvHonorariosEdit(false)">Cancelar</button>
+        </div>
+      </div>
+      <div class="prov-line">
+        <div class="prov-line-label">Acréscimos <span style="font-weight:400; text-transform:none; font-style:italic;">— soma ao Valor Aduaneiro (base dos impostos)</span></div>
+        <input type="text" inputmode="decimal" id="prov-acrescimos" value="${extra.provAcrescimosUsd?fmtNumberBR(extra.provAcrescimosUsd):''}" oninput="maskCurrencyInput(this);" onchange="updateExtraField('provAcrescimosUsd', parseBRMasked(this.value)); updateProvPreview();" placeholder="0,00 (US$)" style="max-width:160px;">
+      </div>
+      <div id="prov-despachante-calc"></div>
+      <div class="prov-line">
+        <div class="prov-line-label">Data prevista de pagamento</div>
+        <input type="date" value="${extra.provDataPagamentoDespachante||''}" onchange="updateExtraField('provDataPagamentoDespachante', this.value)">
+      </div>
+    </div>
+
+    ${!isAereo ? `
+    <div class="prov-section" style="margin-top:22px;">
+      <div class="prov-section-title">MARÍTIMO</div>
+      <div class="form-group">
+        <label>Frete Internacional</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="text" inputmode="decimal" id="prov-frete" value="${extra.provFreteInternacionalUsd?fmtNumberBR(extra.provFreteInternacionalUsd):''}" oninput="maskCurrencyInput(this);" onchange="updateExtraField('provFreteInternacionalUsd', parseBRMasked(this.value)); updateProvPreview();" style="flex:1;">
+          <select id="prov-frete-moeda" onchange="updateExtraField('provFreteMoeda', this.value); updateProvPreview();" style="max-width:110px;">
+            <option value="USD" ${freteMoeda==='USD'?'selected':''}>US$</option>
+            <option value="BRL" ${freteMoeda==='BRL'?'selected':''}>R$</option>
+          </select>
+        </div>
+        <div class="form-hint">Usado na base de cálculo dos impostos e da armazenagem. Alguns fornecedores cobram frete em reais em vez de dólar — escolha a moeda certa acima (convertido pelo câmbio já informado na aba Custos quando for US$).</div>
+      </div>
+      <div id="prov-zona-secundaria-prazo"></div>
+      <div id="prov-armazenagem-calc"></div>
+      <div class="prov-line">
+        <div class="prov-line-label">Data prevista de pagamento</div>
+        <input type="date" value="${extra.provDataPagamentoArmazenagemZP||''}" onchange="updateExtraField('provDataPagamentoArmazenagemZP', this.value)">
+      </div>
+    </div>
+    ` : ''}
+
+    <div class="prov-section prov-total" style="margin-top:22px;" id="prov-total-body"></div>
+  `;
+
+  updateProvPreview();
+}
+
+function renderPrazoZonaSecundariaHtml(p){
+  const prazo = prazoPrimeiroPeriodoZonaSecundaria(p);
+  if(!prazo){
+    return `<div class="form-hint" style="margin-bottom:10px;">Assim que a chegada no Recinto de Desembaraço (Zona Secundária, Fase 6) for marcada, o prazo do 1º período de armazenagem lá aparece aqui automaticamente (10 dias após a chegada).</div>`;
+  }
+  const dias = daysBetween(todayStr(), prazo);
+  const fase7checked = p.checklist['fase7']||[];
+  const recebido = !!fase7checked[2];
+  let statusHtml = '';
+  if(!recebido){
+    if(dias<0) statusHtml = `<span style="color:var(--ink-red); font-weight:700;">⚠️ Venceu há ${Math.abs(dias)} dia(s) — recebimento em estoque ainda não marcado</span>`;
+    else if(dias<=3) statusHtml = `<span style="color:var(--ink-red); font-weight:700;">⚠️ Faltam ${dias} dia(s) — recebimento em estoque ainda não marcado</span>`;
+    else statusHtml = `<span style="color:var(--muted);">Faltam ${dias} dia(s)</span>`;
+  } else {
+    statusHtml = `<span style="color:var(--ink-green,#15803d);">✓ Recebimento em estoque já marcado</span>`;
+  }
+  return `<div class="prov-line"><div class="prov-line-label">Prazo do 1º período (Zona Secundária)</div><div class="prov-line-value" style="font-size:13px;">${fmtDate(prazo)} — ${statusHtml}</div></div>`;
+}
+
+function updateProvPreview(){
+  const p = window.__editingProcess;
+  if(!p) return;
+  const extra = p.extra || {};
+
+  const impostos = computeImpostosImportacao(p);
+  const honorarios = getHonorariosDespachante(p).valor;
+  const totalDespachante = honorarios + impostos.total;
+
+  const despachanteCalcEl = document.getElementById('prov-despachante-calc');
+  if(despachanteCalcEl){
+    despachanteCalcEl.innerHTML = `
+      <div class="prov-line">
+        <div class="prov-line-label">Impostos estimados <span style="font-weight:400; text-transform:none; font-style:italic;">(II + IPI + PIS + COFINS, por item)</span></div>
+        <div class="prov-line-value">${fmtBRL(impostos.total)}</div>
+      </div>
+      ${impostos.temItens ? `<details class="prov-details"><summary>Ver composição por item</summary>${renderImpostosDetalheHtml(impostos)}</details>`
+        : `<div class="form-hint">Nenhum item cadastrado neste processo ainda — adicione na aba Itens para calcular os impostos.</div>`}
+      ${impostos.itensSemAliquota.length ? `<div class="prov-warning">⚠️ ${impostos.itensSemAliquota.length} item(ns) com alíquota incompleta ou NCM não cadastrado na aba NCM — o valor abaixo está subestimado para esses itens. Veja o detalhe acima.</div>` : ''}
+      <div class="prov-line prov-line-total">
+        <div class="prov-line-label">Total Despachante <span style="font-weight:400; text-transform:none; font-style:italic;">= Honorários + Impostos</span></div>
+        <div class="prov-line-value">${fmtBRL(totalDespachante)}</div>
+      </div>
+    `;
+  }
+
+  let armazenagemTotal = 0;
+  const zsPrazoEl = document.getElementById('prov-zona-secundaria-prazo');
+  if(zsPrazoEl) zsPrazoEl.innerHTML = renderPrazoZonaSecundariaHtml(p);
+  const armazenagemEl = document.getElementById('prov-armazenagem-calc');
+  if(armazenagemEl){
+    const arm = computeArmazenagemZonaPrimaria(p);
+    armazenagemEl.innerHTML = renderArmazenagemHtml(arm);
+    if(arm.status==='ok') armazenagemTotal = arm.total;
+  }
+
+  const totalEl = document.getElementById('prov-total-body');
+  if(totalEl){
+    const totalGeral = totalDespachante + armazenagemTotal;
+    totalEl.innerHTML = `<div class="prov-line prov-line-grand-total"><div class="prov-line-label">TOTAL PROVISIONADO</div><div class="prov-line-value">${fmtBRL(totalGeral)}</div></div>
+      <div class="form-hint" style="margin-top:6px;">Ainda faltam outras despesas (frete internacional pago separadamente na Fase 8, transporte rodoviário, taxas portuárias, Siscomex, etc.) — serão adicionadas em próximas etapas do Provisionamento.</div>`;
+  }
+}
+
+function renderImpostosDetalheHtml(impostos){
+  const rows = impostos.detalhe.map(d=>`
+    <tr>
+      <td>${d.pn}${d.faltando.length?` <span style="color:var(--ink-red); font-size:10px;">⚠️ ${d.faltando.join(', ')}</span>`:''}</td>
+      <td>${d.ncm||'—'}</td>
+      <td>${fmtBRL(d.vaItemBrl)}</td>
+      <td>${fmtBRL(d.iiItem)}</td>
+      <td>${fmtBRL(d.ipiItem)}</td>
+      <td>${fmtBRL(d.pisItem)}</td>
+      <td>${fmtBRL(d.cofinsItem)}</td>
+    </tr>
+  `).join('');
+  return `
+    <table class="prov-mini-table">
+      <tr><th>PN</th><th>NCM</th><th>Valor Aduaneiro</th><th>II</th><th>IPI</th><th>PIS</th><th>COFINS</th></tr>
+      ${rows}
+      <tr class="total"><td colspan="2">Total</td><td>${fmtBRL(impostos.va.vaTotalBrl)}</td><td>${fmtBRL(impostos.totalII)}</td><td>${fmtBRL(impostos.totalIPI)}</td><td>${fmtBRL(impostos.totalPIS)}</td><td>${fmtBRL(impostos.totalCOFINS)}</td></tr>
+    </table>
+  `;
+}
+
+function renderArmazenagemHtml(arm){
+  if(arm.status==='nao_aplicavel') return '';
+  if(arm.status==='sem_recinto') return `<div class="form-hint">Selecione o recinto de Zona Primária na aba Etapas (Fase 6) para calcular a armazenagem.</div>`;
+  if(arm.status==='sem_regra') return `<div class="prov-warning">⚠️ Ainda não existe uma regra de armazenagem cadastrada para o recinto "${arm.recintoNome}". Hoje só a Movecta está implementada — outros recintos entram em próximas etapas, sem precisar reconstruir esta aba.</div>`;
+
+  const confBadge = (c)=>{
+    if(c.confianca==='formula') return '<span class="prov-conf-badge prov-conf-ok" title="'+c.detalhe.replace(/"/g,'&quot;')+'">fórmula</span>';
+    return '<span class="prov-conf-badge" title="'+c.detalhe.replace(/"/g,'&quot;')+'">referência</span>';
+  };
+  const componentesHtml = arm.componentes.map(c=>`
+    <tr>
+      <td>${c.label} ${confBadge(c)}</td>
+      <td>${fmtBRL(c.valor)}${c.minimoAplicado ? ' <span class="prov-conf-badge" title="Mínimo de '+fmtBRL(arm.valorMinimo)+' aplicado — o cálculo por percentual teria dado '+fmtBRL(c.calculado)+'">mínimo aplicado</span>' : ''}</td>
+    </tr>
+  `).join('');
+
+  /* A multiplicação pela quantidade de containers fica visível direto na linha principal
+     (não só escondida no detalhe) — cada container paga o valor inteiro de novo, então com
+     2, 3, 4 containers o valor dobra/triplica/quadruplica de verdade, e isso precisa estar
+     óbvio pra quem só bater o olho no total. */
+  const multiplicadorHtml = arm.nContainers > 1
+    ? ` <span class="prov-multiplier-badge" title="${arm.nContainers} containers, cada um paga o valor de armazenagem inteiro de novo">${fmtBRL(arm.porContainer)} × ${arm.nContainers} containers</span>`
+    : '';
+
+  return `
+    <div class="prov-line">
+      <div class="prov-line-label">Armazenagem — Zona Primária (${arm.regraLabel})${multiplicadorHtml}</div>
+      <div class="prov-line-value">${fmtBRL(arm.total)}</div>
+    </div>
+    ${arm.minimoAplicado ? `<div class="prov-warning">ℹ️ Mínimo de armazenagem (${fmtBRL(arm.valorMinimo)} para ${arm.periodos} período(s)) aplicado — o cálculo por percentual sobre o Valor Aduaneiro deu abaixo do piso.</div>` : ''}
+    <details class="prov-details"><summary>Ver composição (${arm.nContainers} container(s) × ${fmtBRL(arm.porContainer)})</summary>
+      <table class="prov-mini-table" style="margin-top:6px;">
+        <tr><th>Componente</th><th>Valor por container</th></tr>
+        ${componentesHtml}
+        <tr class="total"><td>Cobrado por container</td><td>${fmtBRL(arm.porContainer)}</td></tr>
+        ${arm.nContainers>1 ? `<tr class="total"><td>× ${arm.nContainers} containers</td><td>${fmtBRL(arm.total)}</td></tr>` : ''}
+      </table>
+      <div class="form-hint" style="margin-top:6px;">
+        Calculado sobre o Valor Aduaneiro de ${fmtBRL(arm.vaTotalBrl)}, com ${arm.periodos} período(s) de 15 dias (1º período — estimativa antes do embarque).
+        <span class="prov-conf-badge prov-conf-ok" style="position:static;">fórmula</span> = percentual confirmado por escrito nos demonstrativos.
+        <span class="prov-conf-badge" style="position:static;">referência</span> = valor fixo do demonstrativo mais recente — esses valores têm mudado entre os documentos analisados (parecem sofrer reajuste periódico), então vale reconferir de tempos em tempos. Passe o mouse em cada um pra ver o histórico.
+        <br>Não incluído: Taxa Operador Portuário BTP (gap ainda não confirmado) e monitoramento de energia para container reefer (cobrança à parte, condicional).
+      </div>
+    </details>
+  `;
+}
+
+function toggleProvHonorariosEdit(editMode){
+  const display = document.getElementById('prov-honorarios-display');
+  const edit = document.getElementById('prov-honorarios-edit');
+  if(display) display.style.display = editMode ? 'none' : '';
+  if(edit) edit.style.display = editMode ? '' : 'none';
+  if(editMode){
+    const input = document.getElementById('prov-honorarios-input');
+    if(input){ input.focus(); input.select(); }
+  }
+}
+function saveProvHonorarios(){
+  const val = parseBRMasked(document.getElementById('prov-honorarios-input').value);
+  updateExtraField('provDespachanteHonorarios', val);
+  renderProvisionamentoTab(); // valor + selo de origem (manual/puxado do parceiro) mudam juntos
+}
+
 function containerReturnDate(p){
   const extra = p.extra || {};
   const baseDate = extra.dataChegadaBetim || p.chegadaPrevista;
@@ -1155,6 +1477,17 @@ function isContainerReturnDone(p){
   if(idx<0) return false;
   const checked = p.checklist['fase7']||[];
   return !!checked[idx];
+}
+
+/* Prazo do 1º período de armazenagem na Zona Secundária: 10 dias a partir da chegada lá
+   (extra.dataChegadaBetim, Fase 6 · "Chegada no Recinto de Desembaraço"). Mesmo padrão de
+   containerReturnDate() logo acima — data calculada, nunca digitada. */
+function prazoPrimeiroPeriodoZonaSecundaria(p){
+  const extra = p.extra || {};
+  if(!extra.dataChegadaBetim) return null;
+  const dt = new Date(extra.dataChegadaBetim+'T00:00:00');
+  dt.setDate(dt.getDate()+10);
+  return dt.toISOString().slice(0,10);
 }
 
 function getProcessAlerts(p){
@@ -1256,6 +1589,19 @@ function getProcessAlerts(p){
   const costs = computeCosts(p);
   if(costs.cifBrl > 4000000 && !p.seguradoraInformada){
     alerts.push(`Carga acima de R$ 4 milhões (${fmtBRL(costs.cifBrl)}) — informe a seguradora`);
+  }
+
+  const prazoZS = prazoPrimeiroPeriodoZonaSecundaria(p);
+  if(prazoZS){
+    const diasParaPrazoZS = daysBetween(today, prazoZS);
+    const fase7checked = p.checklist['fase7']||[];
+    if(diasParaPrazoZS<=3 && !fase7checked[2]){
+      alerts.push(diasParaPrazoZS<0
+        ? `Prazo do 1º período de armazenagem na Zona Secundária venceu há ${Math.abs(diasParaPrazoZS)} dias e o recebimento em estoque ainda não foi marcado`
+        : diasParaPrazoZS===0
+          ? 'Prazo do 1º período de armazenagem na Zona Secundária vence hoje e o recebimento em estoque ainda não foi marcado'
+          : `Faltam ${diasParaPrazoZS} dia${diasParaPrazoZS===1?'':'s'} para o fim do 1º período de armazenagem na Zona Secundária e o recebimento em estoque ainda não foi marcado`);
+    }
   }
 
   return alerts;
@@ -1569,6 +1915,7 @@ function renderItensTab(){
     `;
   }).join('') : `<div class="form-hint">Nenhum item adicionado ainda.</div>`;
   renderItemTotals();
+  if(typeof updateProvPreview==='function') updateProvPreview(); // impostos do Provisionamento dependem dos itens
 }
 
 function renderItemTotals(){
@@ -1638,6 +1985,7 @@ async function selectItemProduct(i){
   p.itens.push({
     id: newId, pn: r.pn, descricao: r.descricao||'', ncm: r.ncm||'', fabricante: r.fabricante||'',
     valorUnitarioMestre: r.valorUnitario||'', valorUnitarioUsado: r.valorUnitario||'', quantidade: 1,
+    exTarifario: !!r.exTarifario, exTarifarioNumero: r.exTarifarioNumero||'', exTarifarioVencimento: r.exTarifarioVencimento||'',
   });
   editingItemIds.add(newId);
   document.getElementById('item-pn-input').value = '';
@@ -1681,7 +2029,7 @@ async function quickAddProductAndItem(pn){
   const p = window.__editingProcess;
   p.itens = p.itens || [];
   const newId = uid();
-  p.itens.push({ id:newId, pn, descricao, ncm, fabricante, valorUnitarioMestre:valorUnitario, valorUnitarioUsado:valorUnitario, quantidade:1 });
+  p.itens.push({ id:newId, pn, descricao, ncm, fabricante, valorUnitarioMestre:valorUnitario, valorUnitarioUsado:valorUnitario, quantidade:1, exTarifario:false, exTarifarioNumero:'', exTarifarioVencimento:'' });
   editingItemIds.add(newId);
   document.getElementById('item-pn-input').value = '';
   document.getElementById('item-autocomplete-list').style.display = 'none';
@@ -1987,6 +2335,25 @@ function getDespachanteContatos(p){
   return (partner.contatosEmail||[]).filter(c=>c.nome || c.email);
 }
 
+/* Honorários do despachante: puxa automaticamente do cadastro do parceiro (Parceiros →
+   Despachante → Honorários Padrão) enquanto o processo não tiver um valor próprio definido.
+   Assim que o usuário editar e salvar pelo botão "Editar" do Provisionamento, o processo
+   passa a ter seu próprio valor fixo (não recalcula mais sozinho, nem se o cadastro do
+   despachante mudar depois) — mesmo padrão de "puxa automático até alguém sobrescrever"
+   já usado nas alíquotas de NCM do Banco de Itens. */
+function getHonorariosDespachante(p){
+  const extra = p.extra || {};
+  const manual = extra.provDespachanteHonorarios;
+  if(manual!==undefined && manual!==null && manual!==''){
+    return { valor: parseFloat(manual)||0, origem:'manual' };
+  }
+  const partner = getDespachantePartner(p);
+  if(partner && partner.honorariosPadrao){
+    return { valor: parseFloat(partner.honorariosPadrao)||0, origem:'partner', partnerNome: partner.empresa };
+  }
+  return { valor: 0, origem:'nenhum' };
+}
+
 function generateEmailDespachanteText(p){
   const extra = p.extra || {};
   const ref = p.ref || ('REF-'+p.id.slice(0,6).toUpperCase());
@@ -2212,7 +2579,10 @@ function getStagesForProcess(p){
       if(options.length===0) options = ['Adiantado','A prazo','Factoring'];
       const mp = p.extra && p.extra.modalidadePagamento;
       const label = mp ? `Pagamento (${mp})` : 'Pagamento';
-      return {...s, items:[label], extraFields:[{key:'modalidadePagamento', label:'Modalidade de Pagamento', type:'select', options}]};
+      /* "Provisionamento Financeiro" fica no índice 1 (depois de "Pagamento", que permanece
+         no índice 0) — assim nenhum processo já em andamento tem sua marcação de Pagamento
+         deslocada de posição no checklist. */
+      return {...s, items:[label, 'Provisionamento Financeiro'], extraFields:[{key:'modalidadePagamento', label:'Modalidade de Pagamento', type:'select', options}]};
     }
 
     if(s.key==='fase4' && isAereo){
@@ -2441,6 +2811,175 @@ function computeCosts(p){
   return {cifUsd, cifBrl, fobBrl, seguroBrl, ii, ipi, pis, cofins, icms, icmsAplicavel, despesas, paymentsTotal, total};
 }
 
+/* =====================================================================================
+   PROVISIONAMENTO — Etapa 1
+   Estima previamente os valores a gastar numa importação, por tipo de despesa, e permite
+   registrar a data prevista de pagamento. Os valores calculados (impostos, armazenagem)
+   NUNCA são digitados — são sempre recalculados a partir dos dados do processo (itens,
+   NCM/alíquotas, câmbio, containers). Só honorários do despachante é valor manual.
+   Campos novos ficam em p.extra (mesma estrutura schemaless já usada em todo o processo,
+   sem criar um objeto/tabela paralela) — assim continuam sujeitos ao mesmo padrão de
+   snapshot/edição do resto do app.
+   ===================================================================================== */
+
+/* Valor Aduaneiro total e por item (USD e BRL). Reaproveita p.cambio (mesmo câmbio da aba
+   Custos — não existe uma segunda lógica de conversão aqui) e o valor de Seguro já
+   informado na aba Custos (p.seguro, em USD, igual ao resto do cálculo de CIF do processo).
+   Frete Internacional é o único valor novo, específico do Provisionamento. O rateio de
+   frete/seguro entre os itens é proporcional ao valor FOB de cada item — é a forma padrão
+   de ratear despesas de transporte entre itens com valores diferentes numa mesma carga. */
+function computeValorAduaneiroBreakdown(p){
+  const itens = p.itens || [];
+  /* Câmbio e Seguro vivem na aba Custos e só são gravados em p.cambio/p.seguro no Salvar
+     Processo — para o Provisionamento reagir em tempo real (mesmo com a aba Custos oculta,
+     já que todas as abas do modal ficam no DOM ao mesmo tempo), lemos o valor ao vivo dos
+     inputs quando eles existem, com fallback pro valor já salvo no processo. */
+  const cambioEl = document.getElementById('c-cambio');
+  const seguroEl = document.getElementById('c-seguro');
+  const cambio = cambioEl ? (parseFloat(cambioEl.value)||0) : (parseFloat(p.cambio)||0);
+  const seguroUsd = seguroEl ? parseBRMasked(seguroEl.value) : (parseFloat(p.seguro)||0);
+  /* Frete Internacional pode ser informado em US$ ou R$ (alguns fornecedores cobram frete
+     direto em reais) — internamente tudo é somado em USD, então um valor em R$ é convertido
+     pra "USD equivalente" dividindo pelo câmbio; no final o Valor Aduaneiro inteiro volta a
+     ser convertido pra BRL multiplicando pelo mesmo câmbio, então o resultado em BRL fica
+     matematicamente correto nos dois casos (é só um passo intermediário de cálculo). */
+  const freteValorInformado = parseFloat((p.extra||{}).provFreteInternacionalUsd)||0;
+  const freteMoeda = (p.extra||{}).provFreteMoeda || 'USD';
+  const freteUsd = freteMoeda==='BRL' ? (cambio>0 ? freteValorInformado/cambio : 0) : freteValorInformado;
+  /* Acréscimos do despachante (ex: taxas/ajustes que ele soma antes de calcular impostos) —
+     entram no Valor Aduaneiro exatamente como frete/seguro, ratados por item da mesma forma. */
+  const acrescimosUsd = parseFloat((p.extra||{}).provAcrescimosUsd)||0;
+
+  const itensComFob = itens.map(it=>{
+    const fobItemUsd = (parseFloat(it.valorUnitarioUsado)||0) * (parseFloat(it.quantidade)||0);
+    return {it, fobItemUsd};
+  });
+  const fobTotalUsd = itensComFob.reduce((s,x)=>s+x.fobItemUsd, 0);
+
+  const itensComVA = itensComFob.map(({it, fobItemUsd})=>{
+    const proporcao = fobTotalUsd>0 ? (fobItemUsd/fobTotalUsd) : (itens.length? 1/itens.length : 0);
+    const freteItemUsd = freteUsd * proporcao;
+    const seguroItemUsd = seguroUsd * proporcao;
+    const acrescimosItemUsd = acrescimosUsd * proporcao;
+    const vaItemUsd = fobItemUsd + freteItemUsd + seguroItemUsd + acrescimosItemUsd;
+    const vaItemBrl = vaItemUsd * cambio;
+    return {it, fobItemUsd, freteItemUsd, seguroItemUsd, acrescimosItemUsd, vaItemUsd, vaItemBrl, proporcao};
+  });
+
+  const vaTotalUsd = fobTotalUsd + freteUsd + seguroUsd + acrescimosUsd;
+  const vaTotalBrl = vaTotalUsd * cambio;
+
+  return { cambio, freteUsd, seguroUsd, acrescimosUsd, fobTotalUsd, vaTotalUsd, vaTotalBrl, itens: itensComVA };
+}
+
+/* Impostos federais da importação (II + IPI + PIS + COFINS), calculados item a item —
+   NUNCA uma alíquota única sobre o valor total, já que cada item pode ter NCM diferente.
+   Fórmula padrão de importação (reutilizada, não inventada):
+     Valor Aduaneiro (VA) = FOB do item + frete rateado + seguro rateado, convertido em BRL
+     II     = VA × alíquota II
+     IPI    = (VA + II) × alíquota IPI   (IPI incide sobre o valor aduaneiro já acrescido do II)
+     PIS    = VA × alíquota PIS
+     COFINS = VA × alíquota COFINS
+   ICMS fica FORA desse total: é imposto estadual, tratado à parte na aba Custos (inclusive
+   com a regra de RET-MG já existente) e não costuma compor o "imposto do despachante".
+   As alíquotas vêm da aba NCM (reaproveita getEffectiveAliquotas/findNCMEntry — os mesmos
+   usados no Banco de Itens), então ficam sempre atualizadas: mudou lá, muda aqui também. */
+function computeImpostosImportacao(p){
+  const va = computeValorAduaneiroBreakdown(p);
+  let totalII=0, totalIPI=0, totalPIS=0, totalCOFINS=0;
+  const itensSemAliquota = [];
+  const detalhe = va.itens.map(({it, vaItemBrl})=>{
+    const al = getEffectiveAliquotas(it);
+    const faltando = [];
+    if(!al.ncmEncontrado) faltando.push('NCM não cadastrado na aba NCM');
+    else{
+      if(al.ii===null) faltando.push('II');
+      if(al.ipi===null) faltando.push('IPI');
+      if(al.pis===null) faltando.push('PIS');
+      if(al.cofins===null) faltando.push('COFINS');
+    }
+    const iiItem = (al.ii||0)/100 * vaItemBrl;
+    const ipiItem = (al.ipi||0)/100 * (vaItemBrl + iiItem);
+    const pisItem = (al.pis||0)/100 * vaItemBrl;
+    const cofinsItem = (al.cofins||0)/100 * vaItemBrl;
+    totalII+=iiItem; totalIPI+=ipiItem; totalPIS+=pisItem; totalCOFINS+=cofinsItem;
+    if(faltando.length) itensSemAliquota.push({pn: it.pn, faltando});
+    return { pn: it.pn, descricao: it.descricao, ncm: it.ncm, vaItemBrl, iiItem, ipiItem, pisItem, cofinsItem, faltando };
+  });
+  const total = totalII+totalIPI+totalPIS+totalCOFINS;
+  return { total, totalII, totalIPI, totalPIS, totalCOFINS, detalhe, itensSemAliquota, va, temItens: va.itens.length>0 };
+}
+
+/* Regras de armazenagem por recinto de Zona Primária. Cada recinto tem sua própria função
+   de cálculo — adicionar um novo recinto no futuro é só acrescentar uma entrada aqui, sem
+   mexer no resto do Provisionamento (é o "Exemplo conceitual" pedido: Recinto → Regra). */
+const ARMAZENAGEM_ZONA_PRIMARIA_RULES = {
+  movecta: {
+    label: 'Movecta',
+    /* Composição por container, reconstruída a partir de 3 demonstrativos reais de
+       faturamento:
+         FA-00001997-26 (28/04/2026, 2 containers)
+         FA-00004599-26 (01/06/2026, 1 container)
+         FA-00010750-26 (14/08/2026, 2 containers)
+       O 3º demonstrativo confirmou por escrito a fórmula do mínimo ("Mínimo de R$1.732,64
+       X Per. 15 dias") — o mínimo é só da linha Armazenagem (o Seguro é calculado à parte,
+       sem piso) e escala com o número de períodos, não é um valor fixo único.
+       Também revelou que TODOS os valores fixos (carregamento, movimentação, pedágio,
+       remoção) e até a alíquota do Seguro mudaram entre os 3 documentos — não são
+       constantes eternas, parecem sofrer reajuste periódico. Por isso cada um está marcado
+       como 'referência' (não 'confirmado'): uso sempre o valor do demonstrativo mais
+       recente, mas vale reconferir de tempos em tempos com novos demonstrativos.
+       "Taxa Operador Portuário BTP" apareceu nos 2 demonstrativos de 2 containers e faltou
+       no de 1 container — pode ter relação com múltiplos containers, mas 3 exemplos ainda
+       não é suficiente pra eu confiar nisso, então fica de fora (ver aviso na interface).
+       Monitoramento de energia p/ container reefer também fica de fora (cobrança à parte,
+       condicional a carga refrigerada, confirmado pelo usuário que às vezes é cobrada por
+       engano mesmo sem necessidade — não deve compor a regra padrão de armazenagem).
+       Verificação: reconstrói o total do demonstrativo de 2 containers de agosto
+       (R$17.188,74 − BTP − energia reefer = R$10.563,18 = 2 × R$5.281,59) exatamente. */
+    componentes(vaTotalBrl, periodos){
+      const armazenagemCalculado = 0.0020 * periodos * vaTotalBrl; // 0,20% por período de 15 dias
+      const minimoArmazenagem = 1732.64 * periodos;                 // mínimo escala com o nº de períodos
+      const armazenagemCobrado = Math.max(armazenagemCalculado, minimoArmazenagem);
+      return [
+        { chave:'armazenagem', label:'Armazenagem', valor: armazenagemCobrado, confianca:'formula',
+          detalhe:'0,20% por período de 15 dias sobre o Valor Aduaneiro, com mínimo de R$1.732,64 por período — fórmula e mínimo confirmados por escrito no demonstrativo de 14/08/2026',
+          calculado: armazenagemCalculado, minimoAplicado: armazenagemCobrado > armazenagemCalculado },
+        { chave:'seguro', label:'Seguro de armazenagem', valor: 0.00067 * vaTotalBrl, confianca:'formula',
+          detalhe:'0,067% sobre o Valor Aduaneiro (era 0,06% até junho/2026 — alíquota reajustada; usando a mais recente)' },
+        { chave:'carregamento', label:'Carregamento de CNTR cheio', valor: 599.20, confianca:'referencia', detalhe:'Valor do demonstrativo mais recente (14/08/2026) — já foi R$535,00 em documentos anteriores (abr/jun de 2026)' },
+        { chave:'movimentacao', label:'Movimentação interna', valor: 1475.88, confianca:'referencia', detalhe:'Valor do demonstrativo mais recente (14/08/2026) — variou entre R$1.255,00 e R$1.317,75 em documentos anteriores, sem variável visível que explique a diferença' },
+        { chave:'pedagio', label:'Pedágio até 25t', valor: 96.00, confianca:'referencia', detalhe:'Valor do demonstrativo mais recente (14/08/2026) — era R$91,50 em abril/2026; ausente no demonstrativo de 1 container' },
+        { chave:'remocaoCostado', label:'Remoção Costado [Santos]', valor: 1252.44, confianca:'referencia', detalhe:'Valor do demonstrativo mais recente (14/08/2026) — era R$1.065,00 em abril/2026; ausente no demonstrativo de 1 container' },
+      ];
+    },
+    calcular(vaTotalBrl, containersQty, periodoDias){
+      const periodos = Math.max(1, Math.ceil((parseFloat(periodoDias)||0) / 15));
+      const componentes = this.componentes(vaTotalBrl, periodos);
+      const porContainer = componentes.reduce((s,c)=>s+c.valor, 0);
+      const minimoAplicado = componentes[0].minimoAplicado;
+      const nContainers = Math.max(1, parseInt(containersQty)||1);
+      return { total: porContainer*nContainers, porContainer, minimoAplicado, valorMinimo: 1732.64*periodos, componentes, periodos, nContainers };
+    }
+  }
+};
+function normalizeRecintoKey(nome){ return String(nome||'').trim().toLowerCase().replace(/[^a-z0-9]/g,''); }
+function getArmazenagemRule(recintoNome){ return ARMAZENAGEM_ZONA_PRIMARIA_RULES[normalizeRecintoKey(recintoNome)] || null; }
+
+function computeArmazenagemZonaPrimaria(p){
+  if(p.modal==='aereo') return { status:'nao_aplicavel' };
+  const recintoNome = ((p.extra||{}).recintoZonaPrimaria||'').trim();
+  if(!recintoNome) return { status:'sem_recinto' };
+  const regra = getArmazenagemRule(recintoNome);
+  if(!regra) return { status:'sem_regra', recintoNome };
+  const va = computeValorAduaneiroBreakdown(p);
+  /* O Provisionamento é feito ANTES do embarque, quando ainda não se sabe quantos dias a
+     carga vai ficar na Zona Primária de fato — por isso a estimativa sempre considera
+     apenas o 1º período (15 dias), sem pedir esse dado manualmente. */
+  const calc = regra.calcular(va.vaTotalBrl, p.containersQty, 15);
+  return { status:'ok', recintoNome, regraLabel: regra.label, vaTotalBrl: va.vaTotalBrl, ...calc };
+}
+
 /* Carregamento agora é feito por attachDataListener() após o login (ver script de autenticação acima) */
 
 async function persistState(){
@@ -2452,6 +2991,7 @@ async function persistState(){
       suppliers: state.suppliers,
       partners: state.partners,
       dashboardConfig: state.dashboardConfig || null,
+      ncms: state.ncms || [],
     });
     updateSaveIndicator('Dados salvos na nuvem ✓');
     return true;
@@ -2516,6 +3056,7 @@ const NAV_ITEMS = [
   {key:'parceiros', label:'🤝 Parceiros'},
   {key:'followup', label:'📧 Follow-up'},
   {key:'bancoitens', label:'📦 Banco de Itens'},
+  {key:'ncm', label:'🧾 NCM'},
   {key:'rotas', label:'🗺️ Rotas'},
   {key:'produtosmestre', label:'🏷️ Produtos'},
   {key:'indicadores', label:'🎯 Indicadores'},
@@ -2554,15 +3095,17 @@ function moveNavItem(key, dir){
 }
 function renderNavHtml(){
   const items = getNavOrder().filter(i=> !i.adminOnly || currentRole==='admin');
+  const ncmAlertCount = getAllPendingNCMAlerts().length;
+  const labelFor = (i)=> (i.key==='ncm' && ncmAlertCount) ? `${i.label} <span class="nav-alert-badge">${ncmAlertCount}</span>` : i.label;
   const body = items.map((i,idx)=>{
     if(navReorderMode){
       return `<div class="nav-item-reorder-row">
-        <button class="nav-item ${currentView===i.key?'active':''}" style="flex:1;" onclick="setView('${i.key}')"><span class="dot"></span>${i.label}</button>
+        <button class="nav-item ${currentView===i.key?'active':''}" style="flex:1;" onclick="setView('${i.key}')"><span class="dot"></span>${labelFor(i)}</button>
         <button class="nav-reorder-btn" onclick="moveNavItem('${i.key}',-1)" ${idx===0?'disabled':''}>↑</button>
         <button class="nav-reorder-btn" onclick="moveNavItem('${i.key}',1)" ${idx===items.length-1?'disabled':''}>↓</button>
       </div>`;
     }
-    return navItem(i.key, i.label);
+    return navItem(i.key, labelFor(i));
   }).join('');
   const toggleBtn = `<button class="nav-reorder-toggle" onclick="toggleNavReorderMode()">${navReorderMode?'✓ Concluir reordenação':'⇅ Reordenar abas'}</button>`;
   return body + toggleBtn;
@@ -2581,6 +3124,7 @@ function viewTitle(){
   if(currentView==='indicadores') return 'Indicadores de Referência';
   if(currentView==='followup') return 'Follow-up dos Processos';
   if(currentView==='bancoitens') return 'Banco de Itens';
+  if(currentView==='ncm') return 'NCM e Alíquotas';
   if(currentView==='rotas') return 'Rotas';
   if(currentView==='produtosmestre') return 'Produtos';
   if(currentView==='equipe') return 'Equipe';
@@ -2595,6 +3139,7 @@ function viewSubtitle(){
   if(currentView==='indicadores') return 'Metas de acompanhamento mensal';
   if(currentView==='followup') return 'Todos os processos ativos, prontos para gerar e enviar por e-mail';
   if(currentView==='bancoitens') return 'Base mestre de produtos — busque pelo PN, nome, NCM ou fabricante';
+  if(currentView==='ncm') return 'Cadastro de NCMs e suas alíquotas — usado como referência nos itens do Banco de Itens';
   if(currentView==='rotas') return 'Modelos de rota logística, para reaproveitar na criação de processos';
   if(currentView==='produtosmestre') return 'Modelos de informações gerais da carga — não afeta os itens (PN) do processo';
   if(currentView==='equipe') return 'Gerencie quem tem acesso e o nível de permissão de cada pessoa';
@@ -2611,6 +3156,7 @@ function renderView(){
   if(currentView==='indicadores') renderIndicadores();
   if(currentView==='followup') el.innerHTML = renderFollowUpPage();
   if(currentView==='bancoitens') renderBancoItensPage();
+  if(currentView==='ncm') el.innerHTML = renderNCMPage();
   if(currentView==='rotas') renderRotasPage();
   if(currentView==='produtosmestre') renderProdutosMestrePage();
   if(currentView==='equipe') renderEquipe();
@@ -2984,6 +3530,14 @@ async function renderBancoItensPage(){
   document.getElementById('product-results').innerHTML = `<div class="form-hint">Digite algo pra buscar (ex: parte do PN, nome do produto, NCM ou fabricante).</div>`;
 }
 
+function renderExBadge(p){
+  if(!p.exTarifario) return '';
+  const vencido = p.exTarifarioVencimento && p.exTarifarioVencimento < todayStr();
+  const style = vencido ? 'background:rgba(220,38,38,.12); color:var(--ink-red); border-color:rgba(220,38,38,.35);' : '';
+  const label = (vencido?'⚠️ EX VENCIDO':'EX') + (p.exTarifarioNumero?' '+p.exTarifarioNumero:'');
+  return `<span class="ex-badge" style="${style}" title="EX Tarifário — II considerado zerado${vencido?' — venceu em '+fmtDate(p.exTarifarioVencimento):''}">${label}</span>`;
+}
+
 async function runProductSearch(){
   const field = document.getElementById('product-search-field').value;
   const query = document.getElementById('product-search-input').value;
@@ -3004,7 +3558,7 @@ async function runProductSearch(){
   el.innerHTML = results.map(p=>`
     <div class="product-row" onclick="openProductModal('${p.id.replace(/'/g,"\\'")}')">
       <span class="pn">${p.pn||p.id}</span>
-      <span class="desc">${p.descricao||'—'} ${p.ativo===false?'<span class="product-inactive-badge">Inativo</span>':''}</span>
+      <span class="desc">${p.descricao||'—'} ${p.ativo===false?'<span class="product-inactive-badge">Inativo</span>':''}${renderExBadge(p)}</span>
       <span class="ncm">${p.ncm||'—'}</span>
       <span class="fab">${p.fabricante||'—'}</span>
       <span class="val">${p.valorUnitario?fmtUSD(parseFloat(p.valorUnitario)):'—'}</span>
@@ -3023,8 +3577,32 @@ async function openProductModal(pn){
     if(f.key==='valorUnitario' || f.key==='peso'){
       return `<div class="form-group"><label>${f.label}</label><input id="pf-${f.key}" type="text" inputmode="decimal" value="${p[f.key]?fmtNumberBR(p[f.key]):''}" oninput="maskCurrencyInput(this)"></div>`;
     }
+    if(f.key==='ncm'){
+      return `<div class="form-group">
+        <label>${f.label}</label>
+        <input id="pf-${f.key}" value="${p[f.key]||''}" placeholder="0000.00.00" oninput="onProductNcmInput(this.value)">
+        <div id="ncm-aliquotas-ref">${renderNcmAliquotasRef(p.ncm)}</div>
+      </div>`;
+    }
     return `<div class="form-group"><label>${f.label}</label><input id="pf-${f.key}" type="${f.type||'text'}" ${f.type==='number'?'step="0.01"':''} value="${p[f.key]!==undefined?p[f.key]:''}"></div>`;
   }).join('');
+
+  const exTarifarioHtml = `
+    <div class="form-group">
+      <label>EX Tarifário</label>
+      <div class="type-toggle">
+        <button type="button" class="ex-toggle-btn" data-val="nao" onclick="toggleProductExTarifario(false)">Não</button>
+        <button type="button" class="ex-toggle-btn" data-val="sim" onclick="toggleProductExTarifario(true)">Sim</button>
+      </div>
+      <div class="form-hint">Quando marcado, o Imposto de Importação (II) deste item é considerado zerado nos cálculos de referência, independentemente da alíquota cadastrada para o NCM.</div>
+    </div>
+    <div class="form-group" id="ex-tarifario-wrap" style="display:${p.exTarifario?'block':'none'};">
+      <div class="form-row">
+        <div class="form-group"><label>Número do EX</label><input id="pf-exTarifarioNumero" value="${p.exTarifarioNumero||''}" placeholder="Ex: 000.123"></div>
+        <div class="form-group"><label>Vencimento do EX</label><input type="date" id="pf-exTarifarioVencimento" value="${p.exTarifarioVencimento||''}"></div>
+      </div>
+    </div>
+  `;
 
   const historyHtml = (p.history||[]).length ? (p.history||[]).slice().sort((a,b)=>b.ts-a.ts).map(h=>`
     <div class="history-item">
@@ -3060,6 +3638,7 @@ async function openProductModal(pn){
             </div>
           ` : ''}
           ${fieldsHtml}
+          ${exTarifarioHtml}
         </div>
         ${existing?`<div class="tab-pane" id="tab-usoprocessos">${usageHtml}</div>`:''}
         ${existing?`<div class="tab-pane" id="tab-histprod">${historyHtml}</div>`:''}
@@ -3074,6 +3653,7 @@ async function openProductModal(pn){
     </div>
   `;
   document.body.appendChild(overlay);
+  initExTarifarioUI(p);
 }
 
 /* Histórico de uso em processos: em quais referências este item (PN) já foi trazido e em
@@ -3122,6 +3702,58 @@ function renderProductUsageHistory(pn){
   `;
 }
 
+/* Alíquotas efetivas de um produto (Banco de Itens): parte do que está cadastrado no NCM,
+   mas zera o II quando o item tem EX Tarifário marcado (mesmo com o EX vencido — o alerta
+   de vencimento é só visual, quem decide se o EX ainda vale é o usuário). Ponto único pra
+   quem for usar isso em cálculos futuros (ex: Custos automático por item). */
+function getEffectiveAliquotas(product){
+  const entry = findNCMEntry(product && product.ncm);
+  const base = {
+    ii: entry && entry.ii!=='' ? parseFloat(entry.ii)||0 : null,
+    ipi: entry && entry.ipi!=='' ? parseFloat(entry.ipi)||0 : null,
+    pis: entry && entry.pis!=='' ? parseFloat(entry.pis)||0 : null,
+    cofins: entry && entry.cofins!=='' ? parseFloat(entry.cofins)||0 : null,
+    ncmEncontrado: !!entry,
+  };
+  if(product && product.exTarifario) base.ii = 0;
+  return base;
+}
+
+function renderNcmAliquotasRef(ncmValue){
+  if(!ncmValue) return `<div class="form-hint">Digite o NCM para ver a alíquota cadastrada na aba NCM.</div>`;
+  const entry = findNCMEntry(ncmValue);
+  if(!entry){
+    return `<div class="form-hint">⚠️ Este NCM ainda não está cadastrado na aba NCM. <a href="#" onclick="event.preventDefault(); closeModal(); setView('ncm'); openNCMModal();">Cadastrar agora</a>.</div>`;
+  }
+  const has = v => v!==''&&v!=null;
+  const parts = [
+    `II ${has(entry.ii)?entry.ii+'%':'—'}`,
+    `IPI ${has(entry.ipi)?entry.ipi+'%':'—'}`,
+    `PIS ${has(entry.pis)?entry.pis+'%':'—'}`,
+    `COFINS ${has(entry.cofins)?entry.cofins+'%':'—'}`,
+  ];
+  const alertaHtml = (entry.pendingAlerts||[]).length ? ` <span style="color:var(--ink-red); font-weight:700;">⚠️ alíquota alterada recentemente</span>` : '';
+  return `<div class="form-hint">Alíquotas cadastradas para este NCM (atualizadas automaticamente conforme a aba NCM): <strong>${parts.join(' · ')}</strong>${entry.ativo===false?' <span class="product-inactive-badge">NCM Inativo</span>':''}${alertaHtml}</div>`;
+}
+function onProductNcmInput(val){
+  const ref = document.getElementById('ncm-aliquotas-ref');
+  if(ref) ref.innerHTML = renderNcmAliquotasRef(val);
+}
+
+function toggleProductExTarifario(val){
+  window.__editingProduct.exTarifario = val;
+  document.querySelectorAll('.ex-toggle-btn').forEach(b=>{
+    b.classList.toggle('active', (b.dataset.val==='sim')===val);
+  });
+  const wrap = document.getElementById('ex-tarifario-wrap');
+  if(wrap) wrap.style.display = val ? 'block' : 'none';
+}
+function initExTarifarioUI(p){
+  document.querySelectorAll('.ex-toggle-btn').forEach(b=>{
+    b.classList.toggle('active', (b.dataset.val==='sim')===!!p.exTarifario);
+  });
+}
+
 function formatNCM(v){
   const digits = String(v||'').replace(/\D/g,'');
   if(!digits) return '';
@@ -3138,6 +3770,263 @@ function formatCodCatalogo(v){
   const digits = String(v||'').replace(/\D/g,'');
   if(!digits) return '';
   return digits.padStart(10,'0').slice(-10);
+}
+
+/* ---------- NCM E ALÍQUOTAS ---------- */
+/* Cadastro de NCMs com II/IPI/PIS/COFINS. Integra com o Banco de Itens: o campo NCM de
+   cada produto busca aqui a alíquota vigente (nunca copia/trava um valor fixo no produto),
+   então qualquer atualização feita nesta aba já "respeitada" automaticamente por todos os
+   itens que usam aquele NCM. Toda alteração de alíquota gera um alerta pendente até alguém
+   marcar como ciente. */
+function findNCMEntry(ncmValue){
+  const digits = String(ncmValue||'').replace(/\D/g,'');
+  if(!digits) return null;
+  return (state.ncms||[]).find(n=>String(n.ncm||'').replace(/\D/g,'')===digits) || null;
+}
+
+function getAllPendingNCMAlerts(){
+  const out = [];
+  (state.ncms||[]).forEach(n=>{
+    (n.pendingAlerts||[]).forEach(a=>out.push({...a, ncmId:n.id, ncm:n.ncm}));
+  });
+  out.sort((a,b)=>b.ts-a.ts);
+  return out;
+}
+
+function renderNCMAlertsBanner(){
+  const alerts = getAllPendingNCMAlerts();
+  if(!alerts.length) return '';
+  return `
+    <div class="alert-banner" style="margin-bottom:18px; border:1px solid var(--ink-red); background:rgba(220,38,38,.08); border-radius:8px; padding:12px 14px;">
+      <div style="font-weight:700; color:var(--ink-red); margin-bottom:8px;">⚠️ ${alerts.length} alteração(ões) de alíquota pendente(s) de ciência</div>
+      ${alerts.map(a=>`
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:6px 0; border-top:1px solid rgba(220,38,38,.2);">
+          <div style="font-size:12.5px;">
+            <strong>${a.ncm}</strong> — ${a.campo} mudou de <strong>${a.valorAnterior===''?'—':a.valorAnterior+'%'}</strong> para <strong>${a.valorNovo}%</strong>
+            <span style="color:var(--muted);"> · ${formatHistoryDate(a.ts)}</span>
+          </div>
+          <button class="btn" style="white-space:nowrap;" onclick="acknowledgeNCMAlert('${a.ncmId}','${a.id}')">Marcar como Ciente</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+async function acknowledgeNCMAlert(ncmId, alertId){
+  const n = (state.ncms||[]).find(x=>x.id===ncmId);
+  if(!n) return;
+  n.pendingAlerts = (n.pendingAlerts||[]).filter(a=>a.id!==alertId);
+  await persistState();
+  render();
+}
+
+let ncmPageState = { query:'', sortField:'ncm', sortDir:'asc' };
+
+function renderNCMPage(){
+  const header = currentRole!=='viewer' ? `<div style="margin-bottom:18px;"><button class="btn btn-primary" onclick="openNCMModal()">+ Nova NCM</button></div>` : '';
+  const alertsHtml = renderNCMAlertsBanner();
+  const searchBarHtml = `
+    <div class="product-search-bar">
+      <input type="text" id="ncm-search-input" placeholder="Buscar por NCM ou descrição..." value="${(ncmPageState.query||'').replace(/"/g,'&quot;')}" oninput="runNCMSearch()" style="flex:1;">
+      <select id="ncm-sort-field" onchange="runNCMSearch()">
+        <option value="ncm" ${ncmPageState.sortField==='ncm'?'selected':''}>Ordenar por NCM</option>
+        <option value="ii" ${ncmPageState.sortField==='ii'?'selected':''}>Ordenar por II</option>
+        <option value="ipi" ${ncmPageState.sortField==='ipi'?'selected':''}>Ordenar por IPI</option>
+        <option value="pis" ${ncmPageState.sortField==='pis'?'selected':''}>Ordenar por PIS</option>
+        <option value="cofins" ${ncmPageState.sortField==='cofins'?'selected':''}>Ordenar por COFINS</option>
+      </select>
+      <button class="btn" onclick="toggleNCMSortDir(this)" title="Inverter ordem">${ncmPageState.sortDir==='asc'?'⬆️ Crescente':'⬇️ Decrescente'}</button>
+    </div>
+  `;
+  return header + alertsHtml + searchBarHtml + `<div id="ncm-results">${renderNCMResults()}</div>`;
+}
+
+function runNCMSearch(){
+  ncmPageState.query = document.getElementById('ncm-search-input').value;
+  ncmPageState.sortField = document.getElementById('ncm-sort-field').value;
+  document.getElementById('ncm-results').innerHTML = renderNCMResults();
+}
+
+function toggleNCMSortDir(btn){
+  ncmPageState.sortDir = ncmPageState.sortDir==='asc' ? 'desc' : 'asc';
+  if(btn) btn.textContent = ncmPageState.sortDir==='asc' ? '⬆️ Crescente' : '⬇️ Decrescente';
+  document.getElementById('ncm-results').innerHTML = renderNCMResults();
+}
+
+function renderNCMResults(){
+  const q = (ncmPageState.query||'').trim().toLowerCase();
+  const qDigits = q.replace(/\D/g,'');
+  let list = (state.ncms||[]).filter(n=>{
+    if(!q) return true;
+    const ncmDigits = String(n.ncm||'').replace(/\D/g,'');
+    return (n.ncm||'').toLowerCase().includes(q)
+      || (qDigits && ncmDigits.includes(qDigits))
+      || (n.descricao||'').toLowerCase().includes(q);
+  });
+
+  const field = ncmPageState.sortField || 'ncm';
+  const dir = ncmPageState.sortDir==='desc' ? -1 : 1;
+  list = list.slice().sort((a,b)=>{
+    if(field==='ncm') return (a.ncm||'').localeCompare(b.ncm||'') * dir;
+    const av = a[field]===''||a[field]==null ? -Infinity : parseFloat(a[field]);
+    const bv = b[field]===''||b[field]==null ? -Infinity : parseFloat(b[field]);
+    return (av - bv) * dir;
+  });
+
+  if(!list.length){
+    return `<div class="empty-state">
+      <h3>Nenhuma NCM encontrada</h3>
+      <p>${q ? 'Confira o termo buscado ou cadastre uma NCM nova.' : 'Cadastre as NCMs e suas alíquotas para usar como referência no Banco de Itens.'}</p>
+    </div>`;
+  }
+
+  const rows = list.map(n=>`
+    <div class="product-row" onclick="openNCMModal('${n.id}')">
+      <span class="pn">${n.ncm}</span>
+      <span class="desc">${n.descricao||'—'} ${n.ativo===false?'<span class="product-inactive-badge">Inativo</span>':''}${(n.pendingAlerts||[]).length?' <span style="color:var(--ink-red); font-weight:700;">⚠️ alíquota alterada</span>':''}</span>
+      <span class="ncm">II ${n.ii!==''&&n.ii!=null?n.ii+'%':'—'}</span>
+      <span class="fab">IPI ${n.ipi!==''&&n.ipi!=null?n.ipi+'%':'—'}</span>
+      <span class="val">PIS ${n.pis!==''&&n.pis!=null?n.pis+'%':'—'} · COFINS ${n.cofins!==''&&n.cofins!=null?n.cofins+'%':'—'}</span>
+      <span></span>
+    </div>
+  `).join('');
+  return `<div class="product-list">${rows}</div>`;
+}
+
+function openNCMModal(id){
+  const existing = id ? (state.ncms||[]).find(n=>n.id===id) : null;
+  const n = existing || {id:uid(), ncm:'', descricao:'', ii:'', ipi:'', pis:'', cofins:'', ativo:true, history:[], pendingAlerts:[]};
+  window.__editingNCM = JSON.parse(JSON.stringify(n));
+
+  const historyHtml = (n.history||[]).length ? (n.history||[]).slice().sort((a,b)=>b.ts-a.ts).map(h=>`
+    <div class="history-item">
+      <div class="history-date">${formatHistoryDate(h.ts)}${h.userEmail?' · '+h.userEmail:''}</div>
+      <div class="history-title">${h.field}</div>
+      <div class="history-detail">Anterior: ${h.valorAnterior===undefined||h.valorAnterior===''?'—':h.valorAnterior}<br>Novo: ${h.valorNovo}</div>
+    </div>
+  `).join('') : `<div class="form-hint">Nenhuma alteração registrada ainda.</div>`;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modal-overlay';
+  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  overlay.innerHTML = `
+    <div class="modal">
+      <div class="modal-header">
+        <h2>${existing?'Editar NCM':'Nova NCM'}</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="dados" onclick="switchTab('dados')">Dados</button>
+          ${existing?`<button class="tab-btn" data-tab="histncm" onclick="switchTab('histncm')">Histórico de Alíquotas</button>`:''}
+        </div>
+        <div class="tab-pane active" id="tab-dados">
+          ${existing ? `
+            <div class="status-badge-row">
+              <span class="role-badge ${n.ativo===false?'viewer':'admin'}">${n.ativo===false?'Inativo':'Ativo'}</span>
+            </div>
+          ` : ''}
+          <div class="form-group"><label>NCM</label><input id="ncm-codigo" value="${n.ncm||''}" placeholder="0000.00.00"></div>
+          <div class="form-group"><label>Descrição (opcional)</label><input id="ncm-descricao" value="${n.descricao||''}" placeholder="Ex: Filmes fotográficos radiográficos"></div>
+          <div class="form-row">
+            <div class="form-group"><label>II (%)</label><input id="ncm-ii" type="text" inputmode="decimal" value="${n.ii||''}" placeholder="Ex: 12"></div>
+            <div class="form-group"><label>IPI (%)</label><input id="ncm-ipi" type="text" inputmode="decimal" value="${n.ipi||''}" placeholder="Ex: 5"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>PIS (%)</label><input id="ncm-pis" type="text" inputmode="decimal" value="${n.pis||''}" placeholder="Ex: 2.1"></div>
+            <div class="form-group"><label>COFINS (%)</label><input id="ncm-cofins" type="text" inputmode="decimal" value="${n.cofins||''}" placeholder="Ex: 9.65"></div>
+          </div>
+          <div class="form-hint">Itens do Banco de Itens que usarem este NCM vão exibir estas alíquotas automaticamente como referência. Produtos marcados com EX Tarifário consideram o II zerado, independentemente do que estiver aqui.</div>
+        </div>
+        ${existing?`<div class="tab-pane" id="tab-histncm">${historyHtml}</div>`:''}
+      </div>
+      <div class="modal-footer">
+        <div>${existing && currentRole!=='viewer' ? `
+          <button class="btn ${n.ativo===false?'':'btn-danger'}" onclick="toggleNCMActive('${n.id}', ${n.ativo===false})">${n.ativo===false?'Reativar':'Marcar como Inativo'}</button>
+          <button class="btn btn-danger" onclick="deleteNCM('${n.id}')">Excluir</button>
+        ` : '<span></span>'}</div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" onclick="closeModal()">${currentRole==='viewer'?'Fechar':'Cancelar'}</button>
+          ${currentRole!=='viewer' ? `<button class="btn btn-primary" onclick="saveNCM('${n.id}')">Salvar NCM</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+async function saveNCM(id){
+  if(!requireEditPermission()) return;
+  const ncmRaw = document.getElementById('ncm-codigo').value;
+  const ncm = formatNCM(ncmRaw);
+  if(!ncm){ alert('Informe o código da NCM.'); return; }
+
+  const prev = window.__editingNCM || {};
+  const duplicate = (state.ncms||[]).find(n=>n.ncm===ncm && n.id!==id);
+  if(duplicate){ alert('Já existe uma NCM cadastrada com este código.'); return; }
+
+  const aliquotaFields = [
+    {key:'ii', label:'II'}, {key:'ipi', label:'IPI'}, {key:'pis', label:'PIS'}, {key:'cofins', label:'COFINS'},
+  ];
+  const data = {
+    id,
+    ncm,
+    descricao: document.getElementById('ncm-descricao').value.trim(),
+    ii: document.getElementById('ncm-ii').value.trim(),
+    ipi: document.getElementById('ncm-ipi').value.trim(),
+    pis: document.getElementById('ncm-pis').value.trim(),
+    cofins: document.getElementById('ncm-cofins').value.trim(),
+  };
+
+  const history = (prev.history||[]).slice();
+  const pendingAlerts = (prev.pendingAlerts||[]).slice();
+  const userEmail = currentUser ? currentUser.email : '';
+  const isNew = !(state.ncms||[]).some(n=>n.id===id);
+
+  aliquotaFields.forEach(f=>{
+    const antes = prev[f.key]!==undefined ? String(prev[f.key]) : '';
+    const depois = data[f.key]!==undefined ? String(data[f.key]) : '';
+    if(antes !== depois){
+      history.push({ ts: Date.now(), field: f.label, valorAnterior: antes, valorNovo: depois, userEmail });
+      /* Só dispara alerta de "alíquota mudou" quando já havia um valor antes — cadastro
+         inicial de uma NCM nova (ou preenchendo pela primeira vez) não é uma "mudança". */
+      if(!isNew && antes !== ''){
+        pendingAlerts.push({ id: uid(), campo: f.label, valorAnterior: antes, valorNovo: depois, ts: Date.now() });
+      }
+    }
+  });
+
+  data.history = history;
+  data.pendingAlerts = pendingAlerts;
+  data.ativo = prev.ativo===false ? false : true;
+
+  const idx = (state.ncms||[]).findIndex(n=>n.id===id);
+  state.ncms = state.ncms || [];
+  if(idx>=0) state.ncms[idx] = data; else state.ncms.push(data);
+
+  await persistState();
+  closeModal();
+  render();
+}
+
+async function toggleNCMActive(id, makeActive){
+  if(!requireEditPermission()) return;
+  const n = (state.ncms||[]).find(x=>x.id===id);
+  if(!n) return;
+  n.ativo = makeActive;
+  await persistState();
+  closeModal();
+  render();
+}
+
+async function deleteNCM(id){
+  if(!requireEditPermission()) return;
+  if(!confirm('Excluir esta NCM? Itens do Banco de Itens que usam este código deixam de ter alíquota de referência.')) return;
+  state.ncms = (state.ncms||[]).filter(n=>n.id!==id);
+  await persistState();
+  closeModal();
+  render();
 }
 
 async function saveProduct(isEdit){
@@ -3173,6 +4062,10 @@ async function saveProduct(isEdit){
   if(data.codigo) data.codigo = formatCodigoImposto(data.codigo);
   if(data.codCatalogo) data.codCatalogo = formatCodCatalogo(data.codCatalogo);
 
+  data.exTarifario = !!(window.__editingProduct && window.__editingProduct.exTarifario);
+  data.exTarifarioNumero = data.exTarifario ? (document.getElementById('pf-exTarifarioNumero').value||'').trim() : '';
+  data.exTarifarioVencimento = data.exTarifario ? (document.getElementById('pf-exTarifarioVencimento').value||'') : '';
+
   const history = (prev.history||[]).slice();
   const userEmail = currentUser ? currentUser.email : '';
   if(isRename){
@@ -3183,6 +4076,18 @@ async function saveProduct(isEdit){
     const antes = prev[f.key]!==undefined ? prev[f.key] : '';
     const depois = data[f.key]!==undefined ? data[f.key] : '';
     if(String(antes) !== String(depois)){
+      history.push({ ts: Date.now(), field: f.label, valorAnterior: antes, valorNovo: depois, userEmail });
+    }
+  });
+  const exFieldsToTrack = [
+    {key:'exTarifario', label:'EX Tarifário', fmt:v=>v?'Sim':'Não'},
+    {key:'exTarifarioNumero', label:'Número do EX', fmt:v=>v||''},
+    {key:'exTarifarioVencimento', label:'Vencimento do EX', fmt:v=>v||''},
+  ];
+  exFieldsToTrack.forEach(f=>{
+    const antes = f.fmt(prev[f.key]);
+    const depois = f.fmt(data[f.key]);
+    if(antes !== depois){
       history.push({ ts: Date.now(), field: f.label, valorAnterior: antes, valorNovo: depois, userEmail });
     }
   });
@@ -4408,6 +5313,11 @@ function openPartnerModal(id){
         <div class="form-group"><label>Contato</label><input id="pt-contato" value="${s.contato||''}" placeholder="Nome da pessoa de contato"></div>
         <div class="form-group"><label>Telefone</label><input id="pt-phone" value="${s.phone||''}"></div>
         <div class="form-group"><label>E-mail</label><input id="pt-email" value="${s.email||''}"></div>
+        <div class="form-group" id="pt-honorarios-wrap" style="display:${s.tipo==='Despachante'?'block':'none'};">
+          <label>Honorários Padrão (R$)</label>
+          <input type="text" inputmode="decimal" id="pt-honorarios" value="${s.honorariosPadrao?fmtNumberBR(s.honorariosPadrao):''}" oninput="maskCurrencyInput(this);" placeholder="0,00">
+          <div class="form-hint">Valor puxado automaticamente na aba Provisionamento de cada processo com este despachante. Pode ser editado processo a processo lá, sem afetar este cadastro.</div>
+        </div>
         <div class="form-group" id="pt-contatos-wrap" style="display:${s.tipo==='Despachante'?'block':'none'};">
           <label>Contatos para E-mail (nome + e-mail)</label>
           <div class="form-hint" style="margin-bottom:8px;">Usados para montar automaticamente as menções (@Nome) e a cópia (Cc) do e-mail de abertura de processo com o despachante.</div>
@@ -4459,6 +5369,8 @@ function onPartnerTipoChange(tipo){
   document.getElementById('pt-cidade-wrap').style.display = tipo==='Recinto Alfandegado' ? 'block' : 'none';
   const contatosWrap = document.getElementById('pt-contatos-wrap');
   if(contatosWrap) contatosWrap.style.display = tipo==='Despachante' ? 'block' : 'none';
+  const honorariosWrap = document.getElementById('pt-honorarios-wrap');
+  if(honorariosWrap) honorariosWrap.style.display = tipo==='Despachante' ? 'block' : 'none';
 }
 
 async function savePartner(id){
@@ -4478,6 +5390,7 @@ async function savePartner(id){
     phone: document.getElementById('pt-phone').value.trim(),
     email: document.getElementById('pt-email').value.trim(),
     contatosEmail,
+    honorariosPadrao: document.getElementById('pt-honorarios') ? parseBRMasked(document.getElementById('pt-honorarios').value) : '',
     notes: document.getElementById('pt-notes').value.trim(),
   };
   const idx = state.partners.findIndex(p=>p.id===id);
@@ -4712,6 +5625,7 @@ function openProcessModal(id){
           <button class="tab-btn" data-tab="etapas" onclick="switchTab('etapas')">Etapas</button>
           <button class="tab-btn" data-tab="itens" onclick="switchTab('itens')">📦 Itens</button>
           <button class="tab-btn" data-tab="custos" onclick="switchTab('custos')">Custos</button>
+          <button class="tab-btn" data-tab="provisionamento" onclick="switchTab('provisionamento')">🧮 Provisionamento</button>
           <button class="tab-btn" data-tab="docs" onclick="switchTab('docs')">Documentos</button>
           <button class="tab-btn" data-tab="desempenho" onclick="switchTab('desempenho')">Desempenho</button>
           <button class="tab-btn" data-tab="historico" onclick="switchTab('historico')">Histórico</button>
@@ -4885,10 +5799,6 @@ function openProcessModal(id){
             <div class="form-group"><label>Outras Despesas (R$)</label><input type="text" inputmode="decimal" id="c-despesas" value="${p.despesas?fmtNumberBR(p.despesas):''}" oninput="maskCurrencyInput(this); updateCostPreview();"></div>
           </div>
           <div class="form-group">
-            <label>Custo Orçado (R$) <span style="font-weight:400; text-transform:none; font-style:italic;">— opcional, usado na Análise de Desempenho</span></label>
-            <input type="text" inputmode="decimal" id="c-orcado" value="${p.custoOrcado?fmtNumberBR(p.custoOrcado):''}" oninput="maskCurrencyInput(this);">
-          </div>
-          <div class="form-group">
             <label>Regime Fiscal do Item</label>
             <select id="c-regime" onchange="onRegimeChange()">
               <option value="revenda" ${p.regime==='revenda'?'selected':''}>Revenda (RET-MG aplicável)</option>
@@ -4899,6 +5809,10 @@ function openProcessModal(id){
           </div>
           <table class="cost-table" id="cost-preview"></table>
           <div class="cost-note">* Os impostos (II, IPI, PIS, COFINS, ICMS) são de preenchimento livre em R$, já que a base de cálculo varia por item — use o valor apurado pelo despachante. O campo Frete acima serve apenas para calcular o CIF de referência (base de cálculo de impostos); o frete que entra no <strong>custo total</strong> é o valor pago marcado na Fase 8 (Pagamentos), evitando contar o frete duas vezes.</div>
+        </div>
+
+        <div class="tab-pane" id="tab-provisionamento">
+          <div id="provisionamento-content"></div>
         </div>
 
         <div class="tab-pane" id="tab-docs">
@@ -4966,6 +5880,7 @@ function openProcessModal(id){
   renderItensTab();
   document.getElementById('desempenho-content').innerHTML = renderDesempenhoTab();
   renderDocsTab();
+  renderProvisionamentoTab();
   if(!existing) fetchDollarQuoteIfNeeded();
   ensureMasterDataForProcess();
 }
@@ -5413,7 +6328,9 @@ function collectCostFields(){
     cofins: parseBRMasked(document.getElementById('c-cofins').value),
     icms: parseBRMasked(document.getElementById('c-icms').value),
     despesas: parseBRMasked(document.getElementById('c-despesas').value),
-    custoOrcado: parseBRMasked(document.getElementById('c-orcado').value),
+    /* Campo removido da aba Custos (o provisionamento passou a viver na aba Provisionamento) —
+       mantém o valor já salvo em processos antigos intacto, só não é mais editável aqui. */
+    custoOrcado: window.__editingProcess ? window.__editingProcess.custoOrcado : undefined,
     regime: document.getElementById('c-regime') ? document.getElementById('c-regime').value : '',
   };
 }
@@ -5452,6 +6369,7 @@ function updateCostPreview(){
     ${paymentRows.map(r=>`<tr><td>${r.label}</td><td>${fmtBRL(r.valor)}</td></tr>`).join('')}
     <tr class="total"><td>Custo Total Estimado</td><td>${fmtBRL(costs.total)}</td></tr>
   `;
+  if(typeof updateProvPreview==='function') updateProvPreview(); // câmbio/seguro/FOB entram no Valor Aduaneiro do Provisionamento
 }
 
 /* Lista os pagamentos da Fase 8 separadamente (fixos + personalizados), cada um com seu
