@@ -682,8 +682,9 @@ function attachDataListener(){
       state.partners = (d.partners && d.partners.length) ? d.partners : DEFAULT_PARTNERS.map(p=>({...p}));
       state.dashboardConfig = d.dashboardConfig || null;
       state.ncms = (d.ncms && d.ncms.length) ? d.ncms : DEFAULT_NCMS.map(n=>({...n}));
+      state.empresaConfig = d.empresaConfig || { nome:'', estoques:[] };
     } else {
-      state = { processes:[], suppliers:[], partners: DEFAULT_PARTNERS.map(p=>({...p})), ncms: DEFAULT_NCMS.map(n=>({...n})) };
+      state = { processes:[], suppliers:[], partners: DEFAULT_PARTNERS.map(p=>({...p})), ncms: DEFAULT_NCMS.map(n=>({...n})), empresaConfig: { nome:'', estoques:[] } };
     }
     if(autoFillKnownNcmAliquotas() && currentRole!=='viewer'){
       persistState();
@@ -1271,7 +1272,13 @@ function renderProvisionamentoTab(){
       </div>
       <div class="prov-line">
         <div class="prov-line-label">Acréscimos <span style="font-weight:400; text-transform:none; font-style:italic;">— soma ao Valor Aduaneiro (base dos impostos)</span></div>
-        <input type="text" inputmode="decimal" id="prov-acrescimos" value="${extra.provAcrescimosUsd?fmtNumberBR(extra.provAcrescimosUsd):''}" oninput="maskCurrencyInput(this);" onchange="updateExtraField('provAcrescimosUsd', parseBRMasked(this.value)); updateProvPreview();" placeholder="0,00 (US$)" style="max-width:160px;">
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="text" inputmode="decimal" id="prov-acrescimos" value="${extra.provAcrescimosUsd?fmtNumberBR(extra.provAcrescimosUsd):''}" oninput="maskCurrencyInput(this);" onchange="updateExtraField('provAcrescimosUsd', parseBRMasked(this.value)); updateProvPreview();" placeholder="0,00" style="max-width:140px;">
+          <select id="prov-acrescimos-moeda" onchange="updateExtraField('provAcrescimosMoeda', this.value); updateProvPreview();" style="max-width:100px;">
+            <option value="USD" ${(extra.provAcrescimosMoeda||'USD')==='USD'?'selected':''}>US$</option>
+            <option value="BRL" ${extra.provAcrescimosMoeda==='BRL'?'selected':''}>R$</option>
+          </select>
+        </div>
       </div>
       <div id="prov-despachante-calc"></div>
       <div class="prov-line">
@@ -1299,6 +1306,11 @@ function renderProvisionamentoTab(){
       <div class="prov-line">
         <div class="prov-line-label">Data prevista de pagamento</div>
         <input type="date" value="${extra.provDataPagamentoArmazenagemZP||''}" onchange="updateExtraField('provDataPagamentoArmazenagemZP', this.value)">
+      </div>
+      <div id="prov-armazenagem-zs-calc" style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;"></div>
+      <div class="prov-line">
+        <div class="prov-line-label">Data prevista de pagamento</div>
+        <input type="date" value="${extra.provDataPagamentoArmazenagemZS||''}" onchange="updateExtraField('provDataPagamentoArmazenagemZS', this.value)">
       </div>
     </div>
     ` : ''}
@@ -1364,9 +1376,17 @@ function updateProvPreview(){
     if(arm.status==='ok') armazenagemTotal = arm.total;
   }
 
+  let armazenagemZSTotal = 0;
+  const armazenagemZSEl = document.getElementById('prov-armazenagem-zs-calc');
+  if(armazenagemZSEl){
+    const armZS = computeArmazenagemZonaSecundaria(p);
+    armazenagemZSEl.innerHTML = renderArmazenagemZSHtml(armZS);
+    if(armZS.status==='ok') armazenagemZSTotal = armZS.total;
+  }
+
   const totalEl = document.getElementById('prov-total-body');
   if(totalEl){
-    const totalGeral = totalDespachante + armazenagemTotal;
+    const totalGeral = totalDespachante + armazenagemTotal + armazenagemZSTotal;
     totalEl.innerHTML = `<div class="prov-line prov-line-grand-total"><div class="prov-line-label">TOTAL PROVISIONADO</div><div class="prov-line-value">${fmtBRL(totalGeral)}</div></div>
       <div class="form-hint" style="margin-top:6px;">Ainda faltam outras despesas (frete internacional pago separadamente na Fase 8, transporte rodoviário, taxas portuárias, Siscomex, etc.) — serão adicionadas em próximas etapas do Provisionamento.</div>`;
   }
@@ -1435,6 +1455,45 @@ function renderArmazenagemHtml(arm){
         <span class="prov-conf-badge prov-conf-ok" style="position:static;">fórmula</span> = percentual confirmado por escrito nos demonstrativos.
         <span class="prov-conf-badge" style="position:static;">referência</span> = valor fixo do demonstrativo mais recente — esses valores têm mudado entre os documentos analisados (parecem sofrer reajuste periódico), então vale reconferir de tempos em tempos. Passe o mouse em cada um pra ver o histórico.
         <br>Não incluído: Taxa Operador Portuário BTP (gap ainda não confirmado) e monitoramento de energia para container reefer (cobrança à parte, condicional).
+      </div>
+    </details>
+  `;
+}
+
+function renderArmazenagemZSHtml(arm){
+  if(arm.status==='nao_aplicavel') return '';
+  if(arm.status==='sem_recinto') return `<div class="form-hint">Selecione o recinto de Zona Secundária (Fase 6 · Recinto de Desembaraço) na aba Etapas para calcular a armazenagem.</div>`;
+  if(arm.status==='sem_regra') return `<div class="prov-warning">⚠️ Ainda não existe uma regra de armazenagem cadastrada para o recinto "${arm.recintoNome}". Hoje só a Tora está implementada — outros recintos entram em próximas etapas, sem precisar reconstruir esta aba.</div>`;
+
+  const confBadge = (c)=>{
+    if(c.confianca==='aproximado') return '<span class="prov-conf-badge" title="'+c.detalhe.replace(/"/g,'&quot;')+'">aproximado</span>';
+    return '<span class="prov-conf-badge prov-conf-ok" title="'+c.detalhe.replace(/"/g,'&quot;')+'">fórmula</span>';
+  };
+  const componentesHtml = arm.componentes.map(c=>`
+    <tr>
+      <td>${c.label} ${confBadge(c)}</td>
+      <td>${fmtBRL(c.valor)}</td>
+    </tr>
+  `).join('');
+
+  return `
+    <div class="prov-line">
+      <div class="prov-line-label">Armazenagem — Zona Secundária (${arm.regraLabel})</div>
+      <div class="prov-line-value">${fmtBRL(arm.total)}</div>
+    </div>
+    ${arm.minimoAplicado ? `<div class="prov-warning">ℹ️ Faturamento mínimo por processo (${fmtBRL(arm.valorMinimo)}) aplicado — o cálculo por percentual deu ${fmtBRL(arm.subtotal)}, abaixo do piso.</div>` : ''}
+    ${arm.semContainerTamanho ? `<div class="form-hint">💡 Preencha o Tamanho do Container (ou aplique um Produto Mestre que já tenha isso definido) para incluir a Movimentação no cálculo.</div>` : ''}
+    <details class="prov-details"><summary>Ver composição</summary>
+      <table class="prov-mini-table" style="margin-top:6px;">
+        <tr><th>Componente</th><th>Valor</th></tr>
+        ${componentesHtml}
+        <tr class="total"><td>Total</td><td>${fmtBRL(arm.total)}</td></tr>
+      </table>
+      <div class="form-hint" style="margin-top:6px;">
+        Calculado sobre o Valor Aduaneiro de ${fmtBRL(arm.vaTotalBrl)}, considerando só o 1º período (10 dias negociados fixos — estimativa antes do embarque).
+        Tabela oficial da Tora (proposta LOG.865-25) — conferida ao centavo contra uma NFS-e real com câmara fria.
+        <span class="prov-conf-badge" style="position:static;">aproximado</span> = referência aproximada, não fórmula exata (passe o mouse pra ver a composição).
+        <br>Não incluído ainda: carregamento fora do container (carga solta/paletizada) e o acréscimo por carga perigosa — nenhum desses tem o dado de entrada necessário no Provisionamento ainda.
       </div>
     </details>
   `;
@@ -2319,7 +2378,7 @@ ${tabelaHtml}
 function openEmailNotaFiscalPreview(){
   const p = window.__editingProcess;
   const { subject, bodyHtml, bodyText } = generateEmailNotaFiscalText(p);
-  openEmailPreview(subject, bodyHtml, bodyText, 'E-mail — Nota Fiscal');
+  openEmailPreview(subject, bodyHtml, bodyText, 'E-mail — Nota Fiscal', undefined, true);
 }
 
 /* Busca o parceiro Despachante selecionado na Fase 5 do processo (extra.despachante guarda
@@ -2425,7 +2484,7 @@ function openEmailDespachantePreview(){
    uma tabela HTML de verdade ao copiar e colar num cliente de e-mail (Gmail/Outlook etc.).
    ccList (opcional) mostra um campo "Cc" no topo com os e-mails a colocar em cópia (ex: contatos
    do despachante cadastrados em Parceiros), com botão próprio de copiar. */
-function openEmailPreview(subject, bodyHtml, bodyText, title, ccList){
+function openEmailPreview(subject, bodyHtml, bodyText, title, ccList, showEstoqueSelector){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'email-overlay';
@@ -2440,6 +2499,18 @@ function openEmailPreview(subject, bodyHtml, bodyText, title, ccList){
           </div>
         </div>
   ` : (ccList ? `<div class="form-hint" style="margin-bottom:12px;">⚠️ Nenhum e-mail de contato cadastrado para este despachante ainda — cadastre em Parceiros → editar o despachante → "Contatos para E-mail".</div>` : '');
+
+  const estoques = getEmpresaConfig().estoques.filter(e=>e.nome);
+  const estoqueHtml = showEstoqueSelector ? (estoques.length ? `
+        <div class="form-group">
+          <label>Estoque de destino</label>
+          <select id="email-estoque-select" onchange="onEmailEstoqueChange(this.value)">
+            <option value="">Selecione o estoque...</option>
+            ${estoques.map(e=>`<option value="${e.nome.replace(/"/g,'&quot;')}">${e.nome}</option>`).join('')}
+          </select>
+        </div>
+  ` : `<div class="form-hint" style="margin-bottom:12px;">💡 Nenhum estoque cadastrado ainda — cadastre em Empresa → Estoques pra poder escolher aqui em vez de editar o texto manualmente.</div>`) : '';
+
   overlay.innerHTML = `
     <div class="modal" style="max-width:680px;">
       <div class="modal-header">
@@ -2448,13 +2519,14 @@ function openEmailPreview(subject, bodyHtml, bodyText, title, ccList){
       </div>
       <div class="modal-body">
         ${ccHtml}
+        ${estoqueHtml}
         <div class="form-group">
           <label>Assunto</label>
           <input type="text" id="email-subject-text" value="${String(subject).replace(/"/g,'&quot;')}" style="width:100%; padding:9px 11px; border:1px solid var(--border-strong); border-radius:6px; font-size:13px; font-weight:600;">
         </div>
         <div class="form-group">
           <label>Corpo do E-mail <span style="font-weight:400; text-transform:none; font-style:italic;">— clique e edite direto aqui</span></label>
-          <div id="email-body-text" contenteditable="true" style="width:100%; min-height:340px; font-family:Arial,Helvetica,sans-serif; font-size:13px; line-height:1.6; padding:14px; border:1px solid var(--border-strong); border-radius:6px; background:#fff; overflow:auto;">${bodyHtml}</div>
+          <div id="email-body-text" contenteditable="true" data-estoque-atual="[LOCAL DO ESTOQUE]" style="width:100%; min-height:340px; font-family:Arial,Helvetica,sans-serif; font-size:13px; line-height:1.6; padding:14px; border:1px solid var(--border-strong); border-radius:6px; background:#fff; overflow:auto;">${bodyHtml}</div>
         </div>
         <div class="form-hint">Campos entre colchetes (ex: [LOCAL DO ESTOQUE]) não têm dado cadastrado no processo — preencha antes de enviar. Ao copiar, a tabela de itens é mantida como tabela ao colar no e-mail.</div>
       </div>
@@ -2470,6 +2542,15 @@ function openEmailPreview(subject, bodyHtml, bodyText, title, ccList){
   `;
   document.body.appendChild(overlay);
   overlay.dataset.bodyTextFallback = bodyText;
+}
+
+function onEmailEstoqueChange(nomeEscolhido){
+  const body = document.getElementById('email-body-text');
+  if(!body) return;
+  const atual = body.dataset.estoqueAtual || '[LOCAL DO ESTOQUE]';
+  const novo = nomeEscolhido || '[LOCAL DO ESTOQUE]';
+  body.innerHTML = body.innerHTML.split(atual).join(novo);
+  body.dataset.estoqueAtual = novo;
 }
 
 function copyEmailCcToClipboard(){
@@ -2847,8 +2928,11 @@ function computeValorAduaneiroBreakdown(p){
   const freteMoeda = (p.extra||{}).provFreteMoeda || 'USD';
   const freteUsd = freteMoeda==='BRL' ? (cambio>0 ? freteValorInformado/cambio : 0) : freteValorInformado;
   /* Acréscimos do despachante (ex: taxas/ajustes que ele soma antes de calcular impostos) —
-     entram no Valor Aduaneiro exatamente como frete/seguro, ratados por item da mesma forma. */
-  const acrescimosUsd = parseFloat((p.extra||{}).provAcrescimosUsd)||0;
+     entram no Valor Aduaneiro exatamente como frete/seguro, ratados por item da mesma forma.
+     Também aceita US$ ou R$ (mesma conversão "USD equivalente" usada no Frete acima). */
+  const acrescimosValorInformado = parseFloat((p.extra||{}).provAcrescimosUsd)||0;
+  const acrescimosMoeda = (p.extra||{}).provAcrescimosMoeda || 'USD';
+  const acrescimosUsd = acrescimosMoeda==='BRL' ? (cambio>0 ? acrescimosValorInformado/cambio : 0) : acrescimosValorInformado;
 
   const itensComFob = itens.map(it=>{
     const fobItemUsd = (parseFloat(it.valorUnitarioUsado)||0) * (parseFloat(it.quantidade)||0);
@@ -2980,6 +3064,99 @@ function computeArmazenagemZonaPrimaria(p){
   return { status:'ok', recintoNome, regraLabel: regra.label, vaTotalBrl: va.vaTotalBrl, ...calc };
 }
 
+/* Armazenagem — Zona Secundária. Mesmo padrão em registry por recinto da Zona Primária —
+   o recinto usado é sempre o que já está preenchido na etapa (Fase 6 · "Recinto de
+   Desembaraço", campo recintoAlfandegado), nunca fixo/hardcoded. */
+const ARMAZENAGEM_ZONA_SECUNDARIA_RULES = {
+  tora: {
+    label: 'Tora',
+    /* Fonte: proposta comercial vigente da Tora (LOG.865-25, 09/08/2025), tabela "ESTRUTURA
+       DE PREÇO — ARMAZÉM ALFANDEGADO", item 1.1 (Importação Comum — carga em container).
+       Confiança ALTA: além de ser a tabela oficial publicada pelo próprio recinto, bate ao
+       centavo com uma NFS-e real (00000011768) assim que aplicado o adicional de câmara
+       fria de 40% (aquela carga era refrigerada) — as duas cobranças (armazenagem e
+       seguro) fecharam exatas, sem diferença de 1 centavo sequer.
+       Armazenagem: 0,22% sobre o Valor Aduaneiro (CIF), fixo para o 1º período de 10 dias.
+       Seguro: 0,05% sobre o Valor Aduaneiro + II (não só CIF — reaproveita o II já calculado
+       em "Impostos da Importação" do Provisionamento, sem duplicar o cálculo).
+       Câmara fria (+40% sobre armazenagem+seguro): aplicado automaticamente quando o
+       processo está marcado como carga com temperatura controlada.
+       Movimentação: valor oficial por tamanho de container (item 4 da tabela) — só entra no
+       cálculo se o processo (ou o Produto Mestre aplicado) já tiver o tamanho preenchido;
+       sem isso, mostra um aviso em vez de chutar um tamanho.
+       Despesas Acessórias: valor APROXIMADO (não fórmula exata) que junta as tarifas fixas
+       da tabela que tendem a se repetir em qualquer operação — Pesagem (R$38,00/container),
+       Lacre (R$9,88, assumindo 1 por container), Varredura (R$53,21/container) e
+       Movimentação de Container (R$167,23/operação, cobre carregamento/remoção final) — mais
+       Dimensionamento de carga (R$76,01, uma vez por processo). Não inclui pesagem/carga de
+       volumes fora de container, embalagem, retenção, ou qualquer coisa "sob consulta" na
+       tabela — é só uma referência pra não deixar essas despesas de fora do provisionamento,
+       não substitui o fechamento real da nota.
+       Faturamento mínimo: R$672,00 por processo (não por container, diferente da Movecta).
+       Não incluído ainda: carregamento fora do container (carga solta/paletizada) e o
+       acréscimo por carga perigosa (classificação ONU) — nenhum desses tem o dado de
+       entrada necessário no Provisionamento ainda. */
+    getMovimentacaoRatePorContainer(containerTamanho){
+      if(!containerTamanho) return null;
+      // "Contêiner 40' ou veículo grande" cobre 40'/40' HC/45' HC; "20' ou veículo médio" é só o 20'.
+      return containerTamanho.startsWith('20') ? 332.95 : 487.32;
+    },
+    componentes(vaTotalBrl, iiTotalBrl, temperaturaControlada, containerTamanho, containersQty){
+      const fatorCamaraFria = temperaturaControlada ? 1.40 : 1;
+      const armazenagemBase = 0.0022 * vaTotalBrl;
+      const seguroBase = 0.0005 * (vaTotalBrl + iiTotalBrl);
+      const lista = [
+        { chave:'armazenagem', label:'Armazenagem (1º período, 10 dias)', valor: armazenagemBase * fatorCamaraFria, confianca:'alta',
+          detalhe:'0,22% sobre o Valor Aduaneiro — tabela oficial da Tora (proposta LOG.865-25)' + (temperaturaControlada ? ' + 40% de adicional por câmara fria' : '') },
+        { chave:'seguro', label:'Seguro de armazenagem', valor: seguroBase * fatorCamaraFria, confianca:'alta',
+          detalhe:'0,05% sobre o Valor Aduaneiro + II — tabela oficial da Tora (proposta LOG.865-25)' + (temperaturaControlada ? ' + 40% de adicional por câmara fria' : '') },
+      ];
+      const rateMovimentacao = this.getMovimentacaoRatePorContainer(containerTamanho);
+      const nContainers = Math.max(1, parseInt(containersQty)||1);
+      if(rateMovimentacao!==null){
+        lista.push({ chave:'movimentacao', label:`Movimentação (${nContainers} container${nContainers>1?'s':''} de ${containerTamanho})`, valor: rateMovimentacao * nContainers, confianca:'alta',
+          detalhe:`R$${rateMovimentacao.toFixed(2)} por operação/container — tabela oficial da Tora (proposta LOG.865-25)` });
+      }
+      // Despesas acessórias: soma aproximada de tarifas fixas da tabela (pesagem, lacre,
+      // varredura, movimentação de container) que tendem a acontecer em toda operação,
+      // mais o dimensionamento de carga (uma vez por processo). Ver nota acima — é uma
+      // referência pra não deixar de fora do provisionamento, não um fechamento exato.
+      const PESAGEM = 38.00, LACRE = 9.88, VARREDURA = 53.21, MOV_CONTAINER = 167.23, DIMENSIONAMENTO = 76.01;
+      const acessoriasPorContainer = PESAGEM + LACRE + VARREDURA + MOV_CONTAINER;
+      const acessoriasTotal = acessoriasPorContainer * nContainers + DIMENSIONAMENTO;
+      lista.push({ chave:'acessorias', label:`Despesas Acessórias (aprox., ${nContainers} container${nContainers>1?'s':''})`, valor: acessoriasTotal, confianca:'aproximado',
+        detalhe:`Pesagem (R$${PESAGEM.toFixed(2)}) + Lacre (R$${LACRE.toFixed(2)}) + Varredura (R$${VARREDURA.toFixed(2)}) + Movimentação de Container (R$${MOV_CONTAINER.toFixed(2)}) por container, + Dimensionamento de carga (R$${DIMENSIONAMENTO.toFixed(2)}) uma vez por processo — valor APROXIMADO, não fórmula exata (tabela oficial da Tora, proposta LOG.865-25)` });
+      return lista;
+    },
+    calcular(vaTotalBrl, iiTotalBrl, temperaturaControlada, containerTamanho, containersQty){
+      const componentes = this.componentes(vaTotalBrl, iiTotalBrl, temperaturaControlada, containerTamanho, containersQty);
+      const subtotal = componentes.reduce((s,c)=>s+c.valor, 0);
+      const FATURAMENTO_MINIMO_POR_PROCESSO = 672.00;
+      const total = Math.max(subtotal, FATURAMENTO_MINIMO_POR_PROCESSO);
+      const minimoAplicado = total > subtotal;
+      const semContainerTamanho = !containerTamanho;
+      return { total, subtotal, minimoAplicado, valorMinimo: FATURAMENTO_MINIMO_POR_PROCESSO, componentes, semContainerTamanho };
+    }
+  }
+};
+function getRecintoZonaSecundaria(p){ return ((p.extra||{}).recintoAlfandegado||'').trim(); }
+function getArmazenagemZSRule(recintoNome){ return ARMAZENAGEM_ZONA_SECUNDARIA_RULES[normalizeRecintoKey(recintoNome)] || null; }
+
+function computeArmazenagemZonaSecundaria(p){
+  if(p.modal==='aereo') return { status:'nao_aplicavel' };
+  const recintoNome = getRecintoZonaSecundaria(p);
+  if(!recintoNome) return { status:'sem_recinto' };
+  const regra = getArmazenagemZSRule(recintoNome);
+  if(!regra) return { status:'sem_regra', recintoNome };
+  const va = computeValorAduaneiroBreakdown(p);
+  /* Mesmo raciocínio da Zona Primária: provisionamento é feito antes do embarque, então
+     sempre considera só o 1º período (10 dias, negociados fixos, conforme informado).
+     Reaproveita o II já calculado em Impostos da Importação — não recalcula à parte. */
+  const iiTotalBrl = computeImpostosImportacao(p).totalII;
+  const calc = regra.calcular(va.vaTotalBrl, iiTotalBrl, !!p.temperaturaControlada, p.containerTamanho, p.containersQty);
+  return { status:'ok', recintoNome, regraLabel: regra.label, vaTotalBrl: va.vaTotalBrl, ...calc };
+}
+
 /* Carregamento agora é feito por attachDataListener() após o login (ver script de autenticação acima) */
 
 async function persistState(){
@@ -2992,6 +3169,7 @@ async function persistState(){
       partners: state.partners,
       dashboardConfig: state.dashboardConfig || null,
       ncms: state.ncms || [],
+      empresaConfig: state.empresaConfig || { nome:'', estoques:[] },
     });
     updateSaveIndicator('Dados salvos na nuvem ✓');
     return true;
@@ -3060,6 +3238,7 @@ const NAV_ITEMS = [
   {key:'rotas', label:'🗺️ Rotas'},
   {key:'produtosmestre', label:'🏷️ Produtos'},
   {key:'indicadores', label:'🎯 Indicadores'},
+  {key:'empresa', label:'🏢 Empresa', adminOnly:true},
   {key:'equipe', label:'👥 Equipe', adminOnly:true},
   {key:'personalizacao', label:'🎨 Personalização', adminOnly:true},
 ];
@@ -3127,6 +3306,7 @@ function viewTitle(){
   if(currentView==='ncm') return 'NCM e Alíquotas';
   if(currentView==='rotas') return 'Rotas';
   if(currentView==='produtosmestre') return 'Produtos';
+  if(currentView==='empresa') return 'Empresa';
   if(currentView==='equipe') return 'Equipe';
   if(currentView==='personalizacao') return 'Personalização do Painel';
 }
@@ -3142,6 +3322,7 @@ function viewSubtitle(){
   if(currentView==='ncm') return 'Cadastro de NCMs e suas alíquotas — usado como referência nos itens do Banco de Itens';
   if(currentView==='rotas') return 'Modelos de rota logística, para reaproveitar na criação de processos';
   if(currentView==='produtosmestre') return 'Modelos de informações gerais da carga — não afeta os itens (PN) do processo';
+  if(currentView==='empresa') return 'Nome da empresa deste acesso e cadastro de estoques (usados no e-mail de Nota Fiscal e em funcionalidades futuras)';
   if(currentView==='equipe') return 'Gerencie quem tem acesso e o nível de permissão de cada pessoa';
   if(currentView==='personalizacao') return 'Nomes, ícones e regras dos estágios que aparecem no Painel Geral';
 }
@@ -3159,6 +3340,7 @@ function renderView(){
   if(currentView==='ncm') el.innerHTML = renderNCMPage();
   if(currentView==='rotas') renderRotasPage();
   if(currentView==='produtosmestre') renderProdutosMestrePage();
+  if(currentView==='empresa') el.innerHTML = renderEmpresaPage();
   if(currentView==='equipe') renderEquipe();
   if(currentView==='personalizacao') el.innerHTML = renderPersonalizacao();
 }
@@ -3821,6 +4003,81 @@ async function acknowledgeNCMAlert(ncmId, alertId){
 }
 
 let ncmPageState = { query:'', sortField:'ncm', sortDir:'asc' };
+
+/* ---------- EMPRESA (nome do acesso + estoques) ---------- */
+/* Área simples de configuração — nome da empresa deste acesso e cadastro de Estoques
+   (hoje usados pra escolher o local de destino no e-mail de Nota Fiscal; pensada pra
+   crescer com outras configurações no futuro, sem precisar de uma aba nova pra cada uma). */
+function getEmpresaConfig(){
+  state.empresaConfig = state.empresaConfig || { nome:'', estoques:[] };
+  state.empresaConfig.estoques = state.empresaConfig.estoques || [];
+  return state.empresaConfig;
+}
+
+function renderEmpresaPage(){
+  const cfg = getEmpresaConfig();
+  const podeEditar = currentRole!=='viewer';
+  const estoquesHtml = cfg.estoques.length ? cfg.estoques.map(e=>`
+    <div class="prov-line" data-estoque-id="${e.id}">
+      <div class="prov-line-label">
+        <input type="text" value="${(e.nome||'').replace(/"/g,'&quot;')}" ${podeEditar?'':'disabled'} onchange="updateEstoqueNome('${e.id}', this.value)" style="border:1px solid var(--border-strong); border-radius:6px; padding:6px 9px; font-size:13px;">
+      </div>
+      ${podeEditar?`<button type="button" class="btn btn-danger" style="padding:6px 10px;" onclick="removeEstoque('${e.id}')">Remover</button>`:''}
+    </div>
+  `).join('') : `<div class="form-hint">Nenhum estoque cadastrado ainda.</div>`;
+
+  return `
+    <div class="prov-section">
+      <div class="prov-section-title">DADOS DA EMPRESA</div>
+      <div class="form-group">
+        <label>Nome da Empresa (deste acesso)</label>
+        <input type="text" id="empresa-nome-input" value="${(cfg.nome||'').replace(/"/g,'&quot;')}" placeholder="Ex: Scientific Dental" ${podeEditar?'':'disabled'}>
+      </div>
+      ${podeEditar?`<button class="btn btn-primary" onclick="saveEmpresaNome()">Salvar Nome</button>`:''}
+    </div>
+
+    <div class="prov-section" style="margin-top:22px;">
+      <div class="prov-section-title">ESTOQUES</div>
+      <div class="form-hint" style="margin-bottom:10px;">Usados para escolher o local de destino no e-mail de Nota Fiscal, e em funcionalidades futuras.</div>
+      <div id="estoques-list">${estoquesHtml}</div>
+      ${podeEditar?`<button class="btn" style="margin-top:12px;" onclick="addEstoque()">+ Adicionar Estoque</button>`:''}
+    </div>
+  `;
+}
+
+async function saveEmpresaNome(){
+  if(!requireEditPermission()) return;
+  const cfg = getEmpresaConfig();
+  cfg.nome = document.getElementById('empresa-nome-input').value.trim();
+  await persistState();
+  updateSaveIndicator('Nome da empresa salvo ✓');
+}
+
+async function addEstoque(){
+  if(!requireEditPermission()) return;
+  const cfg = getEmpresaConfig();
+  cfg.estoques.push({ id: uid(), nome: '' });
+  await persistState();
+  render();
+}
+
+async function updateEstoqueNome(id, nome){
+  if(!requireEditPermission()) return;
+  const cfg = getEmpresaConfig();
+  const estoque = cfg.estoques.find(e=>e.id===id);
+  if(!estoque) return;
+  estoque.nome = nome.trim();
+  await persistState();
+}
+
+async function removeEstoque(id){
+  if(!requireEditPermission()) return;
+  if(!confirm('Remover este estoque?')) return;
+  const cfg = getEmpresaConfig();
+  cfg.estoques = cfg.estoques.filter(e=>e.id!==id);
+  await persistState();
+  render();
+}
 
 function renderNCMPage(){
   const header = currentRole!=='viewer' ? `<div style="margin-bottom:18px;"><button class="btn btn-primary" onclick="openNCMModal()">+ Nova NCM</button></div>` : '';
@@ -5494,6 +5751,16 @@ function onContainersQtyChange(val){
   for(let i=0;i<n;i++){ newList.push(list[i] || {container:'', lacre:''}); }
   p.extra.containersList = newList;
   renderEtapasTab();
+  if(typeof updateProvPreview==='function') updateProvPreview(); // Movecta/Tora escalam pela qtd de containers
+}
+
+function onProcessContainerFieldChange(){
+  const p = window.__editingProcess;
+  const tamanhoEl = document.getElementById('f-container-tamanho');
+  const tipoEl = document.getElementById('f-container-tipo');
+  if(tamanhoEl) p.containerTamanho = tamanhoEl.value;
+  if(tipoEl) p.containerTipo = tipoEl.value;
+  if(typeof updateProvPreview==='function') updateProvPreview(); // Movimentação da Tora depende do tamanho do container
 }
 function onModalChange(val){
   window.__editingProcess.modal = val;
@@ -5699,6 +5966,24 @@ function openProcessModal(id){
             <div class="form-group"><label>Chegada Prevista</label><input type="date" id="f-chegada" value="${p.chegadaPrevista||''}"></div>
           </div>
           <div class="form-group" id="containers-qty-wrap" style="display:${p.modal==='aereo'?'none':'block'};"><label>Quantidade de Containers</label><input type="number" min="0" id="f-containers" value="${p.containersQty||''}" placeholder="Ex: 2" oninput="onContainersQtyChange(this.value)"></div>
+          <div class="form-row" id="container-tamanho-tipo-wrap" style="display:${p.modal==='aereo'?'none':'flex'};">
+            <div class="form-group">
+              <label>Tamanho do Container</label>
+              <select id="f-container-tamanho" onchange="onProcessContainerFieldChange()">
+                <option value="">—</option>
+                ${['20\'','40\'','40\' HC','45\' HC'].map(t=>`<option value="${t}" ${p.containerTamanho===t?'selected':''}>${t}</option>`).join('')}
+              </select>
+              ${produtoMestreOverrideHint(p,'containerTamanho',p.containerTamanho)}
+            </div>
+            <div class="form-group">
+              <label>Tipo de Container</label>
+              <select id="f-container-tipo" onchange="onProcessContainerFieldChange()">
+                <option value="">—</option>
+                ${['Dry (padrão)','Reefer (refrigerado)','Open Top','Flat Rack','Tanque'].map(t=>`<option value="${t}" ${p.containerTipo===t?'selected':''}>${t}</option>`).join('')}
+              </select>
+              ${produtoMestreOverrideHint(p,'containerTipo',p.containerTipo)}
+            </div>
+          </div>
           <div id="aereo-fields-wrap" style="display:${p.modal==='aereo'?'block':'none'};">
             <div class="form-row">
               <div class="form-group"><label>Aeroporto de Embarque</label><input type="text" id="f-aero-embarque" value="${p.aeroportoEmbarque||''}" placeholder="Ex: Narita (NRT)"></div>
@@ -5959,6 +6244,8 @@ async function applyProdutoMestre(){
     temperaturaValor: template.temperaturaControlada ? 'outro' : '',
     temperaturaOutro,
     genset: !!template.genset,
+    containerTamanho: template.containerTamanho || '',
+    containerTipo: template.containerTipo || '',
   };
 
   document.getElementById('f-produto').value = snapshot.produto;
@@ -5975,6 +6262,12 @@ async function applyProdutoMestre(){
   if(embEl) embEl.value = snapshot.portoEmbarque;
   const destEl = document.getElementById('f-porto-destino');
   if(destEl) destEl.value = snapshot.portoDestino;
+
+  const tamanhoEl = document.getElementById('f-container-tamanho');
+  if(tamanhoEl && snapshot.containerTamanho) tamanhoEl.value = snapshot.containerTamanho;
+  const tipoEl = document.getElementById('f-container-tipo');
+  if(tipoEl && snapshot.containerTipo) tipoEl.value = snapshot.containerTipo;
+  onProcessContainerFieldChange();
 
   toggleTemperaturaControlada(snapshot.temperaturaControlada);
   if(snapshot.temperaturaControlada){
@@ -6416,6 +6709,8 @@ function collectProcessFormData(){
     chegadaPrevista: document.getElementById('f-chegada').value,
     modal: document.getElementById('f-modal').value,
     containersQty: document.getElementById('f-containers').value,
+    containerTamanho: document.getElementById('f-container-tamanho') ? document.getElementById('f-container-tamanho').value : '',
+    containerTipo: document.getElementById('f-container-tipo') ? document.getElementById('f-container-tipo').value : '',
     aeroportoEmbarque: document.getElementById('f-aero-embarque') ? document.getElementById('f-aero-embarque').value : '',
     aeroportoDesembarque: document.getElementById('f-aero-desembarque') ? document.getElementById('f-aero-desembarque').value : '',
     aeroportoDestinoFinal: window.__editingProcess.aeroportoDestinoFinal === undefined ? null : window.__editingProcess.aeroportoDestinoFinal,
@@ -6636,6 +6931,8 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);font-size:9.5pt;bac
   </div>
   <div class="row">
     ${field('Quantidade de Containers', data.containersQty)}
+    ${field('Tamanho do Container', data.containerTamanho)}
+    ${field('Tipo de Container', data.containerTipo)}
   </div>`}
   <div class="row">
     ${field('Data de Embarque', fmtDate(data.dataEmbarqueReal))}
