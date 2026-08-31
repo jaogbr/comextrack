@@ -281,6 +281,8 @@ main{flex:1; min-width:0; display:flex; flex-direction:column;}
 .item-row{display:grid; grid-template-columns:100px 1fr 100px 90px 110px 40px; gap:8px; align-items:center; background:var(--paper); border:1px solid var(--border); border-radius:6px; padding:9px 11px; margin-bottom:6px;}
 .item-row input{padding:6px 8px; border:1px solid var(--border-strong); border-radius:5px; font-size:12.5px;}
 .item-row .item-pn{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12px;}
+.item-row .item-pn-link{cursor:pointer; text-decoration:none; border-bottom:1px dotted transparent;}
+.item-row .item-pn-link:hover{border-bottom-color:var(--muted); color:var(--navy);}
 .item-row .item-desc{font-size:12px;}
 .item-autocomplete-wrap{position:relative;}
 .item-autocomplete-list{position:absolute; top:100%; left:0; right:0; background:var(--card); border:1px solid var(--border-strong); border-radius:6px; box-shadow:0 8px 20px rgba(0,0,0,0.15); max-height:220px; overflow-y:auto; z-index:20;}
@@ -416,6 +418,15 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .modal{
   background:var(--card); border-radius:10px; width:100%; max-width:700px;
   box-shadow:0 20px 60px rgba(0,0,0,0.3);
+}
+/* Modo Viewer: campos ficam visíveis mas travados (não dá pra editar, só ler) — os botões
+   de ação (Salvar/Excluir/etc.) já ficam escondidos por role em cada modal; isso trava
+   visualmente os campos em si, pra não parecer editável sem ser. */
+.modal-readonly input, .modal-readonly select, .modal-readonly textarea, .modal-readonly [contenteditable="true"]{
+  pointer-events:none; background:var(--paper); opacity:0.85; cursor:default;
+}
+.modal-readonly .type-toggle button, .modal-readonly .temp-toggle-btn, .modal-readonly .genset-toggle-btn, .modal-readonly .ex-toggle-btn, .modal-readonly .aerofinal-toggle-btn{
+  pointer-events:none; opacity:0.7;
 }
 .modal-header{
   padding:20px 26px; border-bottom:1px solid var(--border);
@@ -1645,6 +1656,15 @@ function getProcessAlerts(p){
     }
   }
 
+  {
+    /* Recebimento em estoque (Fase 7, índice 2) marcado sem a Nota Fiscal (índice 3) —
+       a mercadoria já entrou fisicamente, então a NF não pode ficar esquecida pra trás. */
+    const fase7checked = p.checklist['fase7']||[];
+    if(fase7checked[2] && !fase7checked[3]){
+      alerts.push('Recebimento em estoque marcado, mas a Nota Fiscal ainda não foi emitida');
+    }
+  }
+
   const costs = computeCosts(p);
   if(costs.cifBrl > 4000000 && !p.seguradoraInformada){
     alerts.push(`Carga acima de R$ 4 milhões (${fmtBRL(costs.cifBrl)}) — informe a seguradora`);
@@ -1718,6 +1738,14 @@ function showCopyToast(){
     toast.classList.remove('show');
     setTimeout(()=>toast.remove(), 300);
   }, 1300);
+}
+
+/* Ponto único de entrada pra abrir um processo a partir de um card/lista. Viewer nunca vê
+   o modal completo (Etapas/Custos/Provisionamento/Itens/Documentos/etc.) — só o resumo do
+   ícone de olho, independente de onde ou como clicou. */
+function openProcessCardClick(id){
+  if(currentRole==='viewer'){ openProcessViewModal(id); return; }
+  openProcessModal(id);
 }
 
 function openProcessViewModal(id, event){
@@ -1836,7 +1864,7 @@ function openProcessViewModal(id, event){
         ${p.obs ? `<div class="view-section-title">Observações</div><div class="view-field">${p.obs}</div>` : ''}
       </div>
       <div class="modal-footer">
-        <button class="btn btn-pdf" onclick="closeModal(); openProcessModal('${p.id}');">Abrir para editar</button>
+        ${currentRole!=='viewer' ? `<button class="btn btn-pdf" onclick="closeModal(); openProcessModal('${p.id}');">Abrir para editar</button>` : ''}
         <button class="btn" onclick="closeModal()">Fechar</button>
       </div>
     </div>
@@ -1934,6 +1962,17 @@ let editingItemIds = new Set();
 function startEditingItem(id){ editingItemIds.add(id); renderItensTab(); }
 function finishEditingItem(id){ editingItemIds.delete(id); renderItensTab(); }
 
+/* Abre o cadastro mestre do item (Banco de Itens) a partir da aba Itens do processo.
+   Como todo modal do app reaproveita o mesmo id="modal-overlay" (um modal por vez), não dá
+   pra empilhar o modal do produto em cima do modal do processo sem quebrar o fechamento —
+   por isso salva o processo primeiro (mesma função usada ao adicionar/remover item) e só
+   depois troca de modal, pra não perder nada que estava sendo editado. */
+async function openItemMasterProduct(pn){
+  await autoPersistCurrentProcess();
+  closeModal();
+  openProductModal(pn);
+}
+
 function renderItensTab(){
   const p = window.__editingProcess;
   p.itens = p.itens || [];
@@ -1947,7 +1986,7 @@ function renderItensTab(){
     if(canEdit && editingItemIds.has(it.id)){
       return `
       <div class="item-row">
-        <span class="item-pn">${it.pn}</span>
+        <span class="item-pn item-pn-link" onclick="openItemMasterProduct('${it.pn.replace(/'/g,"\\'")}')" title="Ver cadastro no Banco de Itens">${it.pn}</span>
         <span class="item-desc">${it.descricao||'—'}${alteradoHtml}</span>
         <input type="text" inputmode="decimal" value="${it.valorUnitarioUsado?fmtNumberBR(it.valorUnitarioUsado):''}" oninput="maskCurrencyInput(this); updateItemField(${idx},'valorUnitarioUsado', parseBRMasked(this.value));" title="Valor unitário usado neste processo" style="font-family:'IBM Plex Mono',monospace; font-weight:700;">
         <input type="number" step="1" value="${it.quantidade}" oninput="updateItemField(${idx},'quantidade', this.value)" style="font-family:'IBM Plex Mono',monospace; font-weight:700;">
@@ -1959,7 +1998,7 @@ function renderItensTab(){
 
     return `
       <div class="item-row">
-        <span class="item-pn">${it.pn}</span>
+        <span class="item-pn item-pn-link" onclick="openItemMasterProduct('${it.pn.replace(/'/g,"\\'")}')" title="Ver cadastro no Banco de Itens">${it.pn}</span>
         <span class="item-desc">${it.descricao||'—'}${alteradoHtml}</span>
         <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px;">${fmtUSD(parseFloat(it.valorUnitarioUsado)||0)}</span>
         <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px;">${it.quantidade}</span>
@@ -2132,6 +2171,170 @@ function buildCompactNarrative(p){
   return events.map(narrativeLine).join('\n');
 }
 
+/* ---------- GERAÇÃO DE FOLLOW-UP EM TABELA (formato fixo pedido) ---------- */
+/* Sempre gera uma tabela markdown com estas 14 colunas, nesta ordem — nunca texto corrido.
+   Cada valor vem de dado real do processo; nada é inventado (campo sem dado fica em branco). */
+const FOLLOWUP_TABLE_HEADERS = ['PROCESSO','FORNECEDOR','Data Pedido','Descrição do Produto','PRONTIDÃO','Embarque','CHEGADA BR','TRANSIT\n(dias)','FREETIME\n(dias)','DEVOLUÇÃO','MODAL','Origem','Status','ANDAMENTO'];
+/* Ordem canônica dos 9 status, do mais inicial ao mais avançado — usada tanto pra escolher
+   o status de cada processo quanto pro quadro de contagem no topo da tabela. */
+const FOLLOWUP_STATUS_ORDER = ['Em produção','Aguardando Embarque','Em trânsito','Transporte DTA','Em processo de desembaraço','Aguardando carimbo do estado','Em remoção','Entregue','Finalizado'];
+const FOLLOWUP_FORNECEDOR_POR_LETRA = {C:'CARESTREAM', M:'MORITA', G:'GENORAY'};
+
+function fmtDateOrBlank(d){ return d ? fmtDate(d) : ''; }
+
+/* Status: sempre o mais avançado já atingido, dentre os 9 valores fixos pedidos. Usa a
+   granularidade real do checklist (não só o bucket do painel) pra distinguir "Transporte
+   DTA" de "Em processo de desembaraço" de "Aguardando carimbo do estado". */
+function getFollowUpStatus(p){
+  if(isProcessDone(p)) return 'Finalizado';
+
+  const stages = getStagesForProcess(p);
+  const checklist = p.checklist || {};
+
+  const fase7Stage = stages.find(s=>s.key==='fase7');
+  const fase7 = checklist['fase7']||[];
+  if(fase7Stage){
+    if(fase7Stage.receiptItemIndex!=null && fase7[fase7Stage.receiptItemIndex]) return 'Entregue';
+    if(fase7.some(Boolean)) return 'Em remoção';
+  }
+
+  const fase6Stage = stages.find(s=>s.key==='fase6');
+  const fase6 = checklist['fase6']||[];
+  if(fase6Stage){
+    const desembaracoIdx = fase6Stage.items.indexOf('Desembaraço da DUIMP');
+    const liberacaoIdx = fase6Stage.items.indexOf('Liberação SEFAZ');
+    if(desembaracoIdx>=0 && fase6[desembaracoIdx]){
+      if(!(liberacaoIdx>=0 && fase6[liberacaoIdx])) return 'Aguardando carimbo do estado';
+    }
+    if(fase6Stage.arrivalItemIndex!=null && fase6[fase6Stage.arrivalItemIndex]) return 'Em processo de desembaraço';
+    if(fase6.some(Boolean)) return 'Transporte DTA';
+  }
+
+  const bucket = getBucket(p);
+  if(bucket==='transito') return 'Em trânsito';
+  if(bucket==='aguardando_embarque') return 'Aguardando Embarque';
+  return 'Em produção';
+}
+
+/* ANDAMENTO: log cronológico reconstruído a partir dos dados reais do processo (datas e
+   itens de checklist já preenchidos), no vocabulário e formato pedidos — "<Marco>: DD/MM/AAAA"
+   por linha, mais antigo primeiro. O último marco (se ainda em aberto) não leva data —
+   reaproveita currentStepLabel(), que já resolve qual é o item pendente mais antigo. */
+function buildAndamentoLines(p){
+  const extra = p.extra || {};
+  const today = todayStr();
+  const lines = [];
+  const add = (label, dateStr) => { if(dateStr) lines.push(`${label}: ${fmtDate(dateStr)}`); };
+
+  add('Data do pedido', p.dataPedido);
+
+  if(p.prontidao){
+    add(p.prontidao > today ? 'Prontidão prevista' : 'Prontidão confirmada', p.prontidao);
+  }
+
+  add('Carga embarcada', p.dataEmbarqueReal);
+
+  const chegadaReal = extra.dataChegadaBetim;
+  const nomeChegada = p.modal==='aereo' ? 'Chegada em Confins' : 'Chegada no Brasil';
+  if(chegadaReal){
+    add(`${nomeChegada} confirmada`, chegadaReal);
+  } else if(p.chegadaPrevista){
+    add(`${nomeChegada} prevista`, p.chegadaPrevista);
+  }
+
+  add('DTA iniciada', extra.dataAgendamentoDTA);
+
+  if(extra.dataRegistroDUIMP){
+    const canal = extra.canalDesembaraco ? ` (Canal ${extra.canalDesembaraco})` : '';
+    lines.push(`DUIMP registrada${canal}: ${fmtDate(extra.dataRegistroDUIMP)}`);
+  }
+
+  add('DUIMP desembaraçada', extra.dataDesembaraco);
+  add('Liberação do Estado', extra.dataLiberacaoSefaz);
+
+  const stages = getStagesForProcess(p);
+  const fase7Stage = stages.find(s=>s.key==='fase7');
+  const fase7 = (p.checklist||{})['fase7']||[];
+  if(fase7Stage && fase7Stage.receiptItemIndex!=null && fase7[fase7Stage.receiptItemIndex]){
+    lines.push('Carga removida e recebida em estoque');
+  }
+
+  if(extra.numeroNF) lines.push(`NF de entrada: ${extra.numeroNF}`);
+
+  if(!isProcessDone(p)){
+    const pendente = currentStepLabel(p);
+    if(pendente && pendente!=='Concluído') lines.push(pendente.replace(/^Pendente: /,'Aguardando '));
+  }
+
+  return lines.join('\n');
+}
+
+function buildFollowUpTableRow(p){
+  const extra = p.extra || {};
+  const fornecedorCadastrado = state.suppliers.find(s=>s.id===p.supplierId);
+  let fornecedor = fornecedorCadastrado ? fornecedorCadastrado.name.toUpperCase() : '';
+  if(!['CARESTREAM','MORITA','GENORAY'].includes(fornecedor)){
+    // Sem cadastro reconhecido — cai pra dedução pela letra inicial do PROCESSO, como pedido.
+    const letra = (p.ref||'').trim().charAt(0).toUpperCase();
+    fornecedor = FOLLOWUP_FORNECEDOR_POR_LETRA[letra] || fornecedor;
+  }
+
+  const descricao = p.produto || '';
+
+  const isMaritimo = p.modal!=='aereo';
+  let transit = '';
+  if(p.dataEmbarqueReal && extra.dataChegadaBetim){
+    transit = String(daysBetween(p.dataEmbarqueReal, extra.dataChegadaBetim));
+  }
+
+  const freetime = isMaritimo ? (extra.freetime || '-') : '-';
+
+  let devolucao = '';
+  if(isMaritimo){
+    if(extra.dataChegadaBetim && extra.freetime){
+      const dt = new Date(extra.dataChegadaBetim+'T00:00:00');
+      dt.setDate(dt.getDate() + (parseInt(extra.freetime)||0) - 1);
+      devolucao = fmtDate(dt.toISOString().slice(0,10));
+    }
+  } else {
+    devolucao = '-';
+  }
+
+  return {
+    processo: p.ref || '',
+    fornecedor,
+    dataPedido: fmtDateOrBlank(p.dataPedido),
+    descricao,
+    prontidao: fmtDateOrBlank(p.prontidao),
+    embarque: fmtDateOrBlank(p.dataEmbarqueReal),
+    chegadaBR: fmtDateOrBlank(extra.dataChegadaBetim),
+    transit,
+    freetime,
+    devolucao,
+    modal: isMaritimo ? 'MARÍTIMO' : 'AÉREO',
+    origem: p.origemPais || '',
+    status: getFollowUpStatus(p),
+    andamento: buildAndamentoLines(p),
+  };
+}
+
+/* Gera a tabela markdown com as 14 colunas na ordem exata — célula com múltiplas linhas
+   (Descrição do Produto, ANDAMENTO) usa "\n" literal dentro da célula (2 caracteres, não
+   quebra de linha real — isso quebraria a sintaxe da tabela, que precisa de 1 linha física
+   por linha da tabela). Os dados em si (buildFollowUpTableRow) guardam quebra de linha real;
+   a conversão pro literal acontece só aqui, na hora de montar o texto markdown. */
+function generateFollowUpMarkdownTable(processes){
+  const toLiteral = s => String(s==null?'':s).replace(/\n/g,'\\n');
+  const header = `| ${FOLLOWUP_TABLE_HEADERS.map(toLiteral).join(' | ')} |`;
+  const sep = `|${FOLLOWUP_TABLE_HEADERS.map(()=>'---').join('|')}|`;
+  const rows = processes.map(p=>{
+    const r = buildFollowUpTableRow(p);
+    const cells = [r.processo, r.fornecedor, r.dataPedido, r.descricao, r.prontidao, r.embarque, r.chegadaBR, r.transit, r.freetime, r.devolucao, r.modal, r.origem, r.status, r.andamento];
+    return `| ${cells.map(toLiteral).join(' | ')} |`;
+  });
+  return [header, sep, ...rows].join('\n');
+}
+
 function processFollowUpMeta(p){
   const fornecedor = state.suppliers.find(s=>s.id===p.supplierId);
   const extra = p.extra || {};
@@ -2193,7 +2396,7 @@ function renderFollowUpPage(){
       </div>
       <div class="followup-narrative">${buildCompactNarrative(p).replace(/\n/g,'<br>')}</div>
       <div style="margin-top:10px;">
-        <button class="btn" style="padding:6px 12px; font-size:12px;" onclick="openProcessModal('${p.id}')">Abrir processo</button>
+        <button class="btn" style="padding:6px 12px; font-size:12px;" onclick="openProcessCardClick('${p.id}')">Abrir processo</button>
       </div>
     </div>`;
   }).join('');
@@ -2213,107 +2416,137 @@ function generateFollowUpTextForProcess(p){
 
 function generateFollowUpTextAll(){
   const active = state.processes.filter(p=>getBucket(p)!=='finalizados');
-  let text = `FOLLOW-UP — ${active.length} PROCESSO(S) ATIVO(S)\n${fmtDate(todayStr())}\n\n`;
-  active.forEach(p=>{
-    text += generateFollowUpTextForProcess(p) + '\n';
+  return generateFollowUpMarkdownTable(active);
+}
+
+/* Larguras pensadas pra cada coluna não ficar espremida — datas/códigos curtos ganham
+   pouco espaço, Descrição/Status/ANDAMENTO ganham mais (senão o texto fica ilegível
+   amontoado, especialmente Status com rótulos longos tipo "Aguardando carimbo do estado"). */
+const FOLLOWUP_COLUMN_WIDTHS = ['60px','90px','75px','140px','75px','75px','75px','55px','55px','75px','75px','85px','160px','340px'];
+
+/* Tabela em HTML de verdade (não markdown) — pensada pra ser colada em e-mail (Outlook/
+   Gmail). Célula com múltiplas linhas usa <br> (que sobrevive à colagem rica), diferente da
+   versão markdown (generateFollowUpMarkdownTable) que usa "\n" literal e serve pra colar em
+   lugares que entendem markdown de verdade. Mesmo padrão de tabela em HTML já usado no
+   e-mail de Nota Fiscal. Vem com um quadro de contagem por Status no topo, igual à planilha
+   de referência (aba Controle). */
+function generateFollowUpStatusSummaryHtml(processes){
+  const counts = {};
+  FOLLOWUP_STATUS_ORDER.forEach(s=>counts[s]=0);
+  processes.forEach(p=>{ const s = getFollowUpStatus(p); counts[s] = (counts[s]||0)+1; });
+
+  const cellStyle = 'border:1px solid #333; padding:5px 10px; font-size:11.5px;';
+  const rows = FOLLOWUP_STATUS_ORDER.map(s=>`<tr><td style="${cellStyle}">${s}</td><td style="${cellStyle} text-align:center; font-weight:700;">${counts[s]}</td></tr>`).join('');
+  return `<table style="border-collapse:collapse; margin-bottom:14px;"><tr><th colspan="2" style="${cellStyle} background:#e9edf5; font-weight:700; text-align:left;">FOLLOW UP — ${processes.length} processo(s)</th></tr>${rows}</table>`;
+}
+
+function generateFollowUpHtmlTable(processes){
+  const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  const thStyle = i => `border:1px solid #333; padding:6px 9px; background:#e9edf5; font-weight:700; text-align:left; font-size:11.5px; width:${FOLLOWUP_COLUMN_WIDTHS[i]};`;
+  const tdStyle = 'border:1px solid #333; padding:6px 9px; font-size:11.5px; vertical-align:top;';
+
+  const headerHtml = FOLLOWUP_TABLE_HEADERS.map((h,i)=>`<th style="${thStyle(i)}">${esc(h)}</th>`).join('');
+  const rowsHtml = processes.map(p=>{
+    const r = buildFollowUpTableRow(p);
+    const cells = [r.processo, r.fornecedor, r.dataPedido, r.descricao, r.prontidao, r.embarque, r.chegadaBR, r.transit, r.freetime, r.devolucao, r.modal, r.origem, r.status, r.andamento];
+    return `<tr>${cells.map(c=>`<td style="${tdStyle}">${esc(c)}</td>`).join('')}</tr>`;
+  }).join('');
+
+  const summaryHtml = generateFollowUpStatusSummaryHtml(processes);
+  return `${summaryHtml}<table style="border-collapse:collapse; table-layout:fixed; width:100%;"><thead><tr>${headerHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>`;
+}
+
+/* Fallback só-texto (sem HTML) pra quando o navegador não suportar a cópia rica — usa TAB
+   entre colunas (cola bem em Excel/Sheets se precisar) e "\n" literal dentro da célula
+   (quebra de linha real quebraria as linhas/colunas do TSV). */
+function generateFollowUpPlainText(processes){
+  const toLiteral = s => String(s==null?'':s).replace(/\n/g,'\\n');
+  const header = FOLLOWUP_TABLE_HEADERS.map(toLiteral).join('\t');
+  const rows = processes.map(p=>{
+    const r = buildFollowUpTableRow(p);
+    const cells = [r.processo, r.fornecedor, r.dataPedido, r.descricao, r.prontidao, r.embarque, r.chegadaBR, r.transit, r.freetime, r.devolucao, r.modal, r.origem, r.status, r.andamento];
+    return cells.map(toLiteral).join('\t');
   });
-  return text;
+  return [header, ...rows].join('\n');
+}
+
+/* Modal único de preview — reaproveitado tanto pro follow-up de 1 processo quanto de todos.
+   Corpo renderizado num contenteditable com <table> de verdade (não textarea), pra manter
+   a tabela ao colar num cliente de e-mail. Mesmo mecanismo de cópia rica (com fallback pra
+   texto simples) já usado no e-mail de Nota Fiscal. */
+function openFollowUpTablePreview(processes, title){
+  const htmlTable = generateFollowUpHtmlTable(processes);
+  const plainFallback = generateFollowUpPlainText(processes);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'followup-overlay';
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:1100px;">
+      <div class="modal-header">
+        <h2>${title}</h2>
+        <button class="modal-close" onclick="document.getElementById('followup-overlay').remove()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-hint" style="margin-bottom:10px;">A tabela abaixo é editável — clique e ajuste o que precisar antes de copiar. Ao colar num e-mail (Outlook/Gmail), a tabela vem com bordas e colunas de verdade, não como texto com barras.</div>
+        <div id="followup-table-body" contenteditable="true" style="width:100%; max-height:480px; overflow:auto; font-family:Arial,Helvetica,sans-serif; padding:10px; border:1px solid var(--border-strong); border-radius:6px; background:#fff;">${htmlTable}</div>
+      </div>
+      <div class="modal-footer">
+        <div></div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" onclick="document.getElementById('followup-overlay').remove()">Fechar</button>
+          <button class="btn btn-primary" onclick="copyFollowUpTableToClipboard()">Copiar Tabela</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.dataset.plainFallback = plainFallback;
+}
+
+function copyFollowUpTableToClipboard(){
+  const el = document.getElementById('followup-table-body');
+  try{
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    const ok = document.execCommand('copy');
+    selection.removeAllRanges();
+    if(ok){
+      alert('Tabela copiada! Agora é só colar no e-mail — as colunas e bordas vêm junto.');
+      return;
+    }
+    throw new Error('execCommand retornou false');
+  }catch(e){
+    const overlay = document.getElementById('followup-overlay');
+    const fallback = overlay ? overlay.dataset.plainFallback : el.innerText;
+    const ta = document.createElement('textarea');
+    ta.value = fallback || el.innerText;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try{
+      document.execCommand('copy');
+      alert('Tabela copiada como texto simples (colunas separadas por Tab) — seu navegador não suportou a cópia rica.');
+    }catch(e2){
+      alert('Não foi possível copiar automaticamente. Selecione o conteúdo manualmente.');
+    }
+    document.body.removeChild(ta);
+  }
 }
 
 function openFollowUpAllPreview(){
-  const text = generateFollowUpTextAll();
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.id = 'followup-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
-  overlay.innerHTML = `
-    <div class="modal" style="max-width:640px;">
-      <div class="modal-header">
-        <h2>Follow-up Completo para E-mail</h2>
-        <button class="modal-close" onclick="document.getElementById('followup-overlay').remove()">×</button>
-      </div>
-      <div class="modal-body">
-        <textarea id="followup-all-text" style="width:100%; min-height:420px; font-family:'IBM Plex Mono',monospace; font-size:12px; padding:12px; border:1px solid var(--border-strong); border-radius:6px;">${text}</textarea>
-      </div>
-      <div class="modal-footer">
-        <div></div>
-        <div style="display:flex; gap:8px;">
-          <button class="btn" onclick="document.getElementById('followup-overlay').remove()">Fechar</button>
-          <button class="btn btn-primary" onclick="copyFollowUpAllToClipboard()">Copiar Texto</button>
-        </div>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-}
-
-function copyFollowUpAllToClipboard(){
-  const ta = document.getElementById('followup-all-text');
-  ta.select();
-  try{
-    document.execCommand('copy');
-    alert('Follow-up de todos os processos copiado! Agora é só colar no e-mail.');
-  }catch(e){
-    alert('Não foi possível copiar automaticamente. Selecione o texto manualmente na caixa.');
-  }
-}
-
-function generateFollowUpText(){
-  const p = window.__editingProcess;
-  const fornecedor = state.suppliers.find(s=>s.id===p.supplierId);
-  const events = (p.history||[]).slice().sort((a,b)=>a.ts-b.ts);
-  let text = `FOLLOW-UP — ${p.produto||'Processo'} (${p.ref||''})\n`;
-  text += `Fornecedor: ${fornecedor?fornecedor.name:'—'}\n\n`;
-  events.forEach(ev=>{
-    text += `${formatHistoryDate(ev.ts)}\n${ev.icon} ${ev.title}\n`;
-    if(ev.detail) text += `${ev.detail}\n`;
-    text += '\n';
-  });
-  return text;
-}
-
-function copyFollowUpToClipboard(){
-  const text = generateFollowUpText();
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.position = 'fixed';
-  ta.style.opacity = '0';
-  document.body.appendChild(ta);
-  ta.select();
-  try{
-    document.execCommand('copy');
-    alert('Follow-up copiado! Agora é só colar no e-mail.');
-  }catch(e){
-    alert('Não foi possível copiar automaticamente. Selecione o texto manualmente na caixa.');
-  }
-  document.body.removeChild(ta);
+  const active = state.processes.filter(p=>getBucket(p)!=='finalizados');
+  openFollowUpTablePreview(active, 'Follow-up Completo para E-mail');
 }
 
 function openFollowUpPreview(){
-  const text = generateFollowUpText();
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.id = 'followup-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
-  overlay.innerHTML = `
-    <div class="modal" style="max-width:520px;">
-      <div class="modal-header">
-        <h2>Follow-up para E-mail</h2>
-        <button class="modal-close" onclick="document.getElementById('followup-overlay').remove()">×</button>
-      </div>
-      <div class="modal-body">
-        <textarea style="width:100%; min-height:340px; font-family:'IBM Plex Mono',monospace; font-size:12.5px; padding:12px; border:1px solid var(--border-strong); border-radius:6px;">${text}</textarea>
-      </div>
-      <div class="modal-footer">
-        <div></div>
-        <div style="display:flex; gap:8px;">
-          <button class="btn" onclick="document.getElementById('followup-overlay').remove()">Fechar</button>
-          <button class="btn btn-primary" onclick="copyFollowUpToClipboard()">Copiar Texto</button>
-        </div>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
+  const p = window.__editingProcess;
+  openFollowUpTablePreview([p], 'Follow-up para E-mail');
 }
 
 /* ---------- GERAÇÃO DE E-MAILS POR PROCESSO ---------- */
@@ -2394,6 +2627,19 @@ function getDespachanteContatos(p){
   return (partner.contatosEmail||[]).filter(c=>c.nome || c.email);
 }
 
+/* Transportadora responsável pela DTA (extra.transportadoraDTA, Fase 6 · "Solicitar DTA") —
+   mesmo padrão de getDespachantePartner/Contatos, usado no e-mail de DTA. */
+function getTransportadoraDTAPartner(p){
+  const nome = p.extra && p.extra.transportadoraDTA;
+  if(!nome) return null;
+  return state.partners.find(pt=>pt.tipo==='Transportadora' && pt.empresa===nome) || null;
+}
+function getTransportadoraDTAContatos(p){
+  const partner = getTransportadoraDTAPartner(p);
+  if(!partner) return [];
+  return (partner.contatosEmail||[]).filter(c=>c.nome || c.email);
+}
+
 /* Honorários do despachante: puxa automaticamente do cadastro do parceiro (Parceiros →
    Despachante → Honorários Padrão) enquanto o processo não tiver um valor próprio definido.
    Assim que o usuário editar e salvar pelo botão "Editar" do Provisionamento, o processo
@@ -2409,6 +2655,23 @@ function getHonorariosDespachante(p){
   const partner = getDespachantePartner(p);
   if(partner && partner.honorariosPadrao){
     return { valor: parseFloat(partner.honorariosPadrao)||0, origem:'partner', partnerNome: partner.empresa };
+  }
+  return { valor: 0, origem:'nenhum' };
+}
+
+/* Taxa Siscomex: mesmo padrão de "puxa automático até alguém sobrescrever" dos Honorários
+   acima, só que na aba Custos (não Provisionamento) — puxa do cadastro do despachante
+   (Parceiros → Despachante → Taxa Siscomex Padrão) enquanto o processo não tiver seu
+   próprio valor definido (armazenado direto em p.taxaSiscomex, igual aos outros campos
+   da aba Custos como ii/ipi/icms/despesas). */
+function getTaxaSiscomexDespachante(p){
+  const manual = p.taxaSiscomex;
+  if(manual!==undefined && manual!==null && manual!==''){
+    return { valor: parseFloat(manual)||0, origem:'manual' };
+  }
+  const partner = getDespachantePartner(p);
+  if(partner && partner.taxaSiscomexPadrao){
+    return { valor: parseFloat(partner.taxaSiscomexPadrao)||0, origem:'partner', partnerNome: partner.empresa };
   }
   return { valor: 0, origem:'nenhum' };
 }
@@ -2477,6 +2740,80 @@ function openEmailDespachantePreview(){
   }
   const { subject, bodyHtml, bodyText, ccList } = generateEmailDespachanteText(p);
   openEmailPreview(subject, bodyHtml, bodyText, 'E-mail — Para o Despachante', ccList);
+}
+
+/* E-mail de DTA + remoção — enviado à transportadora com as instruções operacionais.
+   "Origem"/"EADI destino" etc. ficam em negrito (rótulo), a resposta não — igual ao
+   modelo. A linha de CE Mercante fica sempre igual (é o texto padrão que a empresa manda),
+   nunca é preenchida automaticamente. */
+function generateEmailDTAText(p){
+  const extra = p.extra || {};
+  const ref = p.ref || ('REF-'+p.id.slice(0,6).toUpperCase());
+  const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const transportadoraPartner = getTransportadoraDTAPartner(p);
+  const contatos = getTransportadoraDTAContatos(p);
+  const mentionNames = contatos.length
+    ? contatos.map(c=>'@'+(c.nome||c.email))
+    : ['[cadastre os contatos desta transportadora em Parceiros → Contatos para E-mail]'];
+
+  const origem = extra.recintoZonaPrimaria || '[ORIGEM]';
+  const destino = extra.recintoAlfandegado || '[EADI DESTINO]';
+
+  const va = computeValorAduaneiroBreakdown(p);
+  const valorFatura = va.fobTotalUsd ? `${fmtNumberBR(va.fobTotalUsd)} USD` : '[VALOR DA FATURA]';
+
+  const genset = p.genset ? 'SIM' : 'NÃO';
+  const freeTime = extra.freetime ? `${extra.freetime} DIAS` : '[FREE TIME]';
+  const descricaoMercadoria = p.produto || '[DESCRIÇÃO DETALHADA DA MERCADORIA]';
+
+  const subject = `DTA + Remoção - ${ref} - ${origem} para ${destino}`;
+
+  const linhaCEMercante = 'Acrescentar alguma taxa de CE MERCANTE NO VALOR DA DTA? (Consultar Despachante valor exato)';
+
+  const bodyHtml = `<p>${greetingByHour()}</p>
+<p>Para esta DTA+remoção estou adicionando nosso parceiro ${mentionNames.map(esc).join('; ')}, envio documentos em anexo.</p>
+<p>Segue abaixo as instruções:</p>
+<ul style="margin:6px 0; padding-left:22px;">
+<li><b>Origem: TERMINAL/RECINTO:</b> ${esc(origem)}</li>
+<li><b>EADI destino: TERMINAL/RECINTO:</b> ${esc(destino)}</li>
+<li><b>MOEDA e valor DA FATURA:</b> ${esc(valorFatura)}</li>
+<li><b>Descontar frete: SIM OU NÃO:</b> [SIM/NÃO]</li>
+<li>${esc(linhaCEMercante)}</li>
+<li><b>Número da fatura:</b> [NÚMERO DA FATURA]</li>
+<li><b>Descrição (DETALHADA) da mercadoria por fatura:</b> ${esc(descricaoMercadoria)}</li>
+<li><b>Tratamento com a carga :</b> DESOVA / BAIXA DE CNTR / DEVOLUÇÃO VAZIO.</li>
+<li><b>CARGA PERIGOSA: SIM OU NÃO? (CASO SIM ENVIAR FICHA DE EMERGENCIA):</b> [SIM/NÃO]</li>
+<li><b>GENSET:</b> ${genset}.</li>
+<li><b>FREE TIME:</b> ${esc(freeTime)}</li>
+</ul>`;
+
+  const bodyText = `${greetingByHour()}\n\nPara esta DTA+remoção estou adicionando nosso parceiro ${mentionNames.join('; ')}, envio documentos em anexo.\n\nSegue abaixo as instruções:\n`
+    + `• Origem: TERMINAL/RECINTO: ${origem}\n`
+    + `• EADI destino: TERMINAL/RECINTO: ${destino}\n`
+    + `• MOEDA e valor DA FATURA: ${valorFatura}\n`
+    + `• Descontar frete: SIM OU NÃO: [SIM/NÃO]\n`
+    + `• ${linhaCEMercante}\n`
+    + `• Número da fatura: [NÚMERO DA FATURA]\n`
+    + `• Descrição (DETALHADA) da mercadoria por fatura: ${descricaoMercadoria}\n`
+    + `• Tratamento com a carga : DESOVA / BAIXA DE CNTR / DEVOLUÇÃO VAZIO.\n`
+    + `• CARGA PERIGOSA: SIM OU NÃO? (CASO SIM ENVIAR FICHA DE EMERGENCIA): [SIM/NÃO]\n`
+    + `• GENSET: ${genset}.\n`
+    + `• FREE TIME: ${freeTime}\n`;
+
+  const ccList = contatos.map(c=>c.email).filter(Boolean);
+
+  return { subject, bodyHtml, bodyText, ccList };
+}
+
+function openEmailDTAPreview(){
+  const p = window.__editingProcess;
+  if(!(p.extra && p.extra.transportadoraDTA)){
+    alert('Este processo ainda não tem uma Transportadora selecionada para a DTA (aba Etapas → Fase 6 → "Solicitar DTA"). Selecione antes de gerar o e-mail.');
+    return;
+  }
+  const { subject, bodyHtml, bodyText, ccList } = generateEmailDTAText(p);
+  openEmailPreview(subject, bodyHtml, bodyText, 'E-mail — DTA', ccList);
 }
 
 /* Modal genérico de preview (assunto + corpo editáveis) — reaproveitável por qualquer template futuro.
@@ -2885,11 +3222,12 @@ function computeCosts(p){
   const icmsAplicavel = p.regime !== 'revenda';
   const icms = icmsAplicavel ? (parseFloat(p.icms)||0) : 0;
   const despesas = parseFloat(p.despesas)||0;
+  const taxaSiscomex = parseFloat(p.taxaSiscomex)||0;
   const paymentsTotal = p.payments ? Object.values(p.payments).reduce((s,r)=>s+(parseFloat(r.valor)||0),0) : 0;
   /* Total NÃO soma o frete do campo acima (que é só referência para o CIF) — o frete
      de verdade é o valor pago marcado na Fase 8, já incluído em paymentsTotal. */
-  const total = fobBrl + seguroBrl + ii + ipi + pis + cofins + icms + despesas + paymentsTotal;
-  return {cifUsd, cifBrl, fobBrl, seguroBrl, ii, ipi, pis, cofins, icms, icmsAplicavel, despesas, paymentsTotal, total};
+  const total = fobBrl + seguroBrl + ii + ipi + pis + cofins + icms + despesas + taxaSiscomex + paymentsTotal;
+  return {cifUsd, cifBrl, fobBrl, seguroBrl, ii, ipi, pis, cofins, icms, icmsAplicavel, despesas, taxaSiscomex, paymentsTotal, total};
 }
 
 /* =====================================================================================
@@ -3636,7 +3974,7 @@ function renderDashboardResults(){
     <div class="empty-state">
       <h3>Nenhum processo em andamento</h3>
       <p>Cadastre seu primeiro processo de importação para começar a acompanhar aqui.</p>
-      <button class="btn btn-primary" onclick="openProcessModal()">+ Novo Processo</button>
+      ${currentRole!=='viewer' ? `<button class="btn btn-primary" onclick="openProcessModal()">+ Novo Processo</button>` : ''}
     </div>
   `;
   }
@@ -3655,6 +3993,7 @@ const PRODUCT_FIELDS = [
   {key:'ncm', label:'NCM'},
   {key:'fabricante', label:'Fabricante'},
   {key:'codigo', label:'Código de Imposto'},
+  {key:'codigoII', label:'II (Código SAP)'},
   {key:'peso', label:'Peso (kg)', type:'number'},
   {key:'tipo', label:'Tipo'},
   {key:'produto', label:'Produto (modelo)'},
@@ -3751,7 +4090,7 @@ async function runProductSearch(){
 
 async function openProductModal(pn){
   const existing = pn ? await getProductByPN(pn) : null;
-  const p = existing || { pn:'', ativo:true, history:[] };
+  const p = existing || { pn: pn||'', ativo:true, history:[] };
   window.__editingProduct = JSON.parse(JSON.stringify(p));
 
   const fieldsHtml = PRODUCT_FIELDS.map(f=>{
@@ -3952,6 +4291,14 @@ function formatCodCatalogo(v){
   const digits = String(v||'').replace(/\D/g,'');
   if(!digits) return '';
   return digits.padStart(10,'0').slice(-10);
+}
+/* "II" aqui é o código de cadastro interno no SAP (nada a ver com Imposto de Importação,
+   que também é abreviado II em outras partes do app — nomes de campo e rótulo deixam isso
+   claro pra não confundir). Formato fixo: "II" + 6 dígitos, ex: II000640. */
+function formatCodigoII(v){
+  const digits = String(v||'').replace(/\D/g,'');
+  if(!digits) return '';
+  return 'II' + digits.padStart(6,'0').slice(-6);
 }
 
 /* ---------- NCM E ALÍQUOTAS ---------- */
@@ -4318,6 +4665,7 @@ async function saveProduct(isEdit){
   if(data.ncm) data.ncm = formatNCM(data.ncm);
   if(data.codigo) data.codigo = formatCodigoImposto(data.codigo);
   if(data.codCatalogo) data.codCatalogo = formatCodCatalogo(data.codCatalogo);
+  if(data.codigoII) data.codigoII = formatCodigoII(data.codigoII);
 
   data.exTarifario = !!(window.__editingProduct && window.__editingProduct.exTarifario);
   data.exTarifarioNumero = data.exTarifario ? (document.getElementById('pf-exTarifarioNumero').value||'').trim() : '';
@@ -5245,7 +5593,7 @@ function renderProcessosResults(){
     return hasFilters ? `<div class="empty-state"><h3>Nenhum processo encontrado</h3><p>Nenhum processo bate com os filtros aplicados.</p><button class="btn" onclick="clearPageFilters('processos')">Limpar filtros</button></div>` : `<div class="empty-state">
       <h3>Nenhum processo ativo</h3>
       <p>Crie seu primeiro processo para começar a controlar custos, prazos e documentos.</p>
-      <button class="btn btn-primary" onclick="openProcessModal()">+ Novo Processo</button>
+      ${currentRole!=='viewer' ? `<button class="btn btn-primary" onclick="openProcessModal()">+ Novo Processo</button>` : ''}
     </div>`;
   }
   const sorted = [...list].sort((a,b)=> processProgressRatio(b) - processProgressRatio(a) || (a.chegadaPrevista||'9999').localeCompare(b.chegadaPrevista||'9999'));
@@ -5288,7 +5636,7 @@ function processCard(p, note){
   }).join('');
 
   return `
-  <div class="process-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessModal('${p.id}')">
+  <div class="process-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessCardClick('${p.id}')">
     <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo">👁️</button>
     ${refBadgeHtml(p)}
     <div class="process-main">
@@ -5323,7 +5671,7 @@ function producaoCard(p){
     </div>`;
   }).join('');
   return `
-  <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessModal('${p.id}')">
+  <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessCardClick('${p.id}')">
     <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo">👁️</button>
     ${refBadgeHtml(p)}
     <div>
@@ -5356,7 +5704,7 @@ function aguardandoEmbarqueCard(p){
   if(extra.viagem) logiParts.push(`<span><b>Viagem:</b> ${extra.viagem}</span>`);
   if(extra.agenteCarga) logiParts.push(`<span><b>Agente:</b> ${extra.agenteCarga}</span>`);
   return `
-  <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessModal('${p.id}')">
+  <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessCardClick('${p.id}')">
     <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo">👁️</button>
     ${refBadgeHtml(p)}
     <div>
@@ -5394,7 +5742,7 @@ function desembaracoCard(p){
     pendingHtml = `<div class="pending-since">Pendente desde ${fmtDate(p.pendingSince)} (${dias}d)</div>`;
   }
   return `
-  <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessModal('${p.id}')">
+  <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessCardClick('${p.id}')">
     <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo">👁️</button>
     ${refBadgeHtml(p)}
     <div>
@@ -5426,7 +5774,7 @@ function transitoCard(p){
   if(extra.despachante) logiParts.push(`<span><b>Despachante:</b> ${extra.despachante}</span>`);
   if(extra.transportadoraDTA) logiParts.push(`<span><b>DTA:</b> ${extra.transportadoraDTA}</span>`);
   return `
-  <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessModal('${p.id}')">
+  <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessCardClick('${p.id}')">
     <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo">👁️</button>
     ${refBadgeHtml(p)}
     <div>
@@ -5575,9 +5923,14 @@ function openPartnerModal(id){
           <input type="text" inputmode="decimal" id="pt-honorarios" value="${s.honorariosPadrao?fmtNumberBR(s.honorariosPadrao):''}" oninput="maskCurrencyInput(this);" placeholder="0,00">
           <div class="form-hint">Valor puxado automaticamente na aba Provisionamento de cada processo com este despachante. Pode ser editado processo a processo lá, sem afetar este cadastro.</div>
         </div>
-        <div class="form-group" id="pt-contatos-wrap" style="display:${s.tipo==='Despachante'?'block':'none'};">
+        <div class="form-group" id="pt-siscomex-wrap" style="display:${s.tipo==='Despachante'?'block':'none'};">
+          <label>Taxa Siscomex Padrão (R$)</label>
+          <input type="text" inputmode="decimal" id="pt-siscomex" value="${s.taxaSiscomexPadrao?fmtNumberBR(s.taxaSiscomexPadrao):''}" oninput="maskCurrencyInput(this);" placeholder="0,00">
+          <div class="form-hint">Valor puxado automaticamente na aba Custos de cada processo com este despachante. Pode ser editado processo a processo lá, sem afetar este cadastro.</div>
+        </div>
+        <div class="form-group" id="pt-contatos-wrap" style="display:${(s.tipo==='Despachante'||s.tipo==='Transportadora')?'block':'none'};">
           <label>Contatos para E-mail (nome + e-mail)</label>
-          <div class="form-hint" style="margin-bottom:8px;">Usados para montar automaticamente as menções (@Nome) e a cópia (Cc) do e-mail de abertura de processo com o despachante.</div>
+          <div class="form-hint" style="margin-bottom:8px;">Usados para montar automaticamente as menções (@Nome) e a cópia (Cc) dos e-mails gerados no processo (ex: abertura com o despachante, DTA com a transportadora).</div>
           <div id="pt-contatos-list">${renderPartnerContatosRows()}</div>
           <button type="button" class="btn" style="margin-top:6px;" onclick="addPartnerContatoRow()">+ Adicionar Contato</button>
         </div>
@@ -5625,9 +5978,11 @@ function onPartnerTipoChange(tipo){
   document.getElementById('pt-zona-wrap').style.display = tipo==='Recinto Alfandegado' ? 'block' : 'none';
   document.getElementById('pt-cidade-wrap').style.display = tipo==='Recinto Alfandegado' ? 'block' : 'none';
   const contatosWrap = document.getElementById('pt-contatos-wrap');
-  if(contatosWrap) contatosWrap.style.display = tipo==='Despachante' ? 'block' : 'none';
+  if(contatosWrap) contatosWrap.style.display = (tipo==='Despachante'||tipo==='Transportadora') ? 'block' : 'none';
   const honorariosWrap = document.getElementById('pt-honorarios-wrap');
   if(honorariosWrap) honorariosWrap.style.display = tipo==='Despachante' ? 'block' : 'none';
+  const siscomexWrap = document.getElementById('pt-siscomex-wrap');
+  if(siscomexWrap) siscomexWrap.style.display = tipo==='Despachante' ? 'block' : 'none';
 }
 
 async function savePartner(id){
@@ -5648,6 +6003,7 @@ async function savePartner(id){
     email: document.getElementById('pt-email').value.trim(),
     contatosEmail,
     honorariosPadrao: document.getElementById('pt-honorarios') ? parseBRMasked(document.getElementById('pt-honorarios').value) : '',
+    taxaSiscomexPadrao: document.getElementById('pt-siscomex') ? parseBRMasked(document.getElementById('pt-siscomex').value) : '',
     notes: document.getElementById('pt-notes').value.trim(),
   };
   const idx = state.partners.findIndex(p=>p.id===id);
@@ -5823,7 +6179,60 @@ function updateExtraField(key, val){
   window.__editingProcess.extra = window.__editingProcess.extra || {};
   window.__editingProcess.extra[key] = val;
   if(key==='modalidadePagamento' || key==='canalDesembaraco'){ renderEtapasTab(); }
+  if(key==='despachante'){ refreshSiscomexDisplay(); } // Taxa Siscomex (Custos) depende do despachante escolhido
 }
+
+/* Atualiza a exibição da Taxa Siscomex na aba Custos a partir de getTaxaSiscomexDespachante —
+   chamado ao abrir o processo e sempre que o despachante (Fase 5) mudar. Guarda o valor
+   efetivo (puxado ou manual) no input escondido #c-siscomex, no mesmo formato mascarado dos
+   outros campos de moeda da aba, pra collectCostFields() ler igual aos demais. */
+function refreshSiscomexDisplay(){
+  const p = window.__editingProcess;
+  if(!p) return;
+  const hidden = document.getElementById('c-siscomex');
+  const display = document.getElementById('c-siscomex-display');
+  const origemHint = document.getElementById('c-siscomex-origem-hint');
+  if(!hidden || !display) return;
+  const siscomex = getTaxaSiscomexDespachante(p);
+  hidden.value = siscomex.valor ? fmtNumberBR(siscomex.valor) : '';
+  display.innerHTML = `${siscomex.valor ? fmtBRL(siscomex.valor) : '<span style="color:var(--muted); font-style:italic;">Não definido</span>'} <button type="button" class="prov-edit-btn" onclick="toggleSiscomexEdit(true)" title="Editar">✏️ Editar</button>`;
+  if(origemHint){
+    origemHint.textContent = siscomex.origem==='partner' ? `Puxado automaticamente do cadastro de ${siscomex.partnerNome} em Parceiros.`
+      : siscomex.origem==='manual' ? 'Valor definido manualmente para este processo.'
+      : (getDespachantePartner(p) ? 'Este despachante ainda não tem Taxa Siscomex Padrão cadastrada em Parceiros — defina aqui ou lá.' : 'Selecione o despachante na aba Etapas (Fase 5) para puxar o valor cadastrado, ou defina manualmente aqui.');
+  }
+  updateCostPreview();
+}
+
+function toggleSiscomexEdit(editMode){
+  const display = document.getElementById('c-siscomex-display');
+  const editRow = document.getElementById('c-siscomex-edit-row');
+  if(display) display.style.display = editMode ? 'none' : '';
+  if(editRow) editRow.style.display = editMode ? 'flex' : 'none';
+  if(editMode){
+    const input = document.getElementById('c-siscomex-input');
+    const hidden = document.getElementById('c-siscomex');
+    if(input && hidden){ input.value = hidden.value; input.focus(); input.select(); }
+  }
+}
+
+function saveSiscomexValue(){
+  const val = parseBRMasked(document.getElementById('c-siscomex-input').value);
+  const hidden = document.getElementById('c-siscomex');
+  if(hidden) hidden.value = val ? fmtNumberBR(val) : '';
+  // Marca como valor manual deste processo — não volta a puxar do cadastro do despachante,
+  // mesmo padrão dos Honorários no Provisionamento.
+  window.__editingProcess.taxaSiscomex = val;
+  const display = document.getElementById('c-siscomex-display');
+  if(display){
+    display.innerHTML = `${val ? fmtBRL(val) : '<span style="color:var(--muted); font-style:italic;">Não definido</span>'} <button type="button" class="prov-edit-btn" onclick="toggleSiscomexEdit(true)" title="Editar">✏️ Editar</button>`;
+  }
+  const origemHint = document.getElementById('c-siscomex-origem-hint');
+  if(origemHint) origemHint.textContent = 'Valor definido manualmente para este processo.';
+  toggleSiscomexEdit(false);
+  updateCostPreview();
+}
+
 function updatePaymentField(key, field, val){
   const p = window.__editingProcess;
   p.payments[key] = p.payments[key] || {checked:false, valor:'', pedidoSap:'', dataVencimento:''};
@@ -5862,6 +6271,10 @@ async function removeCustomPayment(id){
 
 /* ---------- PROCESS MODAL ---------- */
 function openProcessModal(id){
+  /* Trava de segurança: Viewer nunca deve cair no modal completo, mesmo que algum ponto de
+     entrada futuro esqueça de checar o papel antes de chamar esta função. Se tiver um id,
+     manda pro resumo (olho); se for "Novo Processo" (sem id), simplesmente não abre nada. */
+  if(currentRole==='viewer'){ if(id) openProcessViewModal(id); return; }
   const existing = id ? state.processes.find(p=>p.id===id) : null;
   const base = existing || {id:uid(), status:'fase1', tipo:'definitiva', docs:{}};
   const p = initProcessData(JSON.parse(JSON.stringify(base)));
@@ -5881,7 +6294,7 @@ function openProcessModal(id){
   overlay.id = 'modal-overlay';
   overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
   overlay.innerHTML = `
-    <div class="modal">
+    <div class="modal ${currentRole==='viewer'?'modal-readonly':''}">
       <div class="modal-header">
         <h2>${existing?'Editar Processo':'Novo Processo'}</h2>
         <button class="modal-close" onclick="closeModal()">×</button>
@@ -6084,6 +6497,17 @@ function openProcessModal(id){
             <div class="form-group"><label>Outras Despesas (R$)</label><input type="text" inputmode="decimal" id="c-despesas" value="${p.despesas?fmtNumberBR(p.despesas):''}" oninput="maskCurrencyInput(this); updateCostPreview();"></div>
           </div>
           <div class="form-group">
+            <label>Taxa Siscomex</label>
+            <div class="prov-line-value" id="c-siscomex-display" style="font-family:inherit; font-weight:400; font-size:13px; justify-content:flex-start; gap:8px;"></div>
+            <div class="form-hint" id="c-siscomex-origem-hint"></div>
+            <div id="c-siscomex-edit-row" style="display:none; margin-top:6px; align-items:center; gap:8px;">
+              <input type="text" inputmode="decimal" id="c-siscomex-input" oninput="maskCurrencyInput(this);" placeholder="0,00" style="max-width:160px; padding:8px 10px; border:1px solid var(--border-strong); border-radius:6px;">
+              <button type="button" class="btn btn-primary" onclick="saveSiscomexValue()">Salvar</button>
+              <button type="button" class="btn" onclick="toggleSiscomexEdit(false)">Cancelar</button>
+            </div>
+            <input type="hidden" id="c-siscomex" value="">
+          </div>
+          <div class="form-group">
             <label>Regime Fiscal do Item</label>
             <select id="c-regime" onchange="onRegimeChange()">
               <option value="revenda" ${p.regime==='revenda'?'selected':''}>Revenda (RET-MG aplicável)</option>
@@ -6140,6 +6564,15 @@ function openProcessModal(id){
             <div class="form-hint" style="margin-bottom:10px;">Apresenta o despachante ao processo (booking, navio/viagem ou AWB, embarque, chegada prevista e temperatura), já mencionando os contatos cadastrados e sugerindo os e-mails para Cc.</div>
             <button class="btn btn-pdf" onclick="openEmailDespachantePreview()">Gerar E-mail para o Despachante</button>
           </div>
+          <div class="followup-card">
+            <div class="followup-card-header">
+              <div>
+                <span class="followup-produto">E-mail — DTA</span>
+              </div>
+            </div>
+            <div class="form-hint" style="margin-bottom:10px;">Instruções de DTA + remoção para a transportadora — origem, EADI destino, valor da fatura, GENSET e Free Time, já mencionando os contatos cadastrados.</div>
+            <button class="btn btn-pdf" onclick="openEmailDTAPreview()">Gerar E-mail de DTA</button>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -6156,6 +6589,7 @@ function openProcessModal(id){
   `;
   document.body.appendChild(overlay);
   toggleIcmsField();
+  refreshSiscomexDisplay();
   updateCostPreview();
   renderEtapasTab();
   initTemperaturaUI(p);
@@ -6621,6 +7055,7 @@ function collectCostFields(){
     cofins: parseBRMasked(document.getElementById('c-cofins').value),
     icms: parseBRMasked(document.getElementById('c-icms').value),
     despesas: parseBRMasked(document.getElementById('c-despesas').value),
+    taxaSiscomex: document.getElementById('c-siscomex') ? parseBRMasked(document.getElementById('c-siscomex').value) : 0,
     /* Campo removido da aba Custos (o provisionamento passou a viver na aba Provisionamento) —
        mantém o valor já salvo em processos antigos intacto, só não é mais editável aqui. */
     custoOrcado: window.__editingProcess ? window.__editingProcess.custoOrcado : undefined,
@@ -6659,6 +7094,7 @@ function updateCostPreview(){
     <tr><td>COFINS</td><td>${fmtBRL(costs.cofins)}</td></tr>
     ${icmsAplicavel ? `<tr><td>ICMS</td><td>${fmtBRL(costs.icms)}</td></tr>` : ''}
     <tr><td>Outras Despesas</td><td>${fmtBRL(costs.despesas)}</td></tr>
+    <tr><td>Taxa Siscomex</td><td>${fmtBRL(costs.taxaSiscomex)}</td></tr>
     ${paymentRows.map(r=>`<tr><td>${r.label}</td><td>${fmtBRL(r.valor)}</td></tr>`).join('')}
     <tr class="total"><td>Custo Total Estimado</td><td>${fmtBRL(costs.total)}</td></tr>
   `;
