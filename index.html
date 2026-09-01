@@ -169,25 +169,25 @@ main{flex:1; min-width:0; display:flex; flex-direction:column;}
 
 .attention-area{
   background:linear-gradient(90deg, #FDECEA 0%, #FDF6F5 55%, #FFFFFF 100%);
-  border:1.5px solid #F2BBB1; border-radius:20px;
-  padding:26px 30px; margin-bottom:22px;
-  display:flex; align-items:center; gap:26px; flex-wrap:wrap;
+  border:1.5px solid #F2BBB1; border-radius:16px;
+  padding:18px 22px; margin-bottom:20px;
+  display:flex; align-items:center; gap:20px; flex-wrap:wrap;
 }
-.attention-body{flex-shrink:0; display:flex; flex-direction:column; gap:4px;}
+.attention-body{flex-shrink:0; display:flex; flex-direction:column; gap:3px;}
 .attention-label{
-  font-family:'Inter', sans-serif; font-weight:800; font-size:24px; color:#DC2626;
+  font-family:'Inter', sans-serif; font-weight:800; font-size:18px; color:#DC2626;
   line-height:1.1; letter-spacing:0.01em; white-space:nowrap;
 }
-.attention-sub{font-size:14.5px; font-weight:500; color:#374151; white-space:nowrap;}
-.attention-chips{display:flex; flex-wrap:wrap; gap:16px; align-items:stretch; flex:1;}
+.attention-sub{font-size:11.5px; font-weight:500; color:#374151; white-space:nowrap;}
+.attention-chips{display:flex; flex-wrap:wrap; gap:12px; align-items:stretch; flex:1;}
 .attention-chip{
-  display:flex; align-items:center; gap:14px; padding:16px 26px 16px 20px; border-radius:16px;
-  min-width:230px;
+  display:flex; align-items:center; gap:11px; padding:12px 20px 12px 15px; border-radius:13px;
+  min-width:180px;
 }
 .attention-chip-text{display:flex; flex-direction:column; line-height:1.25;}
-.attention-chip-num{font-family:'Inter',sans-serif; font-weight:800; font-size:26px; line-height:1.1;}
-.attention-chip-label{font-size:14.5px; font-weight:700; color:#1F2937; margin-top:2px;}
-.attention-chip-hint{font-size:13px; font-weight:600; margin-top:2px;}
+.attention-chip-num{font-family:'Inter',sans-serif; font-weight:800; font-size:20px; line-height:1.1;}
+.attention-chip-label{font-size:11.5px; font-weight:700; color:#1F2937; margin-top:1px;}
+.attention-chip-hint{font-size:10px; font-weight:600; margin-top:1px;}
 .attention-chip-red{background:#FCE1DD; color:#DC2626;}
 .attention-chip-red .attention-chip-hint{color:#DC2626;}
 .attention-chip-orange{background:#FCE7D6; color:#EA580C;}
@@ -196,7 +196,7 @@ main{flex:1; min-width:0; display:flex; flex-direction:column;}
 .attention-chip-yellow .attention-chip-hint{color:#CA8A04;}
 .attention-details-btn{
   flex-shrink:0; margin-left:auto; background:#EEF1F5; border:1.5px solid #D6DDE6;
-  border-radius:14px; padding:16px 26px; font-size:15px; font-weight:600; color:#1F2937;
+  border-radius:11px; padding:11px 19px; font-size:12.5px; font-weight:600; color:#1F2937;
   cursor:pointer; white-space:nowrap;
 }
 .attention-details-btn:hover{border-color:var(--navy);}
@@ -964,7 +964,11 @@ function attachDataListener(){
     } else {
       state = { processes:[], suppliers:[], partners: DEFAULT_PARTNERS.map(p=>({...p})), ncms: DEFAULT_NCMS.map(n=>({...n})), empresaConfig: { nome:'', estoques:[] } };
     }
-    if(autoFillKnownNcmAliquotas() && hasAnyEditAccess()){
+    /* Evita rodar o auto-preenchimento de NCM (que dispara um persistState() de fundo) enquanto
+       o modal de processo está aberto — evita uma corrida onde esse salvamento de fundo grava
+       uma versão de state.processes anterior às edições que a pessoa está fazendo agora mesmo,
+       "apagando" silenciosamente o que ela tinha acabado de mudar. */
+    if(!window.__editingProcess && autoFillKnownNcmAliquotas() && hasAnyEditAccess()){
       persistState();
     }
     document.getElementById('loading').style.display = 'none';
@@ -999,7 +1003,14 @@ const STAGE_DEFS = [
   {key:'fase1', label:'Fase 1 · Pedido e Aprovação', cls:'stamp-pedido',
     items:['Enviar PO','Abertura de pasta no sistema']},
   {key:'fase2', label:'Fase 2 · Confirmação e Registro', cls:'stamp-producao',
-    items:['Conferência da Proforma','Pedido no SAP','Confirmação de prontidão'],
+    /* "Abertura do projeto" entra AQUI dentro da Fase 2 (pedido do usuário), depois de
+       "Pedido no SAP" — mas vai pro FINAL da lista de itens, não logo depois do Pedido no SAP
+       posicionalmente, de propósito: o checklist de cada processo é salvo como um array de
+       true/false por ÍNDICE da lista de itens. Inserir um item novo NO MEIO deslocaria o
+       índice de "Confirmação de prontidão" pra frente, fazendo o app ler o estado de tick
+       ERRADO pra ela (e pro item novo) em todo processo que já tem a Fase 2 em andamento ou
+       concluída. Adicionando só no final, quem já tinha progresso aqui não perde nada. */
+    items:['Conferência da Proforma','Pedido no SAP','Confirmação de prontidão','Abertura do projeto'],
     itemFields:{ 1:[{key:'numeroPedidoSAP', label:'Número do Pedido', type:'text'}] }},
   {key:'fase3', label:'Fase 3 · Pagamento e Câmbio', cls:'stamp-porto',
     items:['Pagamento','Provisionamento Financeiro'],
@@ -4433,14 +4444,21 @@ async function persistState(){
   if(!hasAnyEditAccess()){ return false; }
   updateSaveIndicator('Salvando...');
   try{
-    await db.collection('comextrack').doc('data').set({
+    /* Blindagem: o Firestore rejeita o documento INTEIRO se qualquer campo, em qualquer nível
+       (mesmo dentro de um processo específico), estiver como "undefined" — e como todos os
+       processos moram no mesmo documento, um único campo assim quebra o salvamento de TUDO
+       silenciosamente. JSON.stringify+parse remove "undefined" de forma nativa e testada,
+       então sanitiza o payload inteiro logo antes de gravar, protegendo contra esse cenário
+       independente de onde o campo problemático tenha entrado. */
+    const payload = JSON.parse(JSON.stringify({
       processes: state.processes,
       suppliers: state.suppliers,
       partners: state.partners,
       dashboardConfig: state.dashboardConfig || null,
       ncms: state.ncms || [],
       empresaConfig: state.empresaConfig || { nome:'', estoques:[] },
-    });
+    }));
+    await db.collection('comextrack').doc('data').set(payload);
     updateSaveIndicator('Dados salvos na nuvem ✓');
     return true;
   }catch(e){
@@ -5097,11 +5115,11 @@ function toggleDashboardBand(id){
    "Prazos próximos") e círculo-com-ponto (ícone de "Processos atrasados" e "Pendência
    documental"), cada um na cor exata da categoria. */
 function svgWarningTriangleIcon(color, size){
-  size = size || 34;
+  size = size || 26;
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;"><path d="M12 3.2L22.2 21H1.8L12 3.2Z" fill="${color}"/><rect x="11" y="9" width="2" height="6.2" rx="1" fill="#fff"/><circle cx="12" cy="17.6" r="1.15" fill="#fff"/></svg>`;
 }
 function svgCircleDotIcon(color, size){
-  size = size || 34;
+  size = size || 26;
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;"><circle cx="12" cy="12" r="9" stroke="${color}" stroke-width="2.2"/><circle cx="12" cy="12" r="3.3" fill="${color}"/></svg>`;
 }
 
@@ -5225,7 +5243,7 @@ function renderDashboardResults(){
     if(chips.length){
       attentionHtml = `
       <div class="attention-area">
-        ${svgWarningTriangleIcon('#DC2626', 52)}
+        ${svgWarningTriangleIcon('#DC2626', 38)}
         <div class="attention-body">
           <div class="attention-label">ATENÇÃO</div>
           <div class="attention-sub">Itens que exigem ação imediata</div>
@@ -6144,21 +6162,29 @@ async function saveProduct(isEdit){
   data.createdAt = prev.createdAt || Date.now();
   data.updatedAt = Date.now();
 
+  /* Mesma blindagem aplicada ao salvamento principal dos processos: remove qualquer campo
+     "undefined" antes de gravar, pra nunca correr o risco de o Firestore rejeitar a escrita
+     (ou gravar um documento incompleto) por causa de um único campo problemático. */
+  const sanitizedData = JSON.parse(JSON.stringify(data));
   try{
-    await db.collection('produtos').doc(pn).set(data);
+    await db.collection('produtos').doc(pn).set(sanitizedData);
     if(isRename){
       await db.collection('produtos').doc(oldPn).delete();
-      delete window.__lotesProductsCache[oldPn];
     }
-    invalidateProdutosCache();
-    delete window.__lotesProductsCache[pn]; // força reconsultar na próxima vez que a aba Lotes renderizar
-    closeModal();
-    alert(`Produto ${pn} salvo com sucesso.`);
-    if(currentView==='bancoitens') runProductSearch();
   }catch(e){
     console.error(e);
     alert('Não foi possível salvar o produto: ' + e.message);
+    return;
   }
+  /* A partir daqui o Firestore JÁ confirmou a escrita — qualquer coisa que falhar abaixo (fechar
+     modal, invalidar cache, re-renderizar lista) NUNCA deve fazer parecer que o salvamento
+     falhou, já que o dado em si já está gravado com segurança. */
+  if(isRename) delete window.__lotesProductsCache[oldPn];
+  invalidateProdutosCache();
+  delete window.__lotesProductsCache[pn]; // força reconsultar na próxima vez que a aba Lotes renderizar
+  try{ closeModal(); }catch(e){ console.error('Erro ao fechar modal (não afeta o salvamento, já concluído)', e); }
+  alert(`Produto ${pn} salvo com sucesso.`);
+  if(currentView==='bancoitens') runProductSearch();
 }
 
 async function toggleProductActive(pn, makeActive){
@@ -6630,17 +6656,23 @@ async function saveProdutoMestre(isEdit){
   data.createdAt = prev.createdAt || Date.now();
   data.updatedAt = Date.now();
 
+  const sanitizedData = JSON.parse(JSON.stringify(data));
   try{
-    await db.collection('produtosMestre').doc(data.id).set(data);
-    const idx = (window.__produtosMestre||[]).findIndex(x=>x.id===data.id);
-    if(idx>=0) window.__produtosMestre[idx]=data; else (window.__produtosMestre=window.__produtosMestre||[]).push(data);
-    closeModal();
-    alert(`Produto "${nome}" salvo com sucesso.`);
-    if(currentView==='produtosmestre') renderProdutosMestreList();
+    await db.collection('produtosMestre').doc(data.id).set(sanitizedData);
   }catch(e){
     console.error(e);
     alert('Não foi possível salvar o produto: ' + e.message);
+    return;
   }
+  /* A partir daqui o Firestore JÁ confirmou a escrita — qualquer coisa que falhar abaixo
+     (fechar modal, re-renderizar lista) NUNCA deve fazer parecer que o salvamento falhou.
+     Antes esse código ficava dentro do mesmo try/catch da escrita, e um erro aqui disparava
+     a mensagem "Não foi possível salvar" mesmo com o dado já gravado corretamente. */
+  const idx = (window.__produtosMestre||[]).findIndex(x=>x.id===data.id);
+  if(idx>=0) window.__produtosMestre[idx]=sanitizedData; else (window.__produtosMestre=window.__produtosMestre||[]).push(sanitizedData);
+  try{ closeModal(); }catch(e){ console.error('Erro ao fechar modal (não afeta o salvamento, já concluído)', e); }
+  alert(`Produto "${nome}" salvo com sucesso.`);
+  if(currentView==='produtosmestre') renderProdutosMestreList();
 }
 
 async function toggleProdutoMestreActive(id, makeActive){
@@ -7089,6 +7121,13 @@ function processCard(p, note){
     </div>`;
   }).join('');
 
+  const extra = p.extra || {};
+  const cardInfoParts = [];
+  if(extra.numeroNF) cardInfoParts.push(`<span><b>NF</b> ${extra.numeroNF}</span>`);
+  if(extra.numeroDUIMP) cardInfoParts.push(`<span><b>DUIMP</b> ${extra.numeroDUIMP}</span>`);
+  if(extra.canalDesembaraco) cardInfoParts.push(`<span><b>Canal</b> ${extra.canalDesembaraco}</span>`);
+  const cardInfoHtml = cardInfoParts.length ? `<div class="process-meta" style="margin-top:2px;">${cardInfoParts.join(' &nbsp;·&nbsp; ')}</div>` : '';
+
   return `
   <div class="process-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessCardClick('${p.id}')">
     <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo">👁️</button>
@@ -7097,6 +7136,7 @@ function processCard(p, note){
       <h3>${p.produto || 'Sem descrição'}<span class="phase-mini">${info.label.replace(/^Fase \d+ · /,'')}</span></h3>
       ${p.tipo==='temporaria'?'<div class="process-badge-temp">Admissão Temp.</div>':''}
       <div class="process-meta">${fornecedorNameHtml(fornecedor)} · ${originModalMeta(p)}</div>
+      ${cardInfoHtml}
       <div class="process-track">${trackHtml}</div>
       <div class="progress-pct">${Math.round(processProgressRatio(p)*100)}% concluído</div>
       ${note?`<div class="step-note">${note}</div>`:''}
@@ -8771,9 +8811,20 @@ async function saveProcess(){
   }
   data.pendingKey = newKey;
   if(idx>=0) state.processes[idx] = data; else state.processes.push(data);
-  await persistState();
-  syncProdutoMestreHistorico(data);
-  closeModal();
+  const ok = await persistState();
+  if(!ok){
+    /* NUNCA fecha o modal nem descarta a alteração se o salvamento falhou de verdade — antes
+       disso acontecia silenciosamente (o modal fechava igual, dando a impressão de que salvou),
+       e a pessoa só percebia a perda ao reabrir o processo depois. Agora avisa e mantém tudo
+       aberto pra tentar de novo. */
+    alert('Não foi possível salvar o processo agora (sem conexão ou erro no servidor). Suas alterações continuam aqui na tela — tente salvar de novo em alguns segundos.');
+    return;
+  }
+  /* O processo já está salvo com segurança neste ponto (persistState() confirmou). Qualquer
+     erro nas linhas abaixo (sincronizar histórico do Produto Mestre, fechar modal, re-renderizar)
+     nunca deve ser confundido com falha ao salvar. */
+  try{ syncProdutoMestreHistorico(data); }catch(e){ console.error('Erro ao sincronizar histórico do Produto Mestre (não afeta o salvamento, já concluído)', e); }
+  try{ closeModal(); }catch(e){ console.error('Erro ao fechar modal (não afeta o salvamento, já concluído)', e); }
   render();
 }
 
