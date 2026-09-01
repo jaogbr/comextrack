@@ -168,36 +168,49 @@ main{flex:1; min-width:0; display:flex; flex-direction:column;}
 }
 
 .attention-area{
-  background:var(--paper); border:1px solid var(--border); border-radius:12px;
-  padding:16px 20px; margin-bottom:22px; display:flex; gap:16px; align-items:flex-start;
+  background:linear-gradient(90deg, #FDECEA 0%, #FDF6F5 55%, #FFFFFF 100%);
+  border:1.5px solid #F2BBB1; border-radius:20px;
+  padding:26px 30px; margin-bottom:22px;
+  display:flex; align-items:center; gap:26px; flex-wrap:wrap;
 }
-.attention-icon{
-  width:34px; height:34px; border-radius:50%; background:var(--ink-red-bg); color:var(--ink-red);
-  display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;
-}
-.attention-body{flex:1; min-width:0;}
+.attention-body{flex-shrink:0; display:flex; flex-direction:column; gap:4px;}
 .attention-label{
-  font-family:'Zilla Slab', serif; font-weight:700; font-size:14px; color:var(--text);
+  font-family:'Inter', sans-serif; font-weight:800; font-size:24px; color:#DC2626;
+  line-height:1.1; letter-spacing:0.01em; white-space:nowrap;
 }
-.attention-sub{font-size:11.5px; color:var(--muted); margin-bottom:12px;}
-.attention-chips{display:flex; flex-wrap:wrap; gap:10px; align-items:stretch;}
+.attention-sub{font-size:14.5px; font-weight:500; color:#374151; white-space:nowrap;}
+.attention-chips{display:flex; flex-wrap:wrap; gap:16px; align-items:stretch; flex:1;}
 .attention-chip{
-  display:flex; align-items:center; gap:10px; padding:9px 16px; border-radius:10px;
-  border:1px solid transparent; min-width:150px;
+  display:flex; align-items:center; gap:14px; padding:16px 26px 16px 20px; border-radius:16px;
+  min-width:230px;
 }
-.attention-chip-icon{font-size:16px;}
-.attention-chip-num{font-family:'Zilla Slab',serif; font-weight:700; font-size:17px; line-height:1;}
-.attention-chip-label{font-size:11.5px; font-weight:700;}
-.attention-chip-hint{font-size:10px; opacity:0.8; margin-top:1px;}
-.attention-chip-red{background:var(--ink-red-bg); color:var(--ink-red); border-color:#F0C6B8;}
-.attention-chip-orange{background:var(--ink-orange-bg); color:var(--ink-orange); border-color:#F0CFAE;}
-.attention-chip-yellow{background:var(--ink-amber-bg); color:var(--ink-amber); border-color:#EEDBAA;}
+.attention-chip-text{display:flex; flex-direction:column; line-height:1.25;}
+.attention-chip-num{font-family:'Inter',sans-serif; font-weight:800; font-size:26px; line-height:1.1;}
+.attention-chip-label{font-size:14.5px; font-weight:700; color:#1F2937; margin-top:2px;}
+.attention-chip-hint{font-size:13px; font-weight:600; margin-top:2px;}
+.attention-chip-red{background:#FCE1DD; color:#DC2626;}
+.attention-chip-red .attention-chip-hint{color:#DC2626;}
+.attention-chip-orange{background:#FCE7D6; color:#EA580C;}
+.attention-chip-orange .attention-chip-hint{color:#EA580C;}
+.attention-chip-yellow{background:#FCEFCE; color:#CA8A04;}
+.attention-chip-yellow .attention-chip-hint{color:#CA8A04;}
 .attention-details-btn{
-  align-self:center; margin-left:auto; background:var(--card); border:1px solid var(--border-strong);
-  border-radius:8px; padding:9px 16px; font-size:12.5px; font-weight:600; color:var(--text); cursor:pointer; white-space:nowrap;
+  flex-shrink:0; margin-left:auto; background:#EEF1F5; border:1.5px solid #D6DDE6;
+  border-radius:14px; padding:16px 26px; font-size:15px; font-weight:600; color:#1F2937;
+  cursor:pointer; white-space:nowrap;
 }
 .attention-details-btn:hover{border-color:var(--navy);}
-body.dark-mode .attention-area{background:var(--card);}
+body.dark-mode .attention-area{background:var(--card); border-color:var(--border-strong);}
+body.dark-mode .attention-label{color:#F87171;}
+body.dark-mode .attention-sub{color:var(--muted);}
+body.dark-mode .attention-chip-red{background:rgba(220,38,38,0.15); color:#F87171;}
+body.dark-mode .attention-chip-red .attention-chip-hint{color:#F87171;}
+body.dark-mode .attention-chip-orange{background:rgba(234,88,12,0.15); color:#FB923C;}
+body.dark-mode .attention-chip-orange .attention-chip-hint{color:#FB923C;}
+body.dark-mode .attention-chip-yellow{background:rgba(202,138,4,0.18); color:#FBBF24;}
+body.dark-mode .attention-chip-yellow .attention-chip-hint{color:#FBBF24;}
+body.dark-mode .attention-chip-label{color:var(--text);}
+body.dark-mode .attention-details-btn{background:var(--paper); border-color:var(--border-strong); color:var(--text);}
 
 .dashboard-footer-bar{
   display:flex; align-items:center; justify-content:space-between; gap:16px;
@@ -1004,16 +1017,14 @@ const STAGE_DEFS = [
     },
     containersItemIndex:2},
   {key:'fase5', label:'Fase 5 · Documentação e Licenciamento', cls:'stamp-transito',
-    items:['Aprovar Draft de BL','Abertura de processo junto ao despachante','Pré-análise tributária','Planilha com lotes e datas','Rascunho da DUIMP','DDR'],
+    items:['Aprovar Draft de BL','Despachante notificado','Pré-análise tributária','Planilha com lotes e datas','Rascunho da DUIMP','DDR'],
     itemFields:{
       0:[{key:'numeroBL', label:'Número do BL', type:'text'}],
-      1:[{key:'despachante', label:'Despachante', type:'partner', partnerType:'Despachante'}],
       4:[{key:'dataRascunhoDUIMP', label:'Data do Rascunho', type:'date'}],
     }},
   {key:'fase6', label:'Fase 6 · Chegada, Trânsito e Desembaraço', cls:'stamp-desembaraco',
     items:['Solicitar DTA','Chegada e presença','Agendar DTA','Chegada no Recinto de Desembaraço','Descarga no Recinto de Desembaraço','Pagar numerário despachante','Registro da DUIMP','Testar NF','Desembaraço da DUIMP','Liberação SEFAZ'],
     itemFields:{
-      0:[{key:'transportadoraDTA', label:'Transportadora', type:'partner', partnerType:'Transportadora'}],
       1:[{key:'recintoZonaPrimaria', label:'Recinto (Zona Primária)', type:'partner', partnerType:'Recinto Alfandegado', zona:'Zona Primária'},{key:'dataChegadaZonaPrimaria', label:'Data de Chegada (Zona Primária)', type:'date'}],
       2:[{key:'dataAgendamentoDTA', label:'Data Agendada', type:'date'}],
       3:[{key:'recintoAlfandegado', label:'Recinto de Desembaraço (Zona Secundária)', type:'partner', partnerType:'Recinto Alfandegado', zona:'Zona Secundária'},{key:'dataChegadaBetim', label:'Data de Chegada', type:'date'}],
@@ -1868,14 +1879,18 @@ function getProcessAlerts(p){
   if(p.dataEmbarqueReal){
     const diasDesdeEmbarque = daysBetween(p.dataEmbarqueReal, today);
     const diasParaEmbarque = daysBetween(today, p.dataEmbarqueReal);
-    if(diasDesdeEmbarque>=3 && !extra.despachante){
-      alerts.push(`Já se passaram ${diasDesdeEmbarque} dias do embarque sem despachante definido`);
+    /* O alerta acompanha o TICK "Despachante notificado" (Fase 5), não se o campo Despachante
+       da Visão Geral está preenchido — mesmo já sabendo quem vai ser o despachante desde o
+       início, ainda é preciso lembrar de notificar, e é isso que o alerta cobra. */
+    const despachanteNotificado = (p.checklist['fase5']||[])[1];
+    if(diasDesdeEmbarque>=3 && !despachanteNotificado){
+      alerts.push(`Já se passaram ${diasDesdeEmbarque} dias do embarque sem notificar o despachante`);
     }
-    if(diasParaEmbarque<=3 && diasParaEmbarque>0 && !extra.despachante){
-      alerts.push(`Faltam ${diasParaEmbarque} dia${diasParaEmbarque===1?'':'s'} para o embarque sem despachante definido`);
+    if(diasParaEmbarque<=3 && diasParaEmbarque>0 && !despachanteNotificado){
+      alerts.push(`Faltam ${diasParaEmbarque} dia${diasParaEmbarque===1?'':'s'} para o embarque sem notificar o despachante`);
     }
-    if(diasParaEmbarque===0 && !extra.despachante){
-      alerts.push('Embarca hoje e o despachante ainda não foi definido');
+    if(diasParaEmbarque===0 && !despachanteNotificado){
+      alerts.push('Embarca hoje e o despachante ainda não foi notificado');
     }
     if(diasDesdeEmbarque>=0){
       const fase3checked = p.checklist['fase3']||[];
@@ -1887,12 +1902,15 @@ function getProcessAlerts(p){
 
   if(p.chegadaPrevista){
     const diasParaChegada = daysBetween(today, p.chegadaPrevista);
+    /* Mesma lógica: acompanha o TICK "Solicitar DTA" (Fase 6), não se a Transportadora (DTA)
+       já foi escolhida na Visão Geral. */
+    const dtaSolicitada = (p.checklist['fase6']||[])[0];
     if(p.modal!=='aereo'){
-      if(diasParaChegada<=5 && diasParaChegada>0 && !extra.transportadoraDTA){
-        alerts.push(`Faltam ${diasParaChegada} dia${diasParaChegada===1?'':'s'} para a chegada sem DTA definida`);
+      if(diasParaChegada<=5 && diasParaChegada>0 && !dtaSolicitada){
+        alerts.push(`Faltam ${diasParaChegada} dia${diasParaChegada===1?'':'s'} para a chegada sem solicitar a DTA`);
       }
-      if(diasParaChegada<=0 && !extra.transportadoraDTA){
-        alerts.push(diasParaChegada===0 ? 'Chegada é hoje e a DTA ainda não foi definida' : `Chegada atrasada há ${Math.abs(diasParaChegada)} dias sem DTA definida`);
+      if(diasParaChegada<=0 && !dtaSolicitada){
+        alerts.push(diasParaChegada===0 ? 'Chegada é hoje e a DTA ainda não foi solicitada' : `Chegada atrasada há ${Math.abs(diasParaChegada)} dias sem solicitar a DTA`);
       }
     }
     const fase5checked = p.checklist['fase5']||[];
@@ -1948,8 +1966,14 @@ function getProcessAlerts(p){
   }
 
   const costs = computeCosts(p);
-  if(costs.cifBrl > 4000000 && !p.seguradoraInformada){
-    alerts.push(`Carga acima de R$ 4 milhões (${fmtBRL(costs.cifBrl)}) — informe a seguradora`);
+  const empresaCfg = getEmpresaConfig();
+  const seguroLimite = empresaCfg.seguroLimiteValor || 0;
+  const seguroMoeda = empresaCfg.seguroLimiteMoeda === 'USD' ? 'USD' : 'BRL';
+  const valorCargaNaMoedaEscolhida = seguroMoeda === 'USD' ? costs.cifUsd : costs.cifBrl;
+  if(seguroLimite > 0 && valorCargaNaMoedaEscolhida > seguroLimite && !p.seguradoraInformada){
+    const valorFmt = seguroMoeda === 'USD' ? fmtUSD(valorCargaNaMoedaEscolhida) : fmtBRL(valorCargaNaMoedaEscolhida);
+    const limiteFmt = seguroMoeda === 'USD' ? fmtUSD(seguroLimite) : fmtBRL(seguroLimite);
+    alerts.push(`Carga acima de ${limiteFmt} (${valorFmt}) — informe a seguradora`);
   }
 
   const prazoZS = prazoPrimeiroPeriodoZonaSecundaria(p);
@@ -2136,7 +2160,7 @@ function openProcessViewModal(id, event){
           ${viewFieldHtml('Data do Pedido', fmtDate(p.dataPedido))}
           ${viewFieldHtml('Prontidão Prevista', fmtDate(p.prontidao))}
           ${viewFieldHtml('Pedido no SAP', extra.numeroPedidoSAP)}
-          ${viewFieldHtml('Referência do Fornecedor', p.referenciaFornecedor)}
+          ${viewFieldHtml('Referências do Fornecedor', (p.referenciasFornecedor||[]).map(r=>r.ref).filter(Boolean).join(' / '))}
         </div>
 
         <div class="view-section-title">Dados da Importação</div>
@@ -2426,6 +2450,7 @@ async function removeItem(idx){
   const p = window.__editingProcess;
   p.itens.splice(idx,1);
   renderItensTab();
+  renderLotesTab(); // a lista de PNs mudou — refaz a checagem de regras de extração
   await autoPersistCurrentProcess();
 }
 function useItemsTotalAsFOB(valor){
@@ -2472,6 +2497,7 @@ async function selectItemProduct(i){
   document.getElementById('item-autocomplete-list').innerHTML='';
   document.getElementById('item-autocomplete-list').style.display='none';
   renderItensTab();
+  renderLotesTab(); // novo PN pode ter regra de extração configurada — refaz a checagem
   await autoPersistCurrentProcess();
 }
 
@@ -2515,6 +2541,7 @@ async function quickAddProductAndItem(pn){
   document.getElementById('item-pn-input').value = '';
   document.getElementById('item-autocomplete-list').style.display = 'none';
   renderItensTab();
+  renderLotesTab(); // novo PN pode ter regra de extração configurada — refaz a checagem
   await autoPersistCurrentProcess();
 }
 
@@ -3142,8 +3169,92 @@ const LOTE_EXTRACTION_RULES = {
       });
       return lots;
     }
+  },
+  equipamentos: {
+    label: 'Equipamentos (Serial único — Morita)',
+    /* Fatura modelo: J. Morita — cada item é "NO. CODE DESCRIÇÃO QTY unidade US$preço US$total",
+       seguido por um ou mais blocos "Serial number ... / Manufacture date ...". O LOTE aqui é
+       sempre o PRIMEIRO serial number do item (o do próprio equipamento — o que vem marcado no
+       anexo), ignorando os seriais dos acessórios que vêm listados logo depois (capture box,
+       software) — esses pertencem à regra "I-Dixel", não a esta. */
+    parseInvoiceText(text){ return moritaFindItems(text, false); }
+  },
+  idixel: {
+    label: 'I-Dixel / Chaves (Faixa de Serial — Morita)',
+    /* Mesma fatura Morita, mas pra itens cujo próprio serial já vem como uma FAIXA
+       ("Serial numbers Ser.Nos. X～Y"), como o USB Key — não confundir com a faixa do
+       i-Dixel Client Software que aparece DENTRO de um item de equipamento (essa é ignorada
+       aqui; só entra a faixa que é a identificação principal do próprio item da fatura). */
+    parseInvoiceText(text){ return moritaFindItems(text, true); }
   }
 };
+
+const MORITA_MONTH_MAP = {January:'01',February:'02',March:'03',April:'04',May:'05',June:'06',July:'07',August:'08',September:'09',October:'10',November:'11',December:'12'};
+
+/* Expande uma faixa de serial "PREFIXOxxxx～PREFIXOyyyy" em uma lista com CADA número
+   individual (ex: Z901K017438～Z901K017457 vira 20 seriais, um por linha) — acha o prefixo
+   comum entre início e fim, e incrementa só a parte numérica que muda, preservando os zeros
+   à esquerda. Se não conseguir identificar um padrão numérico, devolve só os dois extremos
+   (fallback seguro — nunca inventa um serial no meio que não seja garantidamente sequencial). */
+function expandSerialRange(start, end){
+  let i = 0;
+  while(i < start.length && i < end.length && start[i] === end[i]) i++;
+  const prefix = start.slice(0, i);
+  const startNum = start.slice(i);
+  const endNum = end.slice(i);
+  if(!/^\d+$/.test(startNum) || !/^\d+$/.test(endNum)) return [start, end];
+  const width = startNum.length;
+  const startN = parseInt(startNum, 10);
+  const endN = parseInt(endNum, 10);
+  const result = [];
+  for(let n = startN; n <= endN; n++){
+    result.push(prefix + String(n).padStart(width, '0'));
+  }
+  return result;
+}
+
+/* Motor compartilhado pelas regras "equipamentos" e "idixel" (mesma fatura Morita, mesma
+   lógica de leitura) — a única diferença é se o PRIMEIRO serial number encontrado dentro do
+   item é único (equipamentos) ou uma faixa X～Y (idixel); wantRange escolhe qual tipo aceitar.
+   Pra faixas, cada serial individual da faixa vira sua própria linha (quantidade 1 cada),
+   não uma linha só com a faixa inteira — batendo item a item com o que está na fatura. */
+function moritaFindItems(text, wantRange){
+  const norm = String(text||'').replace(/\s+/g, ' ').trim();
+  // Cabeçalho de item: "NO. CODE DESCRIÇÃO QTY set|pcs US$preço US$total"
+  const headerRegex = /(\d{3})\s+(\d{5,8})\s+(.+?)\s+(\d+(?:\.\d+)?)\s+(?:set|pcs\.?)\s+US\$[\d,]+\.\d{2}\s+US\$[\d,]+\.\d{2}/g;
+  const headers = [];
+  let hm;
+  while((hm = headerRegex.exec(norm)) !== null){
+    headers.push({ index: hm.index, end: headerRegex.lastIndex, pn: hm[2], qty: parseFloat(hm[4])||0 });
+  }
+  // Só o PRIMEIRO "Serial number(s) ... Manufacture date ..." dentro do trecho de cada item —
+  // os seriais de acessórios que vêm depois (capture box, i-Dixel software) não entram.
+  const serialRegex = /Serial numbers?\s+(?:Ser\.Nos\.\s+)?([A-Za-z0-9]+)(?:\s*[～~]\s*([A-Za-z0-9]+))?\s*-?\s*Manufacture date\s+([A-Za-z]+)\s*\/\s*(\d{4})/;
+  const lots = [];
+  headers.forEach((h, idx)=>{
+    const blockEnd = idx+1 < headers.length ? headers[idx+1].index : norm.length;
+    const block = norm.slice(h.end, blockEnd);
+    const sm = serialRegex.exec(block);
+    if(!sm) return;
+    const isRange = !!sm[2];
+    if(isRange !== wantRange) return;
+    const mesNum = MORITA_MONTH_MAP[sm[3]] || '';
+    // Fatura só traz Mês/Ano, sem dia — não inventa um dia, mostra "MM/AAAA".
+    const manufactureDate = mesNum ? `${mesNum}/${sm[4]}` : sm[4];
+    if(isRange){
+      const seriais = expandSerialRange(sm[1], sm[2]);
+      if(seriais.length !== h.qty){
+        console.warn(`Fatura Morita: a faixa ${sm[1]}～${sm[2]} do item ${h.pn} tem ${seriais.length} número(s), mas a fatura declara quantidade ${h.qty}. Conferir manualmente.`);
+      }
+      seriais.forEach(serial=>{
+        lots.push({ pn: h.pn, bottleLot: serial, quantidade: 1, expireDate: '', manufactureDate });
+      });
+    } else {
+      lots.push({ pn: h.pn, bottleLot: sm[1], quantidade: h.qty, expireDate: '', manufactureDate });
+    }
+  });
+  return lots;
+}
 
 /* Subtrai meses/anos de uma data DD/MM/AAAA, mantendo o mesmo dia do mês (regra pedida:
    ex. Exp 24/08/2028 - 36 meses = Fab 24/08/2025). Usada pra calcular a Manufacture Date
@@ -3171,12 +3282,18 @@ function consolidateLots(lots){
   return order.map(k=>groups[k]);
 }
 
-function getLoteExtractionRule(p){
-  if(!p.produtoMestreId) return null;
-  const pm = (window.__produtosMestre||[]).find(x=>x.id===p.produtoMestreId);
-  if(!pm || !pm.tipoExtracaoLotes) return null;
-  return LOTE_EXTRACTION_RULES[pm.tipoExtracaoLotes] || null;
+/* PNs únicos dos itens já cadastrados no processo (aba Itens) — é daqui, e não mais do
+   Produto Mestre, que a extração de lotes descobre qual regra usar pra cada produto. Isso
+   também permite um mesmo processo/fatura ter PNs com regras DIFERENTES (ex: equipamento
+   com serial único + acessório com faixa de serial), coisa que um único Produto Mestre não
+   conseguia representar. */
+function getProcessItemPNs(p){
+  return Array.from(new Set((p.itens||[]).map(it=>it.pn).filter(Boolean)));
 }
+
+/* Cache em memória (pn -> produto do Banco de Itens, ou null se não cadastrado) — evita
+   buscar o mesmo PN toda hora que a aba Lotes re-renderiza. */
+window.__lotesProductsCache = window.__lotesProductsCache || {};
 
 /* Faturas anexadas ao processo — tanto no tipo fixo "Comercial Invoice (Fatura)" quanto em
    documentos personalizados cujo nome contenha "fatura"/"invoice" (ex: "Segunda Fatura"),
@@ -3212,10 +3329,22 @@ async function extractPdfText(url){
   return fullText;
 }
 
+/* Monta {pn: ruleKey} só pra PNs que estão no processo E têm regra configurada no Banco de
+   Itens — usa o cache já carregado (window.__lotesProductsCache), não busca nada aqui. */
+function buildPnRuleMap(p){
+  const map = {};
+  getProcessItemPNs(p).forEach(pn=>{
+    const prod = window.__lotesProductsCache[pn];
+    if(prod && prod.tipoExtracaoLotes) map[pn] = prod.tipoExtracaoLotes;
+  });
+  return map;
+}
+
 async function extractAllLotes(){
   const p = window.__editingProcess;
-  const rule = getLoteExtractionRule(p);
-  if(!rule) return;
+  const pnRuleMap = buildPnRuleMap(p);
+  const rulesInUse = Array.from(new Set(Object.values(pnRuleMap)));
+  if(!rulesInUse.length) return;
   const invoices = getInvoiceDocEntries(p);
   if(!invoices.length) return;
 
@@ -3226,41 +3355,43 @@ async function extractAllLotes(){
   for(const inv of invoices){
     try{
       const text = await extractPdfText(inv.url);
-      const lotsRaw = rule.parseInvoiceText(text);
+      // Roda CADA regra em uso neste processo contra a mesma fatura, mas só aproveita de cada
+      // regra os lotes cujo PN está de fato atribuído a ela — assim um PN de "Equipamentos"
+      // não pega lote encontrado pela regra "I-Dixel" e vice-versa, mesmo lendo o mesmo PDF.
+      let lotsRaw = [];
+      rulesInUse.forEach(ruleKey=>{
+        const rule = LOTE_EXTRACTION_RULES[ruleKey];
+        if(!rule) return;
+        rule.parseInvoiceText(text).forEach(l=>{
+          if(pnRuleMap[l.pn]===ruleKey){ l.__ruleKey = ruleKey; lotsRaw.push(l); }
+        });
+      });
       const lots = consolidateLots(lotsRaw);
-      perInvoice.push({ docLabel: inv.label, lots, error: lots.length ? null : 'Nenhum lote identificado nesta fatura com a regra atual — confira se o PDF é pesquisável (não uma imagem escaneada) e se segue o modelo esperado.' });
+      perInvoice.push({ docLabel: inv.label, lots, error: lots.length ? null : 'Nenhum lote identificado nesta fatura com as regras configuradas — confira se o PDF é pesquisável (não uma imagem escaneada) e se segue o modelo esperado.' });
     }catch(e){
       console.error('Erro extraindo lotes de', inv.label, e);
       perInvoice.push({ docLabel: inv.label, lots: [], error: 'Não foi possível ler este PDF (' + (e.message||'erro desconhecido') + ').' });
     }
   }
 
-  // A Manufacture Date (quando a regra não a traz direto da fatura) é calculada a partir da
-  // Validade cadastrada em cada PN no Banco de Itens — não mais no Produto Mestre — pra
-  // suportar produtos com prazos diferentes dentro do mesmo Produto Mestre/fatura.
-  if(rule.computesManufactureFromValidade){
-    const pns = new Set();
-    perInvoice.forEach(r=>r.lots.forEach(l=>pns.add(l.pn)));
-    const produtosMap = {};
-    await Promise.all(Array.from(pns).map(async pn=>{
-      try{ produtosMap[pn] = await getProductByPN(pn); }
-      catch(e){ console.error('Erro ao buscar produto para calcular Manufacture Date', pn, e); produtosMap[pn] = null; }
-    }));
-    perInvoice.forEach(r=>{
-      r.lots.forEach(l=>{
-        const prod = produtosMap[l.pn];
-        if(!prod){
-          l.manufactureDate = '⚠️ PN não cadastrado no Banco de Itens';
-        } else if(prod.validadeUnidade === 'indeterminado'){
-          l.manufactureDate = 'Indeterminado (sem validade)';
-        } else if(prod.validadeUnidade && prod.validadeQtd){
-          l.manufactureDate = subtractFromDate(l.expireDate, prod.validadeQtd, prod.validadeUnidade) || '⚠️ Data inválida';
-        } else {
-          l.manufactureDate = '⚠️ Configure a Validade deste PN no Banco de Itens';
-        }
-      });
+  // A Manufacture Date (quando a regra de origem do lote não a traz direto da fatura) é
+  // calculada a partir da Validade cadastrada no PN, no Banco de Itens.
+  perInvoice.forEach(r=>{
+    r.lots.forEach(l=>{
+      const rule = LOTE_EXTRACTION_RULES[l.__ruleKey];
+      if(!rule || !rule.computesManufactureFromValidade) return;
+      const prod = window.__lotesProductsCache[l.pn];
+      if(!prod){
+        l.manufactureDate = '⚠️ PN não cadastrado no Banco de Itens';
+      } else if(prod.validadeUnidade === 'indeterminado'){
+        l.manufactureDate = 'Indeterminado (sem validade)';
+      } else if(prod.validadeUnidade && prod.validadeQtd){
+        l.manufactureDate = subtractFromDate(l.expireDate, prod.validadeQtd, prod.validadeUnidade) || '⚠️ Data inválida';
+      } else {
+        l.manufactureDate = '⚠️ Configure a Validade deste PN no Banco de Itens';
+      }
     });
-  }
+  });
 
   const resultados = perInvoice;
   window.__lotesResultados = resultados;
@@ -3273,14 +3404,36 @@ function renderLotesTab(){
   const container = document.getElementById('lotes-content');
   if(!container) return;
   const p = window.__editingProcess;
-  const rule = getLoteExtractionRule(p);
+  const pns = getProcessItemPNs(p);
 
-  if(!p.produtoMestreId){
-    container.innerHTML = `<div class="form-hint">Aplique um Produto Mestre a este processo (aba Visão Geral) para habilitar a extração automática de lotes.</div>`;
+  if(!pns.length){
+    container.innerHTML = `<div class="form-hint">Nenhum item cadastrado neste processo ainda. Adicione os produtos na aba "Itens" — é o PN de cada item ali que define, lá no Banco de Itens, qual regra de extração de lotes será usada.</div>`;
     return;
   }
-  if(!rule){
-    container.innerHTML = `<div class="form-hint">O Produto Mestre deste processo ainda não tem uma regra de extração configurada. Vá em Produtos Mestre → edite o produto aplicado → "Extração de Lotes da Fatura".</div>`;
+
+  // Se algum PN do processo ainda não foi consultado no Banco de Itens, busca agora e
+  // re-renderiza sozinho quando terminar — não precisa fechar/reabrir o processo.
+  const pending = pns.filter(pn => window.__lotesProductsCache[pn] === undefined);
+  if(pending.length){
+    container.innerHTML = `<div class="form-hint">Carregando dados dos produtos...</div>`;
+    Promise.all(pending.map(async pn=>{
+      try{ window.__lotesProductsCache[pn] = await getProductByPN(pn); }
+      catch(e){ console.error('Erro ao buscar produto pra extração de lotes', pn, e); window.__lotesProductsCache[pn] = null; }
+    })).then(renderLotesTab);
+    return;
+  }
+
+  const pnRuleMap = buildPnRuleMap(p);
+  const semCadastro = pns.filter(pn => !window.__lotesProductsCache[pn]);
+  const semRegra = pns.filter(pn => window.__lotesProductsCache[pn] && !window.__lotesProductsCache[pn].tipoExtracaoLotes);
+  const rulesInUse = Array.from(new Set(Object.values(pnRuleMap)));
+
+  if(!rulesInUse.length){
+    let msg = 'Nenhum item deste processo tem uma regra de extração de lotes configurada.';
+    if(semCadastro.length) msg += ` PN(s) não cadastrados no Banco de Itens: ${semCadastro.join(', ')}.`;
+    if(semRegra.length) msg += ` PN(s) sem regra definida: ${semRegra.join(', ')}.`;
+    msg += ' Vá em Banco de Itens → edite o PN → "Extração de Lotes da Fatura".';
+    container.innerHTML = `<div class="form-hint">${msg}</div>`;
     return;
   }
 
@@ -3291,11 +3444,17 @@ function renderLotesTab(){
   }
 
   const invoicesListHtml = invoices.map(i=>`<li>${i.label}${i.name?' — '+i.name:''}</li>`).join('');
+  const rulesLabelHtml = rulesInUse.map(k=>LOTE_EXTRACTION_RULES[k] ? LOTE_EXTRACTION_RULES[k].label : k).join(', ');
+  const avisosPendentes = [];
+  if(semCadastro.length) avisosPendentes.push(`PN(s) não cadastrados no Banco de Itens: ${semCadastro.join(', ')}`);
+  if(semRegra.length) avisosPendentes.push(`PN(s) sem regra de extração definida: ${semRegra.join(', ')}`);
+  const semRegraHint = avisosPendentes.length ? `<div class="form-hint" style="margin-top:6px;">⚠️ Não entram na extração — ${avisosPendentes.join('; ')}.</div>` : '';
   const resultados = window.__lotesResultados || p.lotesExtraidos || null;
 
   container.innerHTML = `
-    <div class="form-hint" style="margin-bottom:10px;">Regra de extração: <strong>${rule.label}</strong>. Fatura(s) encontrada(s):</div>
+    <div class="form-hint" style="margin-bottom:10px;">Regra(s) de extração em uso (definidas por PN, no Banco de Itens): <strong>${rulesLabelHtml}</strong>. Fatura(s) encontrada(s):</div>
     <ul style="margin:0 0 14px 20px; font-size:13px;">${invoicesListHtml}</ul>
+    ${semRegraHint}
     <button id="lotes-extrair-btn" class="btn btn-pdf" onclick="extractAllLotes()">${resultados ? 'Extrair Novamente' : 'Extrair Lotes ' + (invoices.length>1?'de Todas as Faturas':'desta Fatura')}</button>
     ${resultados ? `<button class="btn" style="margin-left:8px;" onclick="downloadLotesExcel()">⬇️ Baixar Excel</button>` : ''}
     <div id="lotes-resultados" style="margin-top:16px;">${resultados ? renderLotesResultadosHtml(resultados) : ''}</div>
@@ -3501,9 +3660,26 @@ function generateEmailDTAText(p){
   const va = computeValorAduaneiroBreakdown(p);
   const valorFatura = va.fobTotalUsd ? `${fmtNumberBR(va.fobTotalUsd)} USD` : '[VALOR DA FATURA]';
 
-  const genset = p.genset ? 'SIM' : 'NÃO';
+  /* GENSET: quando Sim, mostra a temperatura registrada no processo junto — ex: "SIM -
+     TEMPERATURA 10°C" — em vez de só "SIM" sem contexto nenhum. */
+  const temperaturaDisplay = p.temperaturaValor==='outro' ? (p.temperaturaOutro||'') : (p.temperaturaValor ? p.temperaturaValor+'°C' : '');
+  const genset = p.genset ? (`SIM${temperaturaDisplay ? ' - TEMPERATURA '+temperaturaDisplay : ''}`) : 'NÃO';
   const freeTime = extra.freetime ? `${extra.freetime} DIAS` : '[FREE TIME]';
-  const descricaoMercadoria = p.produto || '[DESCRIÇÃO DETALHADA DA MERCADORIA]';
+
+  /* Descrição detalhada da mercadoria: se o processo tem um Produto Mestre aplicado E esse
+     Produto Mestre tem a Descrição Detalhada (DTA) cadastrada, usa ela — senão cai pro campo
+     Produto do processo, como antes. */
+  const produtoMestreAplicado = p.produtoMestreId ? (window.__produtosMestre||[]).find(pm=>pm.id===p.produtoMestreId) : null;
+  const descricaoMercadoria = (produtoMestreAplicado && produtoMestreAplicado.descricaoDetalhadaDTA) || p.produto || '[DESCRIÇÃO DETALHADA DA MERCADORIA]';
+
+  /* Descontar frete / Carga perigosa: agora vêm dos seletores Sim/Não da Visão Geral, não
+     mais de um placeholder [SIM/NÃO] pra apagar manualmente. */
+  const descontarFrete = p.descontarFrete ? 'SIM' : 'NÃO';
+  const cargaPerigosa = p.cargaPerigosa ? 'SIM' : 'NÃO';
+
+  /* Número da fatura: junta automaticamente todas as Referências do Fornecedor cadastradas
+     na Visão Geral, separadas por "/" — sem precisar digitar de novo aqui. */
+  const numerosFatura = (p.referenciasFornecedor||[]).map(r=>(r.ref||'').trim()).filter(Boolean).join(' / ') || '[NÚMERO DA FATURA]';
 
   const subject = `DTA + Remoção - ${ref} - ${origem} para ${destino}`;
 
@@ -3516,13 +3692,13 @@ function generateEmailDTAText(p){
 <li><b>Origem: TERMINAL/RECINTO:</b> ${esc(origem)}</li>
 <li><b>EADI destino: TERMINAL/RECINTO:</b> ${esc(destino)}</li>
 <li><b>MOEDA e valor DA FATURA:</b> ${esc(valorFatura)}</li>
-<li><b>Descontar frete: SIM OU NÃO:</b> [SIM/NÃO]</li>
+<li><b>Descontar frete: SIM OU NÃO:</b> ${descontarFrete}</li>
 <li>${esc(linhaCEMercante)}</li>
-<li><b>Número da fatura:</b> [NÚMERO DA FATURA]</li>
+<li><b>Número da fatura:</b> ${esc(numerosFatura)}</li>
 <li><b>Descrição (DETALHADA) da mercadoria por fatura:</b> ${esc(descricaoMercadoria)}</li>
 <li><b>Tratamento com a carga :</b> DESOVA / BAIXA DE CNTR / DEVOLUÇÃO VAZIO.</li>
-<li><b>CARGA PERIGOSA: SIM OU NÃO? (CASO SIM ENVIAR FICHA DE EMERGENCIA):</b> [SIM/NÃO]</li>
-<li><b>GENSET:</b> ${genset}.</li>
+<li><b>CARGA PERIGOSA: SIM OU NÃO? (CASO SIM ENVIAR FICHA DE EMERGENCIA):</b> ${cargaPerigosa}</li>
+<li><b>GENSET:</b> ${esc(genset)}.</li>
 <li><b>FREE TIME:</b> ${esc(freeTime)}</li>
 </ul>`;
 
@@ -3530,12 +3706,12 @@ function generateEmailDTAText(p){
     + `• Origem: TERMINAL/RECINTO: ${origem}\n`
     + `• EADI destino: TERMINAL/RECINTO: ${destino}\n`
     + `• MOEDA e valor DA FATURA: ${valorFatura}\n`
-    + `• Descontar frete: SIM OU NÃO: [SIM/NÃO]\n`
+    + `• Descontar frete: SIM OU NÃO: ${descontarFrete}\n`
     + `• ${linhaCEMercante}\n`
-    + `• Número da fatura: [NÚMERO DA FATURA]\n`
+    + `• Número da fatura: ${numerosFatura}\n`
     + `• Descrição (DETALHADA) da mercadoria por fatura: ${descricaoMercadoria}\n`
     + `• Tratamento com a carga : DESOVA / BAIXA DE CNTR / DEVOLUÇÃO VAZIO.\n`
-    + `• CARGA PERIGOSA: SIM OU NÃO? (CASO SIM ENVIAR FICHA DE EMERGENCIA): [SIM/NÃO]\n`
+    + `• CARGA PERIGOSA: SIM OU NÃO? (CASO SIM ENVIAR FICHA DE EMERGENCIA): ${cargaPerigosa}\n`
     + `• GENSET: ${genset}.\n`
     + `• FREE TIME: ${freeTime}\n`;
 
@@ -3757,7 +3933,6 @@ function getStagesForProcess(p){
       items[0] = 'Aprovar Draft de AWB';
       return {...s, items, itemFields:{
         0: [{key:'numeroBL', label:'Número do AWB', type:'text'}],
-        1: s.itemFields[1],
         4: s.itemFields[4],
       }};
     }
@@ -3816,6 +3991,13 @@ function initProcessData(p){
     p.docFiles[NEW_DOC_KEY] = p.docFiles[LEGACY_DOC_KEY];
     delete p.docFiles[LEGACY_DOC_KEY];
   }
+  /* Migração leve: "Referência do Fornecedor" era um campo de texto único — vira a primeira
+     referência da nova lista (agora suporta mais de uma fatura por processo), sem perder o
+     que já estava preenchido. */
+  if(!p.referenciasFornecedor || !p.referenciasFornecedor.length){
+    p.referenciasFornecedor = p.referenciaFornecedor ? [{id: uid(), ref: p.referenciaFornecedor}] : [];
+  }
+  syncInvoiceDocSlots(p);
   getStagesForProcess(p).forEach(s=>{
     if(s.type==='payments'){
       s.items.forEach(it=>{
@@ -4910,6 +5092,19 @@ function toggleDashboardBand(id){
   const el = document.getElementById('dashboard-results');
   if(el) el.innerHTML = renderDashboardResults();
 }
+/* TESTE VISUAL — Painel v2: ícones da área de Atenção como SVG (não emoji), pra reproduzir
+   exatamente cor e formato da referência — triângulo de aviso preenchido (ícone principal e
+   "Prazos próximos") e círculo-com-ponto (ícone de "Processos atrasados" e "Pendência
+   documental"), cada um na cor exata da categoria. */
+function svgWarningTriangleIcon(color, size){
+  size = size || 34;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;"><path d="M12 3.2L22.2 21H1.8L12 3.2Z" fill="${color}"/><rect x="11" y="9" width="2" height="6.2" rx="1" fill="#fff"/><circle cx="12" cy="17.6" r="1.15" fill="#fff"/></svg>`;
+}
+function svgCircleDotIcon(color, size){
+  size = size || 34;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;"><circle cx="12" cy="12" r="9" stroke="${color}" stroke-width="2.2"/><circle cx="12" cy="12" r="3.3" fill="${color}"/></svg>`;
+}
+
 function expandAllDashboardBands(){
   Object.keys(window.__dashboardBandState).forEach(k=>window.__dashboardBandState[k]=true);
   window.__dashboardBandForceExpandAll = true;
@@ -5024,21 +5219,19 @@ function renderDashboardResults(){
     const nPendencias = items.filter(i=>i.category==='pendencia').length;
     const nPrazos = items.filter(i=>i.category==='prazo').length;
     const chips = [];
-    if(nAtrasados) chips.push(`<div class="attention-chip attention-chip-red"><span class="attention-chip-icon">⏱️</span><div><div class="attention-chip-num">${nAtrasados}</div><div class="attention-chip-label">${nAtrasados===1?'Processo atrasado':'Processos atrasados'}</div><div class="attention-chip-hint">Requerem ação</div></div></div>`);
-    if(nPendencias) chips.push(`<div class="attention-chip attention-chip-orange"><span class="attention-chip-icon">📄</span><div><div class="attention-chip-num">${nPendencias}</div><div class="attention-chip-label">${nPendencias===1?'Pendência documental':'Pendências documentais'}</div><div class="attention-chip-hint">Aguardando regularização</div></div></div>`);
-    if(nPrazos) chips.push(`<div class="attention-chip attention-chip-yellow"><span class="attention-chip-icon">⚠️</span><div><div class="attention-chip-num">${nPrazos}</div><div class="attention-chip-label">${nPrazos===1?'Prazo próximo':'Prazos próximos'}</div><div class="attention-chip-hint">Nos próximos dias</div></div></div>`);
+    if(nAtrasados) chips.push(`<div class="attention-chip attention-chip-red">${svgCircleDotIcon('#DC2626')}<div class="attention-chip-text"><div class="attention-chip-num">${nAtrasados}</div><div class="attention-chip-label">${nAtrasados===1?'Processo atrasado':'Processos atrasados'}</div><div class="attention-chip-hint">Requerem ação</div></div></div>`);
+    if(nPendencias) chips.push(`<div class="attention-chip attention-chip-orange">${svgCircleDotIcon('#EA580C')}<div class="attention-chip-text"><div class="attention-chip-num">${nPendencias}</div><div class="attention-chip-label">${nPendencias===1?'Pendência documental':'Pendências documentais'}</div><div class="attention-chip-hint">Aguardando regularização</div></div></div>`);
+    if(nPrazos) chips.push(`<div class="attention-chip attention-chip-yellow">${svgWarningTriangleIcon('#CA8A04')}<div class="attention-chip-text"><div class="attention-chip-num">${nPrazos}</div><div class="attention-chip-label">${nPrazos===1?'Prazo próximo':'Prazos próximos'}</div><div class="attention-chip-hint">Nos próximos 5 dias</div></div></div>`);
     if(chips.length){
       attentionHtml = `
       <div class="attention-area">
-        <div class="attention-icon">⚠️</div>
+        ${svgWarningTriangleIcon('#DC2626', 52)}
         <div class="attention-body">
-          <div class="attention-label">Atenção</div>
+          <div class="attention-label">ATENÇÃO</div>
           <div class="attention-sub">Itens que exigem ação imediata</div>
-          <div class="attention-chips">
-            ${chips.join('')}
-            <button class="attention-details-btn" onclick="openAttentionDetailsModal()">Ver detalhes</button>
-          </div>
         </div>
+        <div class="attention-chips">${chips.join('')}</div>
+        <button class="attention-details-btn" onclick="openAttentionDetailsModal()">Ver detalhes</button>
       </div>`;
     }
   }
@@ -5307,6 +5500,17 @@ async function openProductModal(pn){
     </div>
   `;
 
+  const extracaoLotesHtml = `
+    <div class="form-group">
+      <label>Extração de Lotes da Fatura</label>
+      <select id="pf-tipo-extracao">
+        <option value="" ${!p.tipoExtracaoLotes?'selected':''}>Nenhuma (não extrai automaticamente)</option>
+        ${Object.keys(LOTE_EXTRACTION_RULES).map(key=>`<option value="${key}" ${p.tipoExtracaoLotes===key?'selected':''}>${LOTE_EXTRACTION_RULES[key].label}</option>`).join('')}
+      </select>
+      <div class="form-hint">Define qual regra de leitura de fatura (lote, quantidade, datas) a aba "Lotes" do processo usa pra ESTE PN especificamente. Cada PN pode ter sua própria regra — um mesmo processo/fatura pode ter, por exemplo, um item com regra "Equipamentos" e outro com "I-Dixel" ao mesmo tempo.</div>
+    </div>
+  `;
+
   const validadeHtml = `
     <div class="form-group">
       <label>Validade do Produto</label>
@@ -5318,7 +5522,7 @@ async function openProductModal(pn){
       <div id="pf-validade-qtd-wrap" style="display:${p.validadeUnidade==='indeterminado'?'none':'block'}; margin-top:8px;">
         <input id="pf-validade-qtd" type="number" min="1" value="${p.validadeQtd||''}" placeholder="Ex: 36">
       </div>
-      <div class="form-hint">Usada na aba Lotes do processo pra calcular a Manufacture Date de cada lote extraído da fatura deste PN: subtrai esse período da Expire Date, mantendo o mesmo dia do mês. Marque "Indeterminado" para produtos sem prazo de validade.</div>
+      <div class="form-hint">Usada na aba Lotes do processo pra calcular a Manufacture Date de cada lote extraído da fatura deste PN, quando a regra de extração não traz essa data pronta: subtrai esse período da Expire Date, mantendo o mesmo dia do mês. Marque "Indeterminado" para produtos sem prazo de validade.</div>
     </div>
   `;
 
@@ -5357,6 +5561,7 @@ async function openProductModal(pn){
           ` : ''}
           ${fieldsHtml}
           ${exTarifarioHtml}
+          ${extracaoLotesHtml}
           ${validadeHtml}
         </div>
         ${existing?`<div class="tab-pane" id="tab-usoprocessos">${usageHtml}</div>`:''}
@@ -5560,6 +5765,8 @@ let ncmPageState = { query:'', sortField:'ncm', sortDir:'asc' };
 function getEmpresaConfig(){
   state.empresaConfig = state.empresaConfig || { nome:'', estoques:[] };
   state.empresaConfig.estoques = state.empresaConfig.estoques || [];
+  if(state.empresaConfig.seguroLimiteValor===undefined) state.empresaConfig.seguroLimiteValor = 4000000;
+  if(!state.empresaConfig.seguroLimiteMoeda) state.empresaConfig.seguroLimiteMoeda = 'BRL';
   return state.empresaConfig;
 }
 
@@ -5586,6 +5793,22 @@ function renderEmpresaPage(){
     </div>
 
     <div class="prov-section" style="margin-top:22px;">
+      <div class="prov-section-title">ALERTA DE SEGURO</div>
+      <div class="form-hint" style="margin-bottom:10px;">A partir de qual valor de carga (CIF) o processo deve avisar pra notificar a seguradora. Escolha se esse valor é conferido em Dólares ou em Reais.</div>
+      <div class="form-row">
+        <div class="form-group"><label>Notificar a partir de</label><input type="number" step="0.01" min="0" id="empresa-seguro-valor" value="${cfg.seguroLimiteValor}" ${podeEditar?'':'disabled'}></div>
+        <div class="form-group">
+          <label>Moeda</label>
+          <select id="empresa-seguro-moeda" ${podeEditar?'':'disabled'}>
+            <option value="BRL" ${cfg.seguroLimiteMoeda==='BRL'?'selected':''}>Reais (R$)</option>
+            <option value="USD" ${cfg.seguroLimiteMoeda==='USD'?'selected':''}>Dólares (US$)</option>
+          </select>
+        </div>
+      </div>
+      ${podeEditar?`<button class="btn btn-primary" onclick="saveEmpresaSeguro()">Salvar</button>`:''}
+    </div>
+
+    <div class="prov-section" style="margin-top:22px;">
       <div class="prov-section-title">ESTOQUES</div>
       <div class="form-hint" style="margin-bottom:10px;">Usados para escolher o local de destino no e-mail de Nota Fiscal, e em funcionalidades futuras.</div>
       <div id="estoques-list">${estoquesHtml}</div>
@@ -5600,6 +5823,16 @@ async function saveEmpresaNome(){
   cfg.nome = document.getElementById('empresa-nome-input').value.trim();
   await persistState();
   updateSaveIndicator('Nome da empresa salvo ✓');
+}
+
+async function saveEmpresaSeguro(){
+  if(!requireEditPermission()) return;
+  const cfg = getEmpresaConfig();
+  const valor = parseFloat(document.getElementById('empresa-seguro-valor').value);
+  cfg.seguroLimiteValor = isNaN(valor) ? 0 : valor;
+  cfg.seguroLimiteMoeda = document.getElementById('empresa-seguro-moeda').value === 'USD' ? 'USD' : 'BRL';
+  await persistState();
+  updateSaveIndicator('Alerta de seguro salvo ✓');
 }
 
 async function addEstoque(){
@@ -5873,6 +6106,8 @@ async function saveProduct(isEdit){
   data.exTarifarioNumero = data.exTarifario ? (document.getElementById('pf-exTarifarioNumero').value||'').trim() : '';
   data.exTarifarioVencimento = data.exTarifario ? (document.getElementById('pf-exTarifarioVencimento').value||'') : '';
 
+  data.tipoExtracaoLotes = document.getElementById('pf-tipo-extracao') ? document.getElementById('pf-tipo-extracao').value : '';
+
   data.validadeUnidade = document.getElementById('pf-validade-unidade') ? document.getElementById('pf-validade-unidade').value : 'meses';
   data.validadeQtd = data.validadeUnidade==='indeterminado' ? null : (parseInt((document.getElementById('pf-validade-qtd')||{}).value,10) || null);
 
@@ -5893,6 +6128,7 @@ async function saveProduct(isEdit){
     {key:'exTarifario', label:'EX Tarifário', fmt:v=>v?'Sim':'Não'},
     {key:'exTarifarioNumero', label:'Número do EX', fmt:v=>v||''},
     {key:'exTarifarioVencimento', label:'Vencimento do EX', fmt:v=>v||''},
+    {key:'tipoExtracaoLotes', label:'Extração de Lotes da Fatura', fmt:v=>v ? (LOTE_EXTRACTION_RULES[v] ? LOTE_EXTRACTION_RULES[v].label : v) : 'Nenhuma'},
     {key:'validadeUnidade', label:'Validade (Unidade)', fmt:v=>v||''},
     {key:'validadeQtd', label:'Validade (Quantidade)', fmt:v=>v||''},
   ];
@@ -5912,8 +6148,10 @@ async function saveProduct(isEdit){
     await db.collection('produtos').doc(pn).set(data);
     if(isRename){
       await db.collection('produtos').doc(oldPn).delete();
+      delete window.__lotesProductsCache[oldPn];
     }
     invalidateProdutosCache();
+    delete window.__lotesProductsCache[pn]; // força reconsultar na próxima vez que a aba Lotes renderizar
     closeModal();
     alert(`Produto ${pn} salvo com sucesso.`);
     if(currentView==='bancoitens') runProductSearch();
@@ -6233,12 +6471,9 @@ function openProdutoMestreModal(id){
           ` : ''}
           <div class="form-group"><label>Nome do Produto</label><input id="pm-nome" value="${pr.nome||''}" placeholder="Ex: QUÍMICOS"></div>
           <div class="form-group">
-            <label>Extração de Lotes da Fatura</label>
-            <select id="pm-tipo-extracao">
-              <option value="" ${!pr.tipoExtracaoLotes?'selected':''}>Nenhuma (não extrai automaticamente)</option>
-              ${Object.keys(LOTE_EXTRACTION_RULES).map(key=>`<option value="${key}" ${pr.tipoExtracaoLotes===key?'selected':''}>${LOTE_EXTRACTION_RULES[key].label}</option>`).join('')}
-            </select>
-            <div class="form-hint">Define qual regra de leitura de fatura (PN, lote, quantidade, datas) a aba "Lotes" do processo vai usar quando este Produto Mestre estiver aplicado. A validade de cada item (usada pra calcular a Manufacture Date) é cadastrada individualmente no Banco de Itens, dentro de cada PN.</div>
+            <label>Descrição Detalhada (DTA)</label>
+            <textarea id="pm-descricao-dta" placeholder="Descrição detalhada da mercadoria, usada no e-mail de DTA">${pr.descricaoDetalhadaDTA||''}</textarea>
+            <div class="form-hint">Quando este Produto Mestre estiver aplicado a um processo, essa descrição é puxada automaticamente pro e-mail de DTA — não precisa preencher de novo em cada processo.</div>
           </div>
           <div class="form-group"><label>Fornecedor</label>
             <select id="pm-supplier"><option value="">Selecione...</option>${supplierOptions}</select>
@@ -6362,6 +6597,7 @@ async function saveProdutoMestre(isEdit){
   const data = {
     id: prev.id,
     nome,
+    descricaoDetalhadaDTA: document.getElementById('pm-descricao-dta').value.trim(),
     supplierId: document.getElementById('pm-supplier').value,
     origemPais: document.getElementById('pm-origem').value,
     modal,
@@ -6373,7 +6609,6 @@ async function saveProdutoMestre(isEdit){
     aeroportoDestino: document.getElementById('pm-aero-destino').value.trim(),
     containerTamanho: document.getElementById('pm-container-tamanho').value,
     containerTipo: document.getElementById('pm-container-tipo').value,
-    tipoExtracaoLotes: document.getElementById('pm-tipo-extracao') ? document.getElementById('pm-tipo-extracao').value : '',
     temperaturaControlada: !!prev.temperaturaControlada,
     temperaturaMin: document.getElementById('pm-temp-min').value,
     temperaturaMax: document.getElementById('pm-temp-max').value,
@@ -6382,7 +6617,7 @@ async function saveProdutoMestre(isEdit){
 
   const history = (prev.history||[]).slice();
   const userEmail = currentUser ? currentUser.email : '';
-  const compareFields = ['nome','supplierId','origemPais','modal','portoEmbarque','portoDestino','aeroportoEmbarque','aeroportoDesembarque','containerTamanho','containerTipo','tipoExtracaoLotes','temperaturaControlada','temperaturaMin','temperaturaMax','genset'];
+  const compareFields = ['nome','descricaoDetalhadaDTA','supplierId','origemPais','modal','portoEmbarque','portoDestino','aeroportoEmbarque','aeroportoDesembarque','containerTamanho','containerTipo','temperaturaControlada','temperaturaMin','temperaturaMax','genset'];
   compareFields.forEach(k=>{
     const antes = prev[k]!==undefined ? prev[k] : '';
     const depois = data[k]!==undefined ? data[k] : '';
@@ -7269,6 +7504,59 @@ function renderExtraFieldInput(f, p){
   const type = f.type||'text';
   return `<div class="mini-field"><label>${f.label}</label><input type="${type}" value="${val}" oninput="updateExtraField('${f.key}', this.value)"></div>`;
 }
+/* Referências do Fornecedor (uma por fatura do processo) — cada uma vira automaticamente um
+   espaço de documento em Documentos ("Invoice - referência"), ligado pelo id ESTÁVEL da
+   referência (não pelo texto digitado), pra editar o texto depois (corrigir digitação) não
+   criar um espaço novo nem perder um arquivo já anexado no espaço antigo. */
+function refFornecedorRowsHtml(p){
+  const list = p.referenciasFornecedor || [];
+  if(!list.length) return `<div class="form-hint">Nenhuma referência ainda — clique em "+ Adicionar Fatura".</div>`;
+  return list.map(r=>`
+    <div class="form-row" style="grid-template-columns:1fr auto; margin-bottom:6px; align-items:center;">
+      <input type="text" value="${(r.ref||'').replace(/"/g,'&quot;')}" placeholder="Nº do pedido/PO/invoice no sistema do fornecedor" oninput="updateRefFornecedor('${r.id}', this.value)">
+      <button type="button" class="btn btn-danger" style="padding:8px 12px;" onclick="removeRefFornecedor('${r.id}')">Remover</button>
+    </div>
+  `).join('');
+}
+function addRefFornecedor(){
+  const p = window.__editingProcess;
+  p.referenciasFornecedor = p.referenciasFornecedor || [];
+  p.referenciasFornecedor.push({ id: uid(), ref: '' });
+  document.getElementById('ref-fornecedor-list').innerHTML = refFornecedorRowsHtml(p);
+}
+function updateRefFornecedor(id, val){
+  const p = window.__editingProcess;
+  const r = (p.referenciasFornecedor||[]).find(x=>x.id===id);
+  if(!r) return;
+  r.ref = val;
+  syncInvoiceDocSlots(p);
+  renderDocsTab(); // reflete o nome do documento atualizado sem precisar trocar de aba
+}
+function removeRefFornecedor(id){
+  const p = window.__editingProcess;
+  p.referenciasFornecedor = (p.referenciasFornecedor||[]).filter(x=>x.id!==id);
+  document.getElementById('ref-fornecedor-list').innerHTML = refFornecedorRowsHtml(p);
+  renderDocsTab();
+}
+/* Cria (ou renomeia, se a referência foi editada) um documento personalizado por referência
+   de fatura — nunca remove um espaço já existente automaticamente, mesmo que a referência seja
+   apagada, pra nunca arriscar perder um arquivo já anexado sem confirmação explícita da pessoa
+   (ela pode remover manualmente pelo botão de excluir documento, se quiser). */
+function syncInvoiceDocSlots(p){
+  p.customDocs = p.customDocs || [];
+  (p.referenciasFornecedor||[]).forEach(r=>{
+    const refTrim = (r.ref||'').trim();
+    if(!refTrim) return;
+    const nomeEsperado = `Invoice - ${refTrim}`;
+    const existing = p.customDocs.find(cd=>cd.linkedRefId===r.id);
+    if(!existing){
+      p.customDocs.push({ id: uid(), name: nomeEsperado, linkedRefId: r.id });
+    } else if(existing.name !== nomeEsperado){
+      existing.name = nomeEsperado;
+    }
+  });
+}
+
 function renderContainersTable(p){
   const qty = parseInt(p.containersQty)||0;
   if(qty<=0){
@@ -7379,6 +7667,18 @@ function toggleGenset(val){
     b.classList.toggle('active', (b.dataset.val==='sim')===val);
   });
 }
+function toggleDescontarFrete(val){
+  window.__editingProcess.descontarFrete = val;
+  document.querySelectorAll('.descontarfrete-toggle-btn').forEach(b=>{
+    b.classList.toggle('active', (b.dataset.val==='sim')===val);
+  });
+}
+function toggleCargaPerigosa(val){
+  window.__editingProcess.cargaPerigosa = val;
+  document.querySelectorAll('.cargaperigosa-toggle-btn').forEach(b=>{
+    b.classList.toggle('active', (b.dataset.val==='sim')===val);
+  });
+}
 function onTemperaturaSelectChange(val){
   const outroEl = document.getElementById('f-temperatura-outro');
   if(outroEl) outroEl.style.display = val==='outro' ? 'block' : 'none';
@@ -7391,6 +7691,12 @@ function initTemperaturaUI(p){
   document.getElementById('genset-wrap').style.display = p.temperaturaControlada ? 'block' : 'none';
   document.querySelectorAll('.genset-toggle-btn').forEach(b=>{
     b.classList.toggle('active', (b.dataset.val==='sim')===!!p.genset);
+  });
+  document.querySelectorAll('.descontarfrete-toggle-btn').forEach(b=>{
+    b.classList.toggle('active', (b.dataset.val==='sim')===!!p.descontarFrete);
+  });
+  document.querySelectorAll('.cargaperigosa-toggle-btn').forEach(b=>{
+    b.classList.toggle('active', (b.dataset.val==='sim')===!!p.cargaPerigosa);
   });
   const sel = document.getElementById('f-temperatura');
   if(sel) onTemperaturaSelectChange(sel.value);
@@ -7551,8 +7857,28 @@ function openProcessModal(id){
             </div>
           </div>
           <div class="form-row">
+            <div class="form-group"><label>Despachante</label>
+              <select onchange="updateExtraField('despachante', this.value)">
+                <option value="">Selecione...</option>
+                ${state.partners.filter(pt=>pt.tipo==='Despachante').map(pt=>`<option value="${pt.empresa}" ${((p.extra||{}).despachante===pt.empresa)?'selected':''}>${pt.empresa}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group"><label>Transportadora (DTA)</label>
+              <select onchange="updateExtraField('transportadoraDTA', this.value)">
+                <option value="">Selecione...</option>
+                ${state.partners.filter(pt=>pt.tipo==='Transportadora').map(pt=>`<option value="${pt.empresa}" ${((p.extra||{}).transportadoraDTA===pt.empresa)?'selected':''}>${pt.empresa}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="form-hint" style="margin-top:-6px;">Definir aqui só registra quem vai atuar no processo — não substitui marcar "Despachante notificado" e "Solicitar DTA" na aba Etapas, que é o que os alertas de pendência acompanham.</div>
+          <div class="form-row">
             <div class="form-group"><label>Referência</label><input id="f-ref" value="${p.ref||''}" placeholder="Ex: M-014 (Morita) ou C-007 (Carestream)"></div>
-            <div class="form-group"><label>Referência do Fornecedor</label><input id="f-ref-fornecedor" value="${p.referenciaFornecedor||''}" placeholder="Nº do pedido/PO/invoice no sistema do fornecedor"></div>
+            <div class="form-group">
+              <label>Referências do Fornecedor (Faturas)</label>
+              <div id="ref-fornecedor-list">${refFornecedorRowsHtml(p)}</div>
+              <button type="button" class="btn" style="margin-top:6px;" onclick="addRefFornecedor()">+ Adicionar Fatura</button>
+              <div class="form-hint">Cada referência vira automaticamente um espaço de documento na aba Documentos ("Invoice - referência").</div>
+            </div>
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -7792,6 +8118,22 @@ function openProcessModal(id){
               </div>
             </div>
             <div class="form-hint" style="margin-bottom:10px;">Instruções de DTA + remoção para a transportadora — origem, EADI destino, valor da fatura, GENSET e Free Time, já mencionando os contatos cadastrados.</div>
+            <div class="form-row" style="margin-bottom:12px;">
+              <div class="form-group">
+                <label>Descontar Frete</label>
+                <div class="type-toggle">
+                  <button type="button" class="descontarfrete-toggle-btn" data-val="nao" onclick="toggleDescontarFrete(false)">Não</button>
+                  <button type="button" class="descontarfrete-toggle-btn" data-val="sim" onclick="toggleDescontarFrete(true)">Sim</button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Carga Perigosa</label>
+                <div class="type-toggle">
+                  <button type="button" class="cargaperigosa-toggle-btn" data-val="nao" onclick="toggleCargaPerigosa(false)">Não</button>
+                  <button type="button" class="cargaperigosa-toggle-btn" data-val="sim" onclick="toggleCargaPerigosa(true)">Sim</button>
+                </div>
+              </div>
+            </div>
             <button class="btn btn-pdf" onclick="openEmailDTAPreview()">Gerar E-mail de DTA</button>
           </div>
         </div>
@@ -7858,7 +8200,7 @@ async function ensureMasterDataForProcess(){
   }
   refreshProdutoMestreSelect();
   refreshRotaSelect();
-  renderLotesTab(); // produtosMestre pode ter acabado de carregar agora — refaz a checagem da regra
+  renderLotesTab(); // reforça a checagem — nada aqui depende mais de Produto Mestre carregado
 }
 
 function refreshProdutoMestreSelect(){
@@ -8369,7 +8711,7 @@ function collectProcessFormData(){
     history: window.__editingProcess.history || [],
     produto: document.getElementById('f-produto').value.trim(),
     ref: document.getElementById('f-ref').value.trim(),
-    referenciaFornecedor: document.getElementById('f-ref-fornecedor').value.trim(),
+    referenciasFornecedor: window.__editingProcess.referenciasFornecedor || [],
     supplierId: document.getElementById('f-supplier').value,
     origemPais: document.getElementById('f-origem').value,
     incoterm: document.getElementById('f-incoterm').value,
@@ -8396,6 +8738,8 @@ function collectProcessFormData(){
     temperaturaValor: document.getElementById('f-temperatura').value,
     temperaturaOutro: document.getElementById('f-temperatura-outro').value,
     genset: !!window.__editingProcess.genset,
+    descontarFrete: !!window.__editingProcess.descontarFrete,
+    cargaPerigosa: !!window.__editingProcess.cargaPerigosa,
     seguradoraInformada: document.getElementById('c-seguradora-informada') ? document.getElementById('c-seguradora-informada').checked : false,
     cambioManual: !!window.__editingProcess.cambioManual,
     obs: document.getElementById('f-obs').value,
@@ -8541,7 +8885,7 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);font-size:9.5pt;bac
   </div>
   <div class="row">
     ${field('Referência', data.ref)}
-    ${field('Referência do Fornecedor', data.referenciaFornecedor)}
+    ${field('Referência do Fornecedor', (data.referenciasFornecedor||[]).map(r=>r.ref).filter(Boolean).join(' / '))}
     ${field('Tipo de Processo', data.tipo==='temporaria'?'Admissão Temporária':'Importação Definitiva')}
   </div>
   ${data.produtoMestreNome || (data.rotaAplicada&&data.rotaAplicada.nome) ? `
