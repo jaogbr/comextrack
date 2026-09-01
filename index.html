@@ -175,11 +175,13 @@ main{flex:1; min-width:0; display:flex; flex-direction:column;}
 .process-card.has-alert, .transit-card.has-alert{border-color:var(--ink-red); box-shadow:0 0 0 1px var(--ink-red-bg);}
 
 .eye-btn{
-  position:absolute; top:10px; right:10px; background:var(--paper); border:1px solid var(--border-strong);
+  position:absolute; top:10px; right:10px; background:var(--navy); border:1px solid var(--navy);
   border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center;
-  cursor:pointer; font-size:14px; z-index:2;
+  cursor:pointer; font-size:14px; z-index:2; box-shadow:0 1px 3px rgba(15,27,45,0.25);
 }
-.eye-btn:hover{background:var(--card); border-color:var(--ink-blue);}
+.eye-btn:hover{background:var(--navy-light); border-color:var(--navy-light);}
+body.dark-mode .eye-btn{background:var(--card); border-color:var(--border-strong);}
+body.dark-mode .eye-btn:hover{border-color:var(--ink-blue);}
 .process-card, .transit-card{position:relative;}
 
 .view-section-title{font-family:'Zilla Slab',serif; font-weight:700; font-size:14.5px; margin:18px 0 10px 0; color:var(--navy); text-transform:uppercase; letter-spacing:0.03em;}
@@ -253,6 +255,7 @@ main{flex:1; min-width:0; display:flex; flex-direction:column;}
 .followup-meta-grid .view-label{font-size:9px;}
 .followup-meta-grid .view-value{font-size:12px;}
 .followup-narrative{background:var(--paper); border:1px solid var(--border); border-radius:6px; padding:10px 12px; font-size:12.5px; line-height:1.8; color:var(--text);}
+.chegada-prevista-tag{background:#fef3c7; color:#92400e; padding:1px 7px; border-radius:4px; font-weight:600;}
 
 .product-search-bar{display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap;}
 .product-search-bar input{flex:1; min-width:200px; padding:9px 12px; border:1px solid var(--border-strong); border-radius:6px; font-size:13.5px;}
@@ -290,9 +293,12 @@ main{flex:1; min-width:0; display:flex; flex-direction:column;}
 .item-autocomplete-option:hover{background:var(--paper);}
 .item-autocomplete-option:last-child{border-bottom:none;}
 .item-totals-row{display:flex; gap:20px; flex-wrap:wrap; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-top:12px;}
-.item-total-box{text-align:center;}
-.item-total-box .num{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:18px; color:var(--navy);}
-.item-total-box .lbl{font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.03em;}
+.item-total-box{text-align:center; background:var(--navy); border-radius:8px; padding:8px 16px;}
+.item-total-box .num{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:18px; color:#fff;}
+.item-total-box .lbl{font-size:10.5px; color:rgba(255,255,255,0.7); text-transform:uppercase; letter-spacing:0.03em;}
+body.dark-mode .item-total-box{background:var(--card); border:1px solid var(--border-strong);}
+body.dark-mode .item-total-box .num{color:var(--text);}
+body.dark-mode .item-total-box .lbl{color:var(--muted);}
 .supplier-name-carestream{color:#C8641A; font-weight:700;}
 .supplier-name-morita{color:#1D5FA8; font-weight:700;}
 
@@ -318,7 +324,7 @@ body.dark-mode .contact-role, body.dark-mode .supplier-flag{color:#9AA9C2;}
 body.dark-mode .contact-phone{color:#7FB3E8;}
 body.dark-mode .stage-progress{color:#8C9BB5;}
 
-.process-side{text-align:right; white-space:nowrap;}
+.process-side{text-align:right; white-space:nowrap; align-self:start; margin-top:26px;}
 .process-value{font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:14px;}
 .process-eta{font-size:11.5px; color:var(--muted); margin-top:3px;}
 .process-badge-temp{
@@ -551,6 +557,39 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .status-badge-row .stamp{transform:rotate(0deg);}
 .status-badge-hint{font-size:12px; color:var(--muted);}
 
+.fob-usd-hero{
+  display:flex; align-items:baseline; gap:10px; padding:14px 16px;
+  background:var(--navy); border-radius:8px; margin-bottom:16px;
+}
+.fob-usd-hero-label{font-size:12px; font-weight:600; color:rgba(255,255,255,0.75); text-transform:uppercase; letter-spacing:0.03em;}
+.fob-usd-hero-value{font-family:'IBM Plex Mono',monospace; font-size:24px; font-weight:700; color:#fff;}
+body.dark-mode .fob-usd-hero{background:var(--card); border:1px solid var(--border-strong);}
+body.dark-mode .fob-usd-hero-value{color:var(--text);}
+body.dark-mode .fob-usd-hero-label{color:var(--muted);}
+
+/* Linguagem visual reutilizável do "quadrado azul-marinho arredondado" (mesmo estilo do FOB
+   em destaque) — .stat-box pro tamanho cheio (um valor-âncora por seção) e .stat-chip pra
+   contextos compactos, como dentro de um card de lista, onde um bloco grande destoaria. */
+.stat-box{
+  display:flex; align-items:baseline; gap:10px; padding:14px 16px;
+  background:var(--navy); border-radius:8px;
+}
+.stat-box-label{font-size:12px; font-weight:600; color:rgba(255,255,255,0.75); text-transform:uppercase; letter-spacing:0.03em;}
+.stat-box-value{font-family:'IBM Plex Mono',monospace; font-size:24px; font-weight:700; color:#fff;}
+body.dark-mode .stat-box{background:var(--card); border:1px solid var(--border-strong);}
+body.dark-mode .stat-box-value{color:var(--text);}
+body.dark-mode .stat-box-label{color:var(--muted);}
+
+.stat-chip{
+  display:inline-flex; flex-direction:column; align-items:flex-end; gap:1px;
+  padding:6px 12px; background:var(--navy); border-radius:10px;
+}
+.stat-chip-label{font-size:9px; font-weight:600; color:rgba(255,255,255,0.65); text-transform:uppercase; letter-spacing:0.03em;}
+.stat-chip-value{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; color:#fff;}
+body.dark-mode .stat-chip{background:var(--card); border:1px solid var(--border-strong);}
+body.dark-mode .stat-chip-value{color:var(--text);}
+body.dark-mode .stat-chip-label{color:var(--muted);}
+
 .type-toggle{display:flex; gap:8px; margin-bottom:16px;}
 .type-toggle button{
   flex:1; padding:10px 12px; border-radius:6px; border:1px solid var(--border-strong);
@@ -654,6 +693,9 @@ const db = firebase.firestore();
 const storage = firebase.storage();
 let currentUser = null;
 let currentRole = 'viewer';
+let currentUserCargoId = null;
+let currentUserPermissoes = null; // matriz de permissões do cargo do usuário logado — null quando é 'admin' (bypass total)
+let currentUserVerAlertas = true; // permissão à parte da matriz — controla se o cargo vê os alertas de pendência nos cards de processo (ex: "faltando provisionamento")
 let unsubscribeData = null;
 
 function doLogin(){
@@ -672,17 +714,121 @@ function doLogout(){
   auth.signOut();
 }
 
+/* ===================== CARGOS E PERMISSÕES ===================== */
+/* Cada aba de navegação (NAV_ITEMS) vira uma linha configurável na matriz de permissões de
+   cada cargo — assim, se uma aba nova for adicionada no futuro, ela aparece automaticamente
+   na matriz, sem precisar editar nada aqui (pedido explicitamente pelo usuário). */
+function getPermissionTabs(){
+  try{ return NAV_ITEMS.map(i=>({key:i.key, label:i.label.replace(/^\S+\s/,'')})); }
+  catch(e){ return [{key:'processos', label:'Processos'}]; }
+}
+const CARGO_ADMIN_ONLY_TABS = ['equipe','empresa','personalizacao'];
+function defaultEditorPermissoes(){
+  const perms = {};
+  getPermissionTabs().forEach(t=>{
+    const adminOnly = CARGO_ADMIN_ONLY_TABS.includes(t.key);
+    perms[t.key] = { ver: !adminOnly, editar: !adminOnly };
+  });
+  return perms;
+}
+function defaultViewerPermissoes(){
+  const perms = {};
+  getPermissionTabs().forEach(t=>{
+    const adminOnly = CARGO_ADMIN_ONLY_TABS.includes(t.key);
+    perms[t.key] = { ver: !adminOnly, editar: false };
+  });
+  return perms;
+}
+/* Garante que os 2 cargos padrão (Editor/Visualizador) existam — idempotente, roda toda
+   vez que alguém loga. O cargo "Administrador" NÃO é um documento no Firestore: é tratado
+   como caso especial via currentRole==='admin', pra nunca correr o risco de alguém apagar
+   ou reconfigurar o cargo administrativo e travar o próprio acesso à plataforma. */
+async function ensureDefaultCargos(){
+  try{
+    const snap = await db.collection('cargos').get();
+    if(!snap.empty) return;
+    const userEmail = currentUser ? currentUser.email : '';
+    await db.collection('cargos').doc('editor').set({
+      nome: 'Editor', sistema: true, permissoes: defaultEditorPermissoes(), verAlertas: true,
+      createdAt: Date.now(), updatedAt: Date.now(),
+      history: [{ts:Date.now(), field:'Cargo', valorAnterior:'', valorNovo:'Criado automaticamente (padrão do sistema)', userEmail}],
+    });
+    await db.collection('cargos').doc('viewer').set({
+      nome: 'Visualizador', sistema: true, permissoes: defaultViewerPermissoes(), verAlertas: true,
+      createdAt: Date.now(), updatedAt: Date.now(),
+      history: [{ts:Date.now(), field:'Cargo', valorAnterior:'', valorNovo:'Criado automaticamente (padrão do sistema)', userEmail}],
+    });
+  }catch(e){ console.error('Erro ao garantir cargos padrão', e); }
+}
+async function getCargoByIdRemote(id){
+  if(!id) return null;
+  try{
+    const doc = await db.collection('cargos').doc(id).get();
+    return doc.exists ? {id:doc.id, ...doc.data()} : null;
+  }catch(e){ console.error('Erro ao buscar cargo', e); return null; }
+}
+/* Ponto único de verdade pra "pode visualizar essa aba" — admin sempre pode; qualquer outro
+   cargo depende da matriz carregada no login. Abas que não existem na matriz de um cargo
+   (ex: uma aba nova, criada depois do cargo) ficam bloqueadas por padrão (mais seguro que
+   liberar por omissão). */
+function canView(tabKey){
+  if(currentRole==='admin') return true;
+  const perm = currentUserPermissoes && currentUserPermissoes[tabKey];
+  return !!(perm && perm.ver);
+}
+function canEdit(tabKey){
+  if(currentRole==='admin') return true;
+  const perm = currentUserPermissoes && currentUserPermissoes[tabKey];
+  return !!(perm && perm.editar);
+}
+/* Mapeia a view atual (currentView) pra aba de permissão correspondente — cobre casos onde
+   uma mesma ação (ex: editar um processo) pode ser disparada a partir de mais de uma tela
+   (Dashboard, Processos, Finalizados todos mexem com processos). */
+const VIEW_TO_PERM_TAB = { dashboard:'processos', finalizados:'processos', processos:'processos' };
+function currentPermTab(){ return VIEW_TO_PERM_TAB[currentView] || currentView; }
+function canEditCurrent(){ return canEdit(currentPermTab()); }
+function canViewCurrent(){ return canView(currentPermTab()); }
+/* Verdadeiro se o usuário tem edição em QUALQUER aba — usado só em lugares muito genéricos
+   de UI que não têm uma aba clara associada; a real trava de segurança continua sendo
+   requireEditPermission() (tab-aware) em cada ação de salvar/excluir. */
+function hasAnyEditAccess(){
+  if(currentRole==='admin') return true;
+  if(!currentUserPermissoes) return false;
+  return Object.keys(currentUserPermissoes).some(k=>currentUserPermissoes[k].editar);
+}
+/* Permissão à parte da matriz de abas — controla se o cargo vê os alertas de pendência que
+   aparecem nos cards de processo (ex: "faltando provisionamento", "sem despachante definido").
+   Default true (se o cargo não tiver o campo definido ainda, por compatibilidade). */
+function canSeeProcessAlerts(){
+  if(currentRole==='admin') return true;
+  return currentUserVerAlertas !== false;
+}
+
 async function ensureUserRole(user){
   const ref = db.collection('users').doc(user.uid);
   const snap = await ref.get();
+  let userData;
   if(snap.exists){
-    currentRole = snap.data().role || 'editor';
-    return;
+    userData = snap.data();
+  } else {
+    const allUsers = await db.collection('users').get();
+    const isFirstUser = allUsers.empty;
+    const role = isFirstUser ? 'admin' : 'editor';
+    userData = { email:user.email, role, cargoId: isFirstUser ? null : 'editor', createdAt: Date.now() };
+    await ref.set(userData);
   }
-  const allUsers = await db.collection('users').get();
-  const role = allUsers.empty ? 'admin' : 'editor';
-  await ref.set({ email:user.email, role, createdAt: Date.now() });
-  currentRole = role;
+  currentRole = userData.role || 'editor';
+  currentUserCargoId = userData.cargoId || (currentRole==='viewer' ? 'viewer' : (currentRole==='admin' ? null : 'editor'));
+  await ensureDefaultCargos();
+  if(currentRole==='admin'){
+    currentUserPermissoes = null; // bypass — admin nunca depende da matriz
+    currentUserVerAlertas = true;
+  } else {
+    const cargo = await getCargoByIdRemote(currentUserCargoId);
+    currentUserPermissoes = cargo ? cargo.permissoes : defaultViewerPermissoes();
+    currentUserVerAlertas = cargo && cargo.verAlertas===false ? false : true;
+  }
+
 }
 
 function attachDataListener(){
@@ -699,7 +845,7 @@ function attachDataListener(){
     } else {
       state = { processes:[], suppliers:[], partners: DEFAULT_PARTNERS.map(p=>({...p})), ncms: DEFAULT_NCMS.map(n=>({...n})), empresaConfig: { nome:'', estoques:[] } };
     }
-    if(autoFillKnownNcmAliquotas() && currentRole!=='viewer'){
+    if(autoFillKnownNcmAliquotas() && hasAnyEditAccess()){
       persistState();
     }
     document.getElementById('loading').style.display = 'none';
@@ -762,7 +908,7 @@ const STAGE_DEFS = [
     items:['Solicitar DTA','Chegada e presença','Agendar DTA','Chegada no Recinto de Desembaraço','Descarga no Recinto de Desembaraço','Pagar numerário despachante','Registro da DUIMP','Testar NF','Desembaraço da DUIMP','Liberação SEFAZ'],
     itemFields:{
       0:[{key:'transportadoraDTA', label:'Transportadora', type:'partner', partnerType:'Transportadora'}],
-      1:[{key:'recintoZonaPrimaria', label:'Recinto (Zona Primária)', type:'partner', partnerType:'Recinto Alfandegado', zona:'Zona Primária'}],
+      1:[{key:'recintoZonaPrimaria', label:'Recinto (Zona Primária)', type:'partner', partnerType:'Recinto Alfandegado', zona:'Zona Primária'},{key:'dataChegadaZonaPrimaria', label:'Data de Chegada (Zona Primária)', type:'date'}],
       2:[{key:'dataAgendamentoDTA', label:'Data Agendada', type:'date'}],
       3:[{key:'recintoAlfandegado', label:'Recinto de Desembaraço (Zona Secundária)', type:'partner', partnerType:'Recinto Alfandegado', zona:'Zona Secundária'},{key:'dataChegadaBetim', label:'Data de Chegada', type:'date'}],
       6:[{key:'numeroDUIMP', label:'Número da DUIMP', type:'text'},{key:'chaveAcessoDUIMP', label:'Chave de Acesso da DUIMP', type:'text'},{key:'dataRegistroDUIMP', label:'Data de Registro', type:'date'}],
@@ -773,7 +919,7 @@ const STAGE_DEFS = [
     extraFields:[{key:'statusDesembaraco', label:'Status Atual do Desembaraço (descreva livremente)', type:'text'}]},
   {key:'fase7', label:'Fase 7 · Remoção e Entrada', cls:'stamp-remocao',
     items:['Agendamento da remoção','Início da remoção','Recebimento em estoque','Nota fiscal','Devolução do vazio'],
-    itemFields:{ 3:[{key:'numeroNF', label:'Número da NF', type:'text'}] },
+    itemFields:{ 3:[{key:'numeroNF', label:'Número da NF', type:'text'}], 4:[{key:'dataDevolucaoContainer', label:'Data da Devolução', type:'date'}] },
     receiptItemIndex:2},
   {key:'fase8', label:'Fase 8 · Pagamentos', cls:'stamp-pagamentos', type:'payments',
     items:[
@@ -800,7 +946,7 @@ const TEMP_STAGES = [
 
 const DOC_TYPES = [
   'Proforma Invoice',
-  'Invoice Comercial (Fatura)',
+  'Comercial Invoice (Fatura)',
   'Packing List',
   'HBL / HAWB (Conhecimento de Embarque)',
   'DDR (Declaração do Detentor do Registro)',
@@ -1100,9 +1246,14 @@ let state = { processes: [], suppliers: [], partners: [], ncms: [] };
 let currentView = 'dashboard';
 let saveTimer = null;
 
-function requireEditPermission(){
-  if(currentRole==='viewer'){
-    alert('Você está em modo somente leitura. Peça a um admin para alterar sua permissão em Equipe.');
+/* Ponto único de verdade pra travar uma ação de salvar/editar/excluir de verdade (não só
+   esconder botão). Sem argumento, infere a aba a partir de currentView (cobre a esmagadora
+   maioria dos casos, já que cada ação de salvar roda com a página correspondente aberta).
+   Passar tabKey explicitamente quando a ação pode ser disparada de mais de um lugar. */
+function requireEditPermission(tabKey){
+  const tab = tabKey || currentPermTab();
+  if(!canEdit(tab)){
+    alert('Você não tem permissão de edição nesta área. Peça a um administrador para revisar seu cargo em Equipe.');
     return false;
   }
   return true;
@@ -1528,14 +1679,36 @@ function saveProvHonorarios(){
   renderProvisionamentoTab(); // valor + selo de origem (manual/puxado do parceiro) mudam juntos
 }
 
+/* Data limite para devolução do container vazio = Chegada na Zona Primária + Free Time.
+   Só calcula quando a chegada na Zona Primária estiver de fato confirmada (checklist da Fase
+   6 · "Chegada e presença" preenchido com data) — nunca estima com base em previsão, como
+   pedido. extra.dataChegadaBetim (Zona Secundária) entra só como fallback pra processos
+   antigos que não tinham o campo de Zona Primária ainda — na prática a chegada na Zona
+   Primária sempre acontece antes ou junto da chegada na Zona Secundária, então segue sendo
+   uma data real, nunca uma estimativa. */
 function containerReturnDate(p){
   const extra = p.extra || {};
-  const baseDate = extra.dataChegadaBetim || p.chegadaPrevista;
+  const baseDate = extra.dataChegadaZonaPrimaria || extra.dataChegadaBetim;
   if(!baseDate || !extra.freetime) return null;
   const dias = parseInt(extra.freetime)||0;
   const dt = new Date(baseDate+'T00:00:00');
   dt.setDate(dt.getDate()+dias);
-  return { date: dt.toISOString().slice(0,10), estimated: !extra.dataChegadaBetim };
+  return { date: dt.toISOString().slice(0,10) };
+}
+
+/* Depois que a devolução é marcada como concluída, compara a data efetiva com a data limite
+   original (sempre recalculada a partir de Chegada na Zona Primária + Free Time — nunca a
+   partir da própria data de devolução, então a "data limite original" nunca muda mesmo depois
+   de concluída, como pedido). Retorna null se a devolução ainda não foi concluída ou faltar
+   algum dos dois campos. */
+function containerReturnPerformance(p){
+  if(!isContainerReturnDone(p)) return null;
+  const extra = p.extra || {};
+  const dataEfetiva = extra.dataDevolucaoContainer;
+  const deadline = containerReturnDate(p);
+  if(!dataEfetiva || !deadline) return null;
+  const diff = daysBetween(dataEfetiva, deadline.date); // >=0 → devolvido no limite ou antes
+  return { dataEfetiva, deadlineDate: deadline.date, onTime: diff>=0, dias: Math.abs(diff) };
 }
 
 /* Índice do item "Devolução do vazio" dentro da Fase 7 — não existe no modal aéreo.
@@ -1564,6 +1737,7 @@ function prazoPrimeiroPeriodoZonaSecundaria(p){
 
 function getProcessAlerts(p){
   const alerts = [];
+  if(!canSeeProcessAlerts()) return alerts;
   if(p.tipo==='temporaria' || isProcessDone(p)) return alerts;
   const extra = p.extra || {};
   const today = todayStr();
@@ -1626,7 +1800,7 @@ function getProcessAlerts(p){
 
   if(p.prontidao && daysBetween(p.prontidao, today) >= 0){
     const diasDesdeProntidao = daysBetween(p.prontidao, today);
-    const hasFatura = p.docs && p.docs['Invoice Comercial (Fatura)'];
+    const hasFatura = p.docs && p.docs['Comercial Invoice (Fatura)'];
     const hasPacking = p.docs && p.docs['Packing List'];
     if(!hasFatura || !hasPacking){
       alerts.push(diasDesdeProntidao===0 ? 'Prontidão é hoje sem Fatura e/ou Packing List marcados' : `Prontidão chegou há ${diasDesdeProntidao} dias sem Fatura e/ou Packing List marcados`);
@@ -1746,7 +1920,7 @@ function showCopyToast(){
    o modal completo (Etapas/Custos/Provisionamento/Itens/Documentos/etc.) — só o resumo do
    ícone de olho, independente de onde ou como clicou. */
 function openProcessCardClick(id){
-  if(currentRole==='viewer'){ openProcessViewModal(id); return; }
+  if(!canEdit('processos')){ openProcessViewModal(id); return; }
   openProcessModal(id);
 }
 
@@ -1791,6 +1965,33 @@ function openProcessViewModal(id, event){
       ${extra.containersList.map((c,i)=>viewFieldHtml('Container #'+(i+1), (c.container||'—')+' / Lacre: '+(c.lacre||'—'))).join('')}
     </div>` : '';
 
+  const itensViewHtml = (p.itens && p.itens.length) ? (()=>{
+    const qtdTotalItens = p.itens.reduce((s,it)=>s+(parseFloat(it.quantidade)||0),0);
+    const valorTotalItens = p.itens.reduce((s,it)=>s+((parseFloat(it.valorUnitarioUsado)||0)*(parseFloat(it.quantidade)||0)),0);
+    const rowsHtml = p.itens.map(it=>{
+      const vUnit = parseFloat(it.valorUnitarioUsado)||0;
+      const qtd = parseFloat(it.quantidade)||0;
+      return `<tr>
+        <td>${it.pn||'—'}</td>
+        <td>${it.descricao||'—'}</td>
+        <td style="text-align:right;">${qtd}</td>
+        <td style="text-align:right;">${fmtUSD(vUnit)}</td>
+        <td style="text-align:right;">${fmtUSD(vUnit*qtd)}</td>
+      </tr>`;
+    }).join('');
+    return `
+      <div class="view-section-title">Produtos</div>
+      <table class="prov-mini-table" style="width:100%; margin-bottom:12px;">
+        <tr><th style="text-align:left;">PN</th><th style="text-align:left;">Descrição</th><th>Quantidade</th><th>Valor Unitário</th><th>Valor Total</th></tr>
+        ${rowsHtml}
+      </table>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
+        <div class="stat-box"><span class="stat-box-label">Quantidade Total</span><span class="stat-box-value">${qtdTotalItens}</span></div>
+        <div class="stat-box"><span class="stat-box-label">Valor Total dos Produtos</span><span class="stat-box-value">${fmtUSD(valorTotalItens)}</span></div>
+      </div>
+    `;
+  })() : '';
+
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
@@ -1805,6 +2006,11 @@ function openProcessViewModal(id, event){
         <div class="status-badge-row">
           <div class="stamp ${stageInfoFor(p,p.status).cls}">${stageInfoFor(p,p.status).label}</div>
           <div class="status-badge-hint">${Math.round(processProgressRatio(p)*100)}% concluído · Visualização somente leitura</div>
+        </div>
+
+        <div class="fob-usd-hero">
+          <span class="fob-usd-hero-label">FOB (USD)</span>
+          <span class="fob-usd-hero-value">${p.fob ? fmtUSD(parseFloat(p.fob)) : '—'}</span>
         </div>
 
         <div class="view-section-title">Identificação</div>
@@ -1839,7 +2045,20 @@ function openProcessViewModal(id, event){
           ${viewFieldHtml('Navio', extra.navio)}
           ${viewFieldHtml('Viagem', extra.viagem)}
           ${viewFieldHtml('Freetime', extra.freetime ? extra.freetime+' dias' : '')}
-          ${(()=>{ const dev = containerReturnDate(p); return viewFieldHtml('Devolução do Container (calculada)', dev ? fmtDate(dev.date)+(dev.estimated?' (estimada, com base na chegada prevista)':'') : ''); })()}
+          ${(()=>{
+            const perf = containerReturnPerformance(p);
+            if(perf){
+              const cor = perf.onTime ? '#16a34a' : '#dc2626';
+              const emoji = perf.onTime ? '🟢' : '🔴';
+              const msg = perf.onTime
+                ? (perf.dias===0 ? 'No prazo — na data limite.' : `No prazo — ${perf.dias} dia(s) antes do limite.`)
+                : `Fora do prazo — ${perf.dias} dia(s) de atraso.`;
+              const valor = `<span style="color:${cor}; font-weight:700;">${fmtDate(perf.dataEfetiva)} ${emoji}</span><div style="font-size:10.5px; font-weight:400; color:${cor}; margin-top:2px;">${msg}</div>`;
+              return viewFieldHtml('Data de Devolução do Container', valor);
+            }
+            const dev = containerReturnDate(p);
+            return dev ? viewFieldHtml('Data Limite para Devolução', fmtDate(dev.date)) : '';
+          })()}
           `}
           ${viewFieldHtml('Número do BL', extra.numeroBL)}
           ${viewFieldHtml('Embarque Real', fmtDate(p.dataEmbarqueReal))}
@@ -1854,19 +2073,21 @@ function openProcessViewModal(id, event){
         <div class="view-section-title">Documentos</div>
         ${docsHtml}
 
+        ${itensViewHtml}
+
         <div class="view-section-title">Custos</div>
         <div class="view-grid">
           ${viewFieldHtml('CIF (BRL) — referência', fmtBRL(costs.cifBrl))}
           ${viewFieldHtml('FOB + Seguro (BRL)', fmtBRL(costs.fobBrl+costs.seguroBrl))}
           ${viewFieldHtml('Impostos', fmtBRL(costs.ii+costs.ipi+costs.pis+costs.cofins+costs.icms))}
-          ${viewFieldHtml('Pagamentos da Fase 8 (inclui frete real)', fmtBRL(costs.paymentsTotal))}
-          ${viewFieldHtml('Custo Total', fmtBRL(costs.total))}
+          ${paymentBreakdownRows(p).map(r=>viewFieldHtml(`Pagamento — ${r.label}`, fmtBRL(r.valor))).join('')}
         </div>
+        <div class="stat-box" style="margin-top:6px;"><span class="stat-box-label">Custo Total</span><span class="stat-box-value">${fmtBRL(costs.total)}</span></div>
 
         ${p.obs ? `<div class="view-section-title">Observações</div><div class="view-field">${p.obs}</div>` : ''}
       </div>
       <div class="modal-footer">
-        ${currentRole!=='viewer' ? `<button class="btn btn-pdf" onclick="closeModal(); openProcessModal('${p.id}');">Abrir para editar</button>` : ''}
+        ${canEdit('processos') ? `<button class="btn btn-pdf" onclick="closeModal(); openProcessModal('${p.id}');">Abrir para editar</button>` : ''}
         <button class="btn" onclick="closeModal()">Fechar</button>
       </div>
     </div>
@@ -1903,6 +2124,7 @@ function detectHistoryChanges(prev, next){
   };
 
   fieldChange('Data prevista de chegada alterada', '📅', prev.chegadaPrevista, next.chegadaPrevista, fmtDate);
+  fieldChange('Chegada na Zona Primária confirmada', '⚓', (prev.extra||{}).dataChegadaZonaPrimaria, (next.extra||{}).dataChegadaZonaPrimaria, fmtDate);
   fieldChange('Data de embarque alterada', '🚢', prev.dataEmbarqueReal, next.dataEmbarqueReal, fmtDate);
   fieldChange('Data de chegada ao porto alterada', '⚓', (prev.extra||{}).dataChegadaBetim, (next.extra||{}).dataChegadaBetim, fmtDate);
   fieldChange('Número da DUIMP registrado', '📄', (prev.extra||{}).numeroDUIMP, (next.extra||{}).numeroDUIMP);
@@ -1910,6 +2132,48 @@ function detectHistoryChanges(prev, next){
   fieldChange('Canal de conferência definido', '🚦', (prev.extra||{}).canalDesembaraco, (next.extra||{}).canalDesembaraco);
   fieldChange('Despachante definido', '🧾', (prev.extra||{}).despachante, (next.extra||{}).despachante);
   fieldChange('Transportadora (DTA) definida', '🚛', (prev.extra||{}).transportadoraDTA, (next.extra||{}).transportadoraDTA);
+
+  /* Pagamentos: cada pagamento marcado como feito (Frete Internacional, DTA, Prestação
+     Despachante, ou um pagamento personalizado) gera sua própria linha no histórico — em vez
+     de aparecer só genericamente quando o processo muda de estágio pra "Pagamentos". */
+  {
+    const prevPayments = prev.payments || {};
+    const nextPayments = next.payments || {};
+    const nomesFixosPagamento = {freteInternacional:'Frete Internacional', dta:'DTA', prestacaoDespachante:'Prestação Despachante'};
+    const paymentLabel = (key)=>{
+      if(nomesFixosPagamento[key]) return nomesFixosPagamento[key];
+      if(key.startsWith('custom:')){
+        const id = key.replace('custom:','');
+        const cp = (next.customPayments||[]).find(c=>c.id===id);
+        return cp ? cp.name : key;
+      }
+      return key;
+    };
+    Object.keys(nextPayments).forEach(key=>{
+      const wasChecked = !!(prevPayments[key] && prevPayments[key].checked);
+      const isChecked = !!(nextPayments[key] && nextPayments[key].checked);
+      if(!wasChecked && isChecked){
+        pushHistoryEvent(next, '💳', `Pagamento - ${paymentLabel(key)}`, '');
+      }
+    });
+  }
+
+  /* Devolução do container: no instante em que o checklist "Devolução do vazio" passa de
+     não-marcado pra marcado, registra automaticamente no histórico se foi dentro ou fora do
+     Free Time, com a quantidade de dias — usando a data limite recalculada na hora (que nunca
+     muda depois, já que depende só de Chegada na Zona Primária + Free Time, nunca da própria
+     data de devolução). */
+  if(!isContainerReturnDone(prev) && isContainerReturnDone(next)){
+    const perf = containerReturnPerformance(next);
+    if(perf){
+      if(perf.onTime){
+        const msg = perf.dias===0 ? 'Devolução do container realizada no prazo — na data limite.' : `Devolução do container realizada no prazo — ${perf.dias} dia(s) antes do limite.`;
+        pushHistoryEvent(next, '🟢', 'Devolução do container — Dentro do prazo', msg);
+      } else {
+        pushHistoryEvent(next, '🔴', 'Devolução do container — Fora do prazo', `Devolução do container realizada fora do prazo — ${perf.dias} dia(s) de atraso.`);
+      }
+    }
+  }
 
   if(prev.status !== next.status){
     pushHistoryEvent(next, '🔄', 'Processo alterado para outro estágio', `${stageInfoFor(prev,prev.status).label} → ${stageInfoFor(next,next.status).label}`);
@@ -1980,12 +2244,12 @@ function renderItensTab(){
   p.itens = p.itens || [];
   const el = document.getElementById('itens-list');
   if(!el) return;
-  const canEdit = currentRole!=='viewer';
+  const canEditHere = canEdit('processos');
   el.innerHTML = p.itens.length ? p.itens.map((it,idx)=>{
     const valorAlterado = it.valorUnitarioMestre!==undefined && it.valorUnitarioMestre!=='' && String(it.valorUnitarioMestre)!==String(it.valorUnitarioUsado);
     const alteradoHtml = valorAlterado ? `<br><span class="form-hint" style="color:var(--ink-amber);">✏️ Valor alterado manualmente — cadastrado: ${fmtUSD(parseFloat(it.valorUnitarioMestre)||0)}</span>` : '';
 
-    if(canEdit && editingItemIds.has(it.id)){
+    if(canEditHere && editingItemIds.has(it.id)){
       return `
       <div class="item-row">
         <span class="item-pn item-pn-link" onclick="openItemMasterProduct('${it.pn.replace(/'/g,"\\'")}')" title="Ver cadastro no Banco de Itens">${it.pn}</span>
@@ -2005,7 +2269,7 @@ function renderItensTab(){
         <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px;">${fmtUSD(parseFloat(it.valorUnitarioUsado)||0)}</span>
         <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px;">${it.quantidade}</span>
         <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; text-align:right;">${fmtUSD((parseFloat(it.valorUnitarioUsado)||0)*(parseFloat(it.quantidade)||0))}</span>
-        ${canEdit ? `
+        ${canEditHere ? `
           <div style="display:flex; gap:4px;">
             <button class="btn" style="padding:4px 7px; font-size:11px;" onclick="startEditingItem('${it.id}')" title="Editar">✎</button>
             <button class="btn btn-danger" style="padding:4px 7px; font-size:11px;" onclick="removeItem(${idx})" title="Excluir">×</button>
@@ -2031,7 +2295,7 @@ function renderItemTotals(){
       <div class="item-total-box"><div class="num">${totalItens}</div><div class="lbl">Itens</div></div>
       <div class="item-total-box"><div class="num">${qtdTotal}</div><div class="lbl">Qtd. Total</div></div>
       <div class="item-total-box"><div class="num">${fmtUSD(valorTotal)}</div><div class="lbl">Valor Total (Produtos)</div></div>
-      ${currentRole!=='viewer' ? `<button class="btn" style="margin-left:auto;" onclick="useItemsTotalAsFOB(${valorTotal})">Usar como FOB (Custos)</button>` : ''}
+      ${canEdit('processos') ? `<button class="btn" style="margin-left:auto;" onclick="useItemsTotalAsFOB(${valorTotal})">Usar como FOB (Custos)</button>` : ''}
     </div>
   ` : '';
 }
@@ -2121,6 +2385,7 @@ async function quickAddProductAndItem(pn){
     history:[{ts:Date.now(), field:'Produto', valorAnterior:'', valorNovo:'Cadastrado a partir de um processo', userEmail}] };
   try{
     await db.collection('produtos').doc(pn).set(data);
+    invalidateProdutosCache();
   }catch(e){
     console.error(e);
     alert('Não foi possível cadastrar o produto.');
@@ -2159,18 +2424,63 @@ function renderHistoryTab(){
   `).join('');
 }
 
+/* Cada linha do Andamento mostra "Título: data" — mas o título precisa ser específico, não
+   genérico. "Documento adicionado" vira o nome do documento (ex: "Comercial Invoice (Fatura)
+   adicionado"); "Processo alterado para outro estágio" vira só o nome da etapa de destino,
+   sem o prefixo "Fase N ·". Os demais eventos já nascem específicos (detectHistoryChanges) e
+   não precisam de tratamento — usam o próprio título. */
 function narrativeLine(ev){
-  if(ev.manual) return ev.detail;
-  if(!ev.detail) return ev.title;
-  const lines = ev.detail.split('\n');
-  const last = lines[lines.length-1];
-  return `${ev.title} — ${last}`;
+  const dataEvento = fmtDate(new Date(ev.ts).toISOString().slice(0,10));
+  let titulo;
+  if(ev.manual){
+    titulo = ev.detail || ev.title;
+  } else if(ev.title==='Documento adicionado' || ev.title==='Documento removido'){
+    const acao = ev.title==='Documento adicionado' ? 'adicionado' : 'removido';
+    titulo = ev.detail ? `${ev.detail} ${acao}` : ev.title;
+  } else if(ev.title==='Processo alterado para outro estágio'){
+    const partes = String(ev.detail||'').split('→');
+    const destino = (partes[partes.length-1]||'').trim().replace(/^Fase\s*\d+\s*·\s*/,'');
+    titulo = destino || ev.title;
+  } else {
+    titulo = ev.title;
+  }
+  return `${titulo}: ${dataEvento}`;
 }
 
 function buildCompactNarrative(p){
   const events = (p.history||[]).slice().sort((a,b)=>a.ts-b.ts);
   if(!events.length) return 'Sem eventos registrados ainda.';
   return events.map(narrativeLine).join('\n');
+}
+
+function escHtmlSimple(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* Formata um texto de ANDAMENTO (uma "linha" por marco, ex: "Carga embarcada: 12/06/2026")
+   deixando as palavras em negrito e as datas (DD/MM/AAAA) sem negrito, pra ficar fácil de
+   escanear visualmente qual é o marco e qual é a data — tanto no card do Follow-up dentro do
+   app quanto na tabela HTML gerada pra colar em e-mail. Genérico o bastante pra funcionar em
+   qualquer linha (não depende de um separador fixo tipo ":"), só localiza datas no formato
+   DD/MM/AAAA e deixa todo o resto em negrito. */
+function formatAndamentoHtml(text){
+  const DATE_RE = /\d{2}\/\d{2}\/\d{4}/g;
+  const lines = String(text||'').split('\n');
+  return lines.map(line=>{
+    let result = '';
+    let lastIndex = 0;
+    let m;
+    DATE_RE.lastIndex = 0;
+    while((m = DATE_RE.exec(line)) !== null){
+      const before = line.slice(lastIndex, m.index);
+      if(before) result += `<b>${escHtmlSimple(before)}</b>`;
+      result += escHtmlSimple(m[0]); // a data em si, sem negrito
+      lastIndex = DATE_RE.lastIndex;
+    }
+    const rest = line.slice(lastIndex);
+    if(rest) result += `<b>${escHtmlSimple(rest)}</b>`;
+    return result;
+  }).join('<br>');
 }
 
 /* ---------- GERAÇÃO DE FOLLOW-UP EM TABELA (formato fixo pedido) ---------- */
@@ -2293,14 +2603,19 @@ function buildFollowUpTableRow(p){
 
   let devolucao = '';
   if(isMaritimo){
-    if(extra.dataChegadaBetim && extra.freetime){
-      const dt = new Date(extra.dataChegadaBetim+'T00:00:00');
+    const baseChegadaZP = extra.dataChegadaZonaPrimaria || extra.dataChegadaBetim;
+    if(baseChegadaZP && extra.freetime){
+      const dt = new Date(baseChegadaZP+'T00:00:00');
       dt.setDate(dt.getDate() + (parseInt(extra.freetime)||0) - 1);
       devolucao = fmtDate(dt.toISOString().slice(0,10));
     }
   } else {
     devolucao = '-';
   }
+
+  const chegadaConfirmada = !!extra.dataChegadaBetim;
+  const chegadaValorBase = extra.dataChegadaBetim || p.chegadaPrevista;
+  const chegadaBR = chegadaValorBase ? (fmtDate(chegadaValorBase) + (chegadaConfirmada ? '' : ' (prevista)')) : '';
 
   return {
     processo: p.ref || '',
@@ -2309,7 +2624,8 @@ function buildFollowUpTableRow(p){
     descricao,
     prontidao: fmtDateOrBlank(p.prontidao),
     embarque: fmtDateOrBlank(p.dataEmbarqueReal),
-    chegadaBR: fmtDateOrBlank(extra.dataChegadaBetim),
+    chegadaBR,
+    chegadaConfirmada,
     transit,
     freetime,
     devolucao,
@@ -2354,9 +2670,10 @@ function processFollowUpMeta(p){
     prontidao: fmtDate(p.prontidao),
     embarque: fmtDate(p.dataEmbarqueReal),
     chegada: fmtDate(chegadaReal || p.chegadaPrevista) + (chegadaReal ? '' : ' (prevista)'),
+    chegadaConfirmada: !!chegadaReal,
     transit: transit || '—',
     freetime: extra.freetime ? extra.freetime+'d' : '—',
-    devolucao: devolucao ? fmtDate(devolucao.date)+(devolucao.estimated?' (est.)':'') : '—',
+    devolucao: devolucao ? fmtDate(devolucao.date) : '—',
     modal: modalLabel(p.modal),
     origem: p.origemPais || '—',
     status: stageInfoFor(p, p.status).label,
@@ -2364,7 +2681,9 @@ function processFollowUpMeta(p){
 }
 
 function renderFollowUpPage(){
-  const active = state.processes.filter(p=>getBucket(p)!=='finalizados');
+  const active = state.processes
+    .filter(p=>getBucket(p)!=='finalizados')
+    .sort((a,b)=> processProgressRatio(b) - processProgressRatio(a) || (a.chegadaPrevista||'9999').localeCompare(b.chegadaPrevista||'9999'));
   if(!active.length){
     return `<div class="empty-state"><h3>Nenhum processo ativo</h3><p>Assim que você tiver processos ativos, o follow-up consolidado aparece aqui.</p></div>`;
   }
@@ -2389,14 +2708,14 @@ function renderFollowUpPage(){
         ${viewFieldHtml('Data Pedido', m.dataPedido)}
         ${viewFieldHtml('Prontidão', m.prontidao)}
         ${viewFieldHtml('Embarque', m.embarque)}
-        ${viewFieldHtml('Chegada BR', m.chegada)}
+        ${viewFieldHtml('Chegada BR', m.chegadaConfirmada ? m.chegada : `<span class="chegada-prevista-tag">${m.chegada}</span>`)}
         ${viewFieldHtml('Transit', m.transit)}
         ${viewFieldHtml('Freetime', m.freetime)}
         ${viewFieldHtml('Devolução', m.devolucao)}
         ${viewFieldHtml('Modal', m.modal)}
         ${viewFieldHtml('Origem', m.origem)}
       </div>
-      <div class="followup-narrative">${buildCompactNarrative(p).replace(/\n/g,'<br>')}</div>
+      <div class="followup-narrative">${formatAndamentoHtml(buildCompactNarrative(p))}</div>
       <div style="margin-top:10px;">
         <button class="btn" style="padding:6px 12px; font-size:12px;" onclick="openProcessCardClick('${p.id}')">Abrir processo</button>
       </div>
@@ -2446,12 +2765,21 @@ function generateFollowUpHtmlTable(processes){
   const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
   const thStyle = i => `border:1px solid #333; padding:6px 9px; background:#e9edf5; font-weight:700; text-align:left; font-size:11.5px; width:${FOLLOWUP_COLUMN_WIDTHS[i]};`;
   const tdStyle = 'border:1px solid #333; padding:6px 9px; font-size:11.5px; vertical-align:top;';
+  const tdStyleChegadaPrevista = tdStyle + ' background:#fef3c7; color:#92400e; font-weight:600;';
 
   const headerHtml = FOLLOWUP_TABLE_HEADERS.map((h,i)=>`<th style="${thStyle(i)}">${esc(h)}</th>`).join('');
   const rowsHtml = processes.map(p=>{
     const r = buildFollowUpTableRow(p);
-    const cells = [r.processo, r.fornecedor, r.dataPedido, r.descricao, r.prontidao, r.embarque, r.chegadaBR, r.transit, r.freetime, r.devolucao, r.modal, r.origem, r.status, r.andamento];
-    return `<tr>${cells.map(c=>`<td style="${tdStyle}">${esc(c)}</td>`).join('')}</tr>`;
+    // CHEGADA BR (índice 6) ganha fundo amarelo quando a chegada ainda não foi confirmada
+    // (mostrando a data prevista) — e ANDAMENTO (índice 13) vai com marcos em negrito e
+    // datas sem negrito, pra facilitar a leitura rápida na tabela colada no e-mail.
+    const cells = [
+      {v:r.processo}, {v:r.fornecedor}, {v:r.dataPedido}, {v:r.descricao}, {v:r.prontidao}, {v:r.embarque},
+      {v:r.chegadaBR, style: (!r.chegadaConfirmada && r.chegadaBR) ? tdStyleChegadaPrevista : tdStyle},
+      {v:r.transit}, {v:r.freetime}, {v:r.devolucao}, {v:r.modal}, {v:r.origem}, {v:r.status},
+      {v:formatAndamentoHtml(r.andamento), raw:true},
+    ];
+    return `<tr>${cells.map(c=>`<td style="${c.style||tdStyle}">${c.raw ? c.v : esc(c.v)}</td>`).join('')}</tr>`;
   }).join('');
 
   const summaryHtml = generateFollowUpStatusSummaryHtml(processes);
@@ -2734,7 +3062,7 @@ function getLoteExtractionRule(p){
   return LOTE_EXTRACTION_RULES[pm.tipoExtracaoLotes] || null;
 }
 
-/* Faturas anexadas ao processo — tanto no tipo fixo "Invoice Comercial (Fatura)" quanto em
+/* Faturas anexadas ao processo — tanto no tipo fixo "Comercial Invoice (Fatura)" quanto em
    documentos personalizados cujo nome contenha "fatura"/"invoice" (ex: "Segunda Fatura"),
    pra suportar múltiplas faturas no mesmo processo sem mudar o sistema de Documentos. */
 function getInvoiceDocEntries(p){
@@ -2842,7 +3170,7 @@ function renderLotesTab(){
 
   const invoices = getInvoiceDocEntries(p);
   if(!invoices.length){
-    container.innerHTML = `<div class="form-hint">Nenhuma fatura anexada ainda. Envie o arquivo em Documentos → "Invoice Comercial (Fatura)" (ou um documento personalizado com "Fatura"/"Invoice" no nome, se houver mais de uma) para habilitar a extração.</div>`;
+    container.innerHTML = `<div class="form-hint">Nenhuma fatura anexada ainda. Envie o arquivo em Documentos → "Comercial Invoice (Fatura)" (ou um documento personalizado com "Fatura"/"Invoice" no nome, se houver mais de uma) para habilitar a extração.</div>`;
     return;
   }
 
@@ -3360,6 +3688,18 @@ function initProcessData(p){
   p.customDocs = p.customDocs || [];
   p.itens = p.itens || [];
   p.customPayments = p.customPayments || [];
+  /* Migração leve: "Invoice Comercial (Fatura)" foi renomeado pra "Comercial Invoice (Fatura)"
+     (nome correto em inglês). Processos já existentes que tinham o documento marcado/anexado
+     com a chave antiga continuam reconhecidos normalmente, sem precisar re-anexar o arquivo. */
+  const LEGACY_DOC_KEY = 'Invoice Comercial (Fatura)', NEW_DOC_KEY = 'Comercial Invoice (Fatura)';
+  if(p.docs[LEGACY_DOC_KEY] !== undefined && p.docs[NEW_DOC_KEY] === undefined){
+    p.docs[NEW_DOC_KEY] = p.docs[LEGACY_DOC_KEY];
+    delete p.docs[LEGACY_DOC_KEY];
+  }
+  if(p.docFiles[LEGACY_DOC_KEY] !== undefined && p.docFiles[NEW_DOC_KEY] === undefined){
+    p.docFiles[NEW_DOC_KEY] = p.docFiles[LEGACY_DOC_KEY];
+    delete p.docFiles[LEGACY_DOC_KEY];
+  }
   getStagesForProcess(p).forEach(s=>{
     if(s.type==='payments'){
       s.items.forEach(it=>{
@@ -3792,7 +4132,7 @@ function computeArmazenagemZonaSecundaria(p){
 /* Carregamento agora é feito por attachDataListener() após o login (ver script de autenticação acima) */
 
 async function persistState(){
-  if(currentRole==='viewer'){ return false; }
+  if(!hasAnyEditAccess()){ return false; }
   updateSaveIndicator('Salvando...');
   try{
     await db.collection('comextrack').doc('data').set({
@@ -3820,6 +4160,7 @@ function manualSave(){ persistState(); }
 function scheduleSave(){ persistState(); }
 
 function render(){
+  ensureViewableCurrentView();
   const app = document.getElementById('app');
   app.innerHTML = `
     <aside class="sidebar">
@@ -3840,7 +4181,7 @@ function render(){
           </div>
         </div>
         <div id="save-indicator" style="font-size:11px; color:#7C8FA8; margin-bottom:8px; text-align:center;">Dados salvos ✓</div>
-        ${currentRole!=='viewer' ? `<button class="btn" style="width:100%; margin-bottom:8px; background:var(--navy-light); color:#fff; border-color:var(--navy-lighter);" onclick="manualSave()">💾 Salvar agora</button>
+        ${hasAnyEditAccess() ? `<button class="btn" style="width:100%; margin-bottom:8px; background:var(--navy-light); color:#fff; border-color:var(--navy-lighter);" onclick="manualSave()">💾 Salvar agora</button>
         <button class="new-process-btn" onclick="openProcessModal()">+ Novo Processo</button>` : `<div class="form-hint" style="color:#7C8FA8;">Modo somente leitura</div>`}
       </div>
     </aside>
@@ -3905,7 +4246,7 @@ function moveNavItem(key, dir){
   render();
 }
 function renderNavHtml(){
-  const items = getNavOrder().filter(i=> !i.adminOnly || currentRole==='admin');
+  const items = getNavOrder().filter(i=> canView(i.key));
   const ncmAlertCount = getAllPendingNCMAlerts().length;
   const labelFor = (i)=> (i.key==='ncm' && ncmAlertCount) ? `${i.label} <span class="nav-alert-badge">${ncmAlertCount}</span>` : i.label;
   const body = items.map((i,idx)=>{
@@ -3925,7 +4266,19 @@ function renderNavHtml(){
 function navItem(key,label){
   return `<button class="nav-item ${currentView===key?'active':''}" onclick="setView('${key}')"><span class="dot"></span>${label}</button>`;
 }
-function setView(v){ currentView=v; render(); }
+function setView(v){
+  if(!canView(v)){ alert('Você não tem permissão para visualizar esta área.'); return; }
+  currentView=v;
+  render();
+}
+/* Se a view atual ficou sem permissão de visualização (ex: cargo trocado, ou o próprio
+   usuário mudou de cargo), cai pra primeira aba que ele realmente pode ver — nunca deixa a
+   tela em branco nem tenta renderizar dados de uma aba bloqueada. */
+function ensureViewableCurrentView(){
+  if(canView(currentView)) return;
+  const first = getNavOrder().find(i=>canView(i.key));
+  currentView = first ? first.key : 'dashboard';
+}
 function viewTitle(){
   if(currentView==='dashboard') return 'Painel Geral';
   if(currentView==='processos') return 'Processos de Importação';
@@ -3977,36 +4330,252 @@ function renderView(){
   if(currentView==='personalizacao') el.innerHTML = renderPersonalizacao();
 }
 
-function renderEquipe(){
+let equipeSubTab = 'usuarios';
+function switchEquipeSubTab(tab){ equipeSubTab = tab; renderEquipe(); }
+
+async function renderEquipe(){
   const el = document.getElementById('view-content');
   el.innerHTML = '<div class="empty-state"><h3>Carregando equipe...</h3></div>';
-  db.collection('users').get().then(snap=>{
-    const users = [];
-    snap.forEach(doc=>users.push({id:doc.id, ...doc.data()}));
-    const rows = users.map(u=>`
-      <div class="supplier-card" style="cursor:default; display:flex; align-items:center; justify-content:space-between;">
-        <div>
-          <h3 style="font-size:14px;">${u.email}</h3>
-          <div class="supplier-meta">${u.id===currentUser.uid?'Você':''}</div>
-        </div>
-        <select class="team-role-select" onchange="changeUserRole('${u.id}', this.value)" ${u.id===currentUser.uid?'disabled':''}>
-          <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
-          <option value="editor" ${u.role==='editor'?'selected':''}>Editor</option>
-          <option value="viewer" ${u.role==='viewer'?'selected':''}>Visualizador</option>
-        </select>
-      </div>
-    `).join('');
-    el.innerHTML = `
-      <div class="form-hint" style="margin-bottom:14px;">Admin: acesso total, inclusive gerenciar a equipe. Editor: cria e edita processos, fornecedores e parceiros. Visualizador: apenas consulta.</div>
-      <div class="supplier-grid" style="grid-template-columns:1fr;">${rows}</div>
-      <div class="cost-note" style="margin-top:16px;">Para adicionar uma nova pessoa, cadastre o login dela no Console do Firebase (Authentication > Users). Na primeira vez que ela entrar, aparece aqui automaticamente como Editor.</div>
-    `;
-  });
+  const tabsHtml = `
+    <div class="tabs" style="margin-bottom:16px;">
+      <button class="tab-btn ${equipeSubTab==='usuarios'?'active':''}" onclick="switchEquipeSubTab('usuarios')">Usuários</button>
+      <button class="tab-btn ${equipeSubTab==='cargos'?'active':''}" onclick="switchEquipeSubTab('cargos')">Cargos e Permissões</button>
+    </div>
+  `;
+  if(equipeSubTab==='cargos'){
+    await renderCargosSubTab(el, tabsHtml);
+  } else {
+    await renderUsuariosSubTab(el, tabsHtml);
+  }
 }
 
-async function changeUserRole(uid, role){
-  await db.collection('users').doc(uid).set({role}, {merge:true});
+async function renderUsuariosSubTab(el, tabsHtml){
+  const [usersSnap, cargosSnap] = await Promise.all([
+    db.collection('users').get(),
+    db.collection('cargos').get(),
+  ]);
+  const users = []; usersSnap.forEach(doc=>users.push({id:doc.id, ...doc.data()}));
+  const cargos = []; cargosSnap.forEach(doc=>cargos.push({id:doc.id, ...doc.data()}));
+  window.__cargos = cargos;
+  const cargoOptionsHtml = (u)=>{
+    const isAdmin = u.role==='admin';
+    const podeAtribuirAdmin = currentRole==='admin'; // só um admin de verdade pode promover/rebaixar admin
+    return `
+      ${podeAtribuirAdmin ? `<option value="admin" ${isAdmin?'selected':''}>Administrador (acesso total)</option>` : (isAdmin ? `<option value="admin" selected>Administrador (acesso total)</option>` : '')}
+      ${cargos.map(c=>`<option value="${c.id}" ${(!isAdmin && u.cargoId===c.id)?'selected':''}>${c.nome}</option>`).join('')}
+    `;
+  };
+  const rows = users.map(u=>`
+    <div class="supplier-card" style="cursor:default; display:flex; align-items:center; justify-content:space-between;">
+      <div>
+        <h3 style="font-size:14px;">${u.email}</h3>
+        <div class="supplier-meta">${u.id===currentUser.uid?'Você':''}</div>
+      </div>
+      <select class="team-role-select" onchange="changeUserCargo('${u.id}', this.value)" ${(u.id===currentUser.uid && currentRole==='admin')?'disabled title="Você não pode alterar seu próprio cargo administrativo por aqui — peça a outro administrador."':''}>
+        ${cargoOptionsHtml(u)}
+      </select>
+    </div>
+  `).join('');
+  el.innerHTML = tabsHtml + `
+    <div class="form-hint" style="margin-bottom:14px;">Administrador tem acesso total à plataforma, sempre. Os demais cargos seguem a matriz de permissões configurada na aba "Cargos e Permissões".</div>
+    <div class="supplier-grid" style="grid-template-columns:1fr;">${rows}</div>
+    <div class="cost-note" style="margin-top:16px;">Para adicionar uma nova pessoa, cadastre o login dela no Console do Firebase (Authentication &gt; Users). Na primeira vez que ela entrar, aparece aqui automaticamente com o cargo Editor.</div>
+  `;
+}
+
+async function renderCargosSubTab(el, tabsHtml){
+  const [cargosSnap, usersSnap] = await Promise.all([
+    db.collection('cargos').get(),
+    db.collection('users').get(),
+  ]);
+  const cargos = []; cargosSnap.forEach(doc=>cargos.push({id:doc.id, ...doc.data()}));
+  const users = []; usersSnap.forEach(doc=>users.push({id:doc.id, ...doc.data()}));
+  window.__cargos = cargos;
+  cargos.sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+  const usoCount = (cargoId)=> users.filter(u=>u.role!=='admin' && u.cargoId===cargoId).length;
+  const rows = cargos.map(c=>{
+    const emUso = usoCount(c.id);
+    return `
+    <div class="supplier-card" style="cursor:default; display:flex; align-items:center; justify-content:space-between;">
+      <div>
+        <h3 style="font-size:14px;">${c.nome}${c.sistema?' <span class="ex-badge" title="Cargo padrão do sistema">padrão</span>':''}</h3>
+        <div class="supplier-meta">${emUso} usuário(s) com este cargo</div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn" style="padding:6px 12px; font-size:12px;" onclick="openCargoModal('${c.id}')">Editar</button>
+        <button class="btn btn-danger" style="padding:6px 12px; font-size:12px;" onclick="deleteCargo('${c.id}')">Excluir</button>
+      </div>
+    </div>`;
+  }).join('');
+  el.innerHTML = tabsHtml + `
+    <div class="form-hint" style="margin-bottom:14px;">"Administrador" tem acesso total e não é um cargo configurável aqui — é atribuído diretamente na aba Usuários, pra nunca ficar sujeito a uma reconfiguração acidental que trave o acesso de todo mundo à plataforma.</div>
+    <div style="margin-bottom:14px;"><button class="btn btn-primary" onclick="openCargoModal()">+ Novo Cargo</button></div>
+    <div class="supplier-grid" style="grid-template-columns:1fr;">${rows || '<div class="form-hint">Nenhum cargo cadastrado ainda.</div>'}</div>
+  `;
+}
+
+/* Troca o cargo de um usuário — trata "admin" como caso especial (não é um doc em 'cargos').
+   Sempre garante que reste pelo menos 1 administrador na plataforma antes de rebaixar alguém,
+   pra nunca deixar a plataforma sem ninguém com acesso administrativo (pedido explicitamente). */
+async function changeUserCargo(uid, value){
+  if(value==='admin' && currentRole!=='admin'){
+    alert('Só um administrador pode promover alguém a Administrador.');
+    renderEquipe();
+    return;
+  }
+  if(value!=='admin'){
+    // checa se essa troca deixaria a plataforma sem nenhum admin
+    const usersSnap = await db.collection('users').get();
+    const admins = [];
+    usersSnap.forEach(doc=>{ if(doc.data().role==='admin') admins.push(doc.id); });
+    if(admins.length===1 && admins[0]===uid){
+      alert('Não é possível remover o último administrador da plataforma. Promova outra pessoa a Administrador antes de rebaixar esta.');
+      renderEquipe();
+      return;
+    }
+  }
+  const data = value==='admin' ? { role:'admin', cargoId: null } : { role:'editor', cargoId: value };
+  await db.collection('users').doc(uid).set(data, {merge:true});
   renderEquipe();
+}
+
+/* ---------- Modal de Cargo (criar/editar + matriz de permissões) ---------- */
+function openCargoModal(id){
+  const existing = id ? (window.__cargos||[]).find(c=>c.id===id) : null;
+  const c = existing || { nome:'', permissoes:{}, verAlertas:true, history:[] };
+  window.__editingCargo = JSON.parse(JSON.stringify(c));
+  window.__editingCargoId = id || null;
+
+  const tabs = getPermissionTabs();
+  const matrixRowsHtml = tabs.map(t=>{
+    const perm = c.permissoes[t.key] || {ver:false, editar:false};
+    return `
+      <tr>
+        <td style="padding:6px 8px; font-size:13px;">${t.label}</td>
+        <td style="text-align:center;"><input type="checkbox" id="cargo-perm-${t.key}-ver" ${perm.ver?'checked':''} onchange="onCargoPermVerChange('${t.key}')"></td>
+        <td style="text-align:center;"><input type="checkbox" id="cargo-perm-${t.key}-editar" ${perm.editar?'checked':''} onchange="onCargoPermEditarChange('${t.key}')"></td>
+      </tr>
+    `;
+  }).join('');
+  const verAlertasChecked = c.verAlertas===false ? '' : 'checked';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modal-overlay';
+  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  overlay.innerHTML = `
+    <div class="modal">
+      <div class="modal-header">
+        <h2>${existing?'Editar Cargo':'Novo Cargo'}</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group"><label>Nome do Cargo</label><input id="cargo-nome" value="${c.nome||''}" placeholder="Ex: Analista, Financeiro, COMEX..."></div>
+        <div class="form-hint" style="margin-bottom:10px;">Marque, para cada área da plataforma, se este cargo pode Visualizar e/ou Editar. Editar sem Visualizar não faz sentido — marcar Editar já marca Visualizar automaticamente.</div>
+        <table class="prov-mini-table" style="width:100%;">
+          <tr><th style="text-align:left;">Área</th><th>Visualizar</th><th>Editar</th></tr>
+          ${matrixRowsHtml}
+        </table>
+        <div class="form-group" style="margin-top:16px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="cargo-ver-alertas" ${verAlertasChecked}>
+            <span>Ver alertas de pendências nos processos</span>
+          </label>
+          <div class="form-hint">Controla se este cargo enxerga os avisos que aparecem nos cards de processo, como "faltando provisionamento", "sem despachante definido" ou "devolução do container atrasada". Independe da permissão de Visualizar/Editar Processos.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div>${existing && !existing.sistema ? `<button class="btn btn-danger" onclick="closeModal(); deleteCargo('${existing.id}');">Excluir Cargo</button>` : '<span></span>'}</div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" onclick="closeModal()">Cancelar</button>
+          <button class="btn btn-primary" onclick="saveCargo(${!!existing})">Salvar Cargo</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+/* Marcar Editar liga Visualizar junto (não faz sentido editar sem ver); desmarcar Visualizar
+   desliga Editar junto, pela mesma razão. */
+function onCargoPermVerChange(tabKey){
+  const ver = document.getElementById(`cargo-perm-${tabKey}-ver`);
+  const editar = document.getElementById(`cargo-perm-${tabKey}-editar`);
+  if(!ver.checked) editar.checked = false;
+}
+function onCargoPermEditarChange(tabKey){
+  const ver = document.getElementById(`cargo-perm-${tabKey}-ver`);
+  const editar = document.getElementById(`cargo-perm-${tabKey}-editar`);
+  if(editar.checked) ver.checked = true;
+}
+
+async function saveCargo(isEdit){
+  const nome = document.getElementById('cargo-nome').value.trim();
+  if(!nome){ alert('Informe o nome do cargo.'); return; }
+  const prev = window.__editingCargo || {};
+  const id = window.__editingCargoId || uid();
+
+  const permissoes = {};
+  getPermissionTabs().forEach(t=>{
+    const ver = document.getElementById(`cargo-perm-${t.key}-ver`);
+    const editar = document.getElementById(`cargo-perm-${t.key}-editar`);
+    permissoes[t.key] = { ver: ver ? ver.checked : false, editar: editar ? editar.checked : false };
+  });
+  const verAlertasEl = document.getElementById('cargo-ver-alertas');
+  const verAlertas = verAlertasEl ? verAlertasEl.checked : true;
+
+  const userEmail = currentUser ? currentUser.email : '';
+  const history = (prev.history||[]).slice();
+  if((prev.nome||'') !== nome){
+    history.push({ ts: Date.now(), field:'Nome do Cargo', valorAnterior: prev.nome||'', valorNovo: nome, userEmail });
+  }
+  getPermissionTabs().forEach(t=>{
+    const antes = prev.permissoes && prev.permissoes[t.key] ? prev.permissoes[t.key] : {ver:false, editar:false};
+    const depois = permissoes[t.key];
+    if(antes.ver!==depois.ver || antes.editar!==depois.editar){
+      const fmt = p => p.editar ? 'Ver + Editar' : (p.ver ? 'Somente Ver' : 'Sem acesso');
+      history.push({ ts: Date.now(), field:`Permissão — ${t.label}`, valorAnterior: fmt(antes), valorNovo: fmt(depois), userEmail });
+    }
+  });
+  const verAlertasAntes = prev.verAlertas===false ? false : true;
+  if(verAlertasAntes !== verAlertas){
+    history.push({ ts: Date.now(), field:'Ver Alertas de Pendências', valorAnterior: verAlertasAntes?'Sim':'Não', valorNovo: verAlertas?'Sim':'Não', userEmail });
+  }
+
+  const data = {
+    nome, permissoes, verAlertas,
+    sistema: !!prev.sistema,
+    history,
+    createdAt: prev.createdAt || Date.now(),
+    updatedAt: Date.now(),
+  };
+  try{
+    await db.collection('cargos').doc(id).set(data);
+    // se o cargo do próprio usuário logado foi editado, atualiza a matriz aplicada na hora
+    if(currentUserCargoId===id){ currentUserPermissoes = permissoes; currentUserVerAlertas = verAlertas; }
+    closeModal();
+    renderEquipe();
+  }catch(e){
+    console.error(e);
+    alert('Não foi possível salvar o cargo: ' + e.message);
+  }
+}
+
+async function deleteCargo(id){
+  const usersSnap = await db.collection('users').get();
+  let emUso = 0;
+  usersSnap.forEach(doc=>{ if(doc.data().role!=='admin' && doc.data().cargoId===id) emUso++; });
+  if(emUso>0){
+    alert(`Este cargo está em uso por ${emUso} usuário(s). Troque o cargo dessas pessoas antes de excluí-lo.`);
+    return;
+  }
+  if(!confirm('Excluir este cargo? Esta ação não pode ser desfeita.')) return;
+  try{
+    await db.collection('cargos').doc(id).delete();
+    renderEquipe();
+  }catch(e){
+    console.error(e);
+    alert('Não foi possível excluir o cargo: ' + e.message);
+  }
 }
 
 /* ---------- PERSONALIZAÇÃO DO PAINEL ---------- */
@@ -4268,7 +4837,7 @@ function renderDashboardResults(){
     <div class="empty-state">
       <h3>Nenhum processo em andamento</h3>
       <p>Cadastre seu primeiro processo de importação para começar a acompanhar aqui.</p>
-      ${currentRole!=='viewer' ? `<button class="btn btn-primary" onclick="openProcessModal()">+ Novo Processo</button>` : ''}
+      ${canEdit('processos') ? `<button class="btn btn-primary" onclick="openProcessModal()">+ Novo Processo</button>` : ''}
     </div>
   `;
   }
@@ -4301,11 +4870,50 @@ let productSearchState = { field:'pn', query:'', results:[], loading:false };
 
 function sanitizePN(v){ return String(v==null?'':v).trim(); }
 
+/* Remove acentos e caixa pra comparação de busca (ex: "Veraview" == "veraview" == "VERAVIEW"). */
+function normalizeSearchText(v){
+  return String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+}
+
+/* Cache em memória do catálogo completo — usado só pra busca "contains" de Nome/Descrição
+   (Firestore não faz "contains", só prefixo). Invalidado sempre que um produto é salvo,
+   inativado/reativado ou importado, pra nunca mostrar resultado desatualizado na mesma sessão. */
+let __produtosCacheAll = null;
+async function getAllProdutosCached(forceRefresh){
+  if(__produtosCacheAll && !forceRefresh) return __produtosCacheAll;
+  try{
+    const snap = await db.collection('produtos').get();
+    const out = [];
+    snap.forEach(doc=>out.push({id:doc.id, ...doc.data()}));
+    __produtosCacheAll = out;
+    return out;
+  }catch(e){
+    console.error('Erro ao carregar catálogo completo de produtos', e);
+    return __produtosCacheAll || [];
+  }
+}
+function invalidateProdutosCache(){ __produtosCacheAll = null; }
+
 async function searchProducts(field, query, limitN){
   limitN = limitN || 30;
   const q = String(query||'').trim();
   if(!q) return [];
   try{
+    if(field==='descricao'){
+      /* Busca "contains", ignorando acentos/caixa e a ordem das palavras digitadas — ex:
+         "X800" encontra "VERAVIEW X800", e "X800 VERAVIEW" também encontra. O Firestore só
+         suporta busca por prefixo (startAt/endAt), então aqui filtramos em memória, contra
+         Nome/Descrição + Produto (modelo), que juntos cobrem como o nome comercial costuma
+         estar escrito no cadastro. */
+      const all = await getAllProdutosCached();
+      const tokens = normalizeSearchText(q).split(/\s+/).filter(Boolean);
+      if(!tokens.length) return [];
+      const matches = all.filter(p=>{
+        const hay = normalizeSearchText((p.descricao||'') + ' ' + (p.produto||''));
+        return tokens.every(t=>hay.includes(t));
+      });
+      return matches.slice(0, limitN);
+    }
     let ref = db.collection('produtos').orderBy(field).startAt(q).endAt(q+'\uf8ff').limit(limitN);
     const snap = await ref.get();
     const out = [];
@@ -4335,7 +4943,7 @@ async function renderBancoItensPage(){
         ${['pn','descricao','ncm','fabricante'].map(f=>`<option value="${f}" ${productSearchState.field===f?'selected':''}>${f==='pn'?'PN':f==='descricao'?'Nome/Descrição':f==='ncm'?'NCM':'Fabricante'}</option>`).join('')}
       </select>
       <input type="text" id="product-search-input" placeholder="Digite para buscar..." value="${productSearchState.query}" oninput="runProductSearch()">
-      ${currentRole!=='viewer' ? `
+      ${canEdit('bancoitens') ? `
         <button class="btn" onclick="openImportModal()">Importar Planilha</button>
         <button class="btn btn-primary" onclick="openProductModal()">+ Novo Produto</button>
       ` : ''}
@@ -4477,8 +5085,8 @@ async function openProductModal(pn){
       <div class="modal-footer">
         <div>${existing?`<button class="btn ${p.ativo===false?'':'btn-danger'}" onclick="toggleProductActive('${sanitizePN(p.pn)}', ${p.ativo===false})">${p.ativo===false?'Reativar':'Marcar como Inativo'}</button>`:'<span></span>'}</div>
         <div style="display:flex; gap:8px;">
-          <button class="btn" onclick="closeModal()">${currentRole==='viewer'?'Fechar':'Cancelar'}</button>
-          ${currentRole!=='viewer' ? `<button class="btn btn-primary" onclick="saveProduct(${!!existing})">Salvar Produto</button>` : ''}
+          <button class="btn" onclick="closeModal()">${!canEdit('bancoitens')?'Fechar':'Cancelar'}</button>
+          ${canEdit('bancoitens') ? `<button class="btn btn-primary" onclick="saveProduct(${!!existing})">Salvar Produto</button>` : ''}
         </div>
       </div>
     </div>
@@ -4677,7 +5285,7 @@ function getEmpresaConfig(){
 
 function renderEmpresaPage(){
   const cfg = getEmpresaConfig();
-  const podeEditar = currentRole!=='viewer';
+  const podeEditar = canEdit('empresa');
   const estoquesHtml = cfg.estoques.length ? cfg.estoques.map(e=>`
     <div class="prov-line" data-estoque-id="${e.id}">
       <div class="prov-line-label">
@@ -4741,7 +5349,7 @@ async function removeEstoque(id){
 }
 
 function renderNCMPage(){
-  const header = currentRole!=='viewer' ? `<div style="margin-bottom:18px;"><button class="btn btn-primary" onclick="openNCMModal()">+ Nova NCM</button></div>` : '';
+  const header = canEdit('ncm') ? `<div style="margin-bottom:18px;"><button class="btn btn-primary" onclick="openNCMModal()">+ Nova NCM</button></div>` : '';
   const alertsHtml = renderNCMAlertsBanner();
   const searchBarHtml = `
     <div class="product-search-bar">
@@ -4860,13 +5468,13 @@ function openNCMModal(id){
         ${existing?`<div class="tab-pane" id="tab-histncm">${historyHtml}</div>`:''}
       </div>
       <div class="modal-footer">
-        <div>${existing && currentRole!=='viewer' ? `
+        <div>${existing && canEdit('ncm') ? `
           <button class="btn ${n.ativo===false?'':'btn-danger'}" onclick="toggleNCMActive('${n.id}', ${n.ativo===false})">${n.ativo===false?'Reativar':'Marcar como Inativo'}</button>
           <button class="btn btn-danger" onclick="deleteNCM('${n.id}')">Excluir</button>
         ` : '<span></span>'}</div>
         <div style="display:flex; gap:8px;">
-          <button class="btn" onclick="closeModal()">${currentRole==='viewer'?'Fechar':'Cancelar'}</button>
-          ${currentRole!=='viewer' ? `<button class="btn btn-primary" onclick="saveNCM('${n.id}')">Salvar NCM</button>` : ''}
+          <button class="btn" onclick="closeModal()">${!canEdit('ncm')?'Fechar':'Cancelar'}</button>
+          ${canEdit('ncm') ? `<button class="btn btn-primary" onclick="saveNCM('${n.id}')">Salvar NCM</button>` : ''}
         </div>
       </div>
     </div>
@@ -5025,6 +5633,7 @@ async function saveProduct(isEdit){
     if(isRename){
       await db.collection('produtos').doc(oldPn).delete();
     }
+    invalidateProdutosCache();
     closeModal();
     alert(`Produto ${pn} salvo com sucesso.`);
     if(currentView==='bancoitens') runProductSearch();
@@ -5038,6 +5647,7 @@ async function toggleProductActive(pn, makeActive){
   if(!requireEditPermission()) return;
   try{
     await db.collection('produtos').doc(pn).set({ ativo: makeActive, updatedAt: Date.now() }, {merge:true});
+    invalidateProdutosCache();
     closeModal();
     if(currentView==='bancoitens') runProductSearch();
   }catch(e){
@@ -5064,9 +5674,9 @@ async function renderRotasPage(){
 
 function renderRotasList(){
   const el = document.getElementById('view-content');
-  const canEdit = currentRole!=='viewer';
+  const canEditHere = canEdit('rotas');
   const rotas = (window.__rotas||[]).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
-  const header = canEdit ? `<div style="margin-bottom:18px;"><button class="btn btn-primary" onclick="openRotaModal()">+ Nova Rota</button></div>` : '';
+  const header = canEditHere ? `<div style="margin-bottom:18px;"><button class="btn btn-primary" onclick="openRotaModal()">+ Nova Rota</button></div>` : '';
   if(!rotas.length){
     el.innerHTML = header + `<div class="empty-state"><h3>Nenhuma rota cadastrada</h3><p>Cadastre os caminhos logísticos que sua empresa costuma usar, ligados aos recintos já cadastrados em Parceiros.</p></div>`;
     return;
@@ -5116,10 +5726,10 @@ function openRotaModal(id){
         <div class="form-hint" style="margin-top:14px;">A rota funciona como um modelo: ao usar numa importação, os recintos são copiados pro processo — se precisar mudar naquele processo específico, muda só lá, sem afetar a rota.</div>
       </div>
       <div class="modal-footer">
-        <div>${existing && currentRole!=='viewer' ? `<button class="btn ${r.ativo===false?'':'btn-danger'}" onclick="toggleRotaActive('${r.id}', ${r.ativo===false})">${r.ativo===false?'Reativar':'Desativar'}</button>` : '<span></span>'}</div>
+        <div>${existing && canEdit('rotas') ? `<button class="btn ${r.ativo===false?'':'btn-danger'}" onclick="toggleRotaActive('${r.id}', ${r.ativo===false})">${r.ativo===false?'Reativar':'Desativar'}</button>` : '<span></span>'}</div>
         <div style="display:flex; gap:8px;">
-          <button class="btn" onclick="closeModal()">${currentRole==='viewer'?'Fechar':'Cancelar'}</button>
-          ${currentRole!=='viewer' ? `<button class="btn btn-primary" onclick="saveRota()">Salvar Rota</button>` : ''}
+          <button class="btn" onclick="closeModal()">${!canEdit('rotas')?'Fechar':'Cancelar'}</button>
+          ${canEdit('rotas') ? `<button class="btn btn-primary" onclick="saveRota()">Salvar Rota</button>` : ''}
         </div>
       </div>
     </div>
@@ -5131,13 +5741,13 @@ function openRotaModal(id){
 function renderRotaPontos(){
   const el = document.getElementById('rota-pontos-list');
   const pontos = window.__editingRota.pontos || [];
-  const canEdit = currentRole!=='viewer';
+  const canEditHere = canEdit('rotas');
   el.innerHTML = pontos.length ? pontos.map((p,idx)=>`
     <div class="config-row">
       <span class="config-id-tag">${idx+1}</span>
       <span style="flex:1; font-size:13px;">${p.recintoNome}</span>
       <span class="supplier-tag">${p.zona||'—'}</span>
-      ${canEdit ? `
+      ${canEditHere ? `
         <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="moveRotaPonto(${idx},-1)" ${idx===0?'disabled':''}>↑</button>
         <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="moveRotaPonto(${idx},1)" ${idx===pontos.length-1?'disabled':''}>↓</button>
         <button class="btn btn-danger" style="padding:4px 8px; font-size:11px;" onclick="removeRotaPonto(${idx})">×</button>
@@ -5237,9 +5847,9 @@ function renderProdutoMestreCard(pr){
 
 function renderProdutosMestreList(){
   const el = document.getElementById('view-content');
-  const canEdit = currentRole!=='viewer';
+  const canEditHere = canEdit('produtosmestre');
   const produtos = (window.__produtosMestre||[]).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
-  const header = canEdit ? `<div style="margin-bottom:18px;"><button class="btn btn-primary" onclick="openProdutoMestreModal()">+ Novo Produto</button></div>` : '';
+  const header = canEditHere ? `<div style="margin-bottom:18px;"><button class="btn btn-primary" onclick="openProdutoMestreModal()">+ Novo Produto</button></div>` : '';
   if(!produtos.length){
     el.innerHTML = header + `<div class="empty-state"><h3>Nenhum produto cadastrado</h3><p>Cadastre as características recorrentes de um tipo de carga (fornecedor, país, portos, temperatura, genset) pra reaproveitar rapidamente na criação de processos.</p></div>`;
     return;
@@ -5427,10 +6037,10 @@ function openProdutoMestreModal(id){
         ${existing?`<div class="tab-pane" id="tab-histprod">${historyHtml}</div>`:''}
       </div>
       <div class="modal-footer">
-        <div>${existing && currentRole!=='viewer' ? `<button class="btn ${pr.ativo===false?'':'btn-danger'}" onclick="toggleProdutoMestreActive('${pr.id}', ${pr.ativo===false})">${pr.ativo===false?'Reativar':'Marcar como Inativo'}</button>` : '<span></span>'}</div>
+        <div>${existing && canEdit('produtosmestre') ? `<button class="btn ${pr.ativo===false?'':'btn-danger'}" onclick="toggleProdutoMestreActive('${pr.id}', ${pr.ativo===false})">${pr.ativo===false?'Reativar':'Marcar como Inativo'}</button>` : '<span></span>'}</div>
         <div style="display:flex; gap:8px;">
-          <button class="btn" onclick="closeModal()">${currentRole==='viewer'?'Fechar':'Cancelar'}</button>
-          ${currentRole!=='viewer' ? `<button class="btn btn-primary" onclick="saveProdutoMestre(${!!existing})">Salvar Produto</button>` : ''}
+          <button class="btn" onclick="closeModal()">${!canEdit('produtosmestre')?'Fechar':'Cancelar'}</button>
+          ${canEdit('produtosmestre') ? `<button class="btn btn-primary" onclick="saveProdutoMestre(${!!existing})">Salvar Produto</button>` : ''}
         </div>
       </div>
     </div>
@@ -5797,6 +6407,7 @@ async function confirmImport(){
       done += chunk.length;
     }
     body.innerHTML = `<div class="empty-state"><h3>Importação concluída</h3><p>${done} produto(s) gravado(s) com sucesso.</p><button class="btn btn-primary" onclick="closeModal()">Fechar</button></div>`;
+    invalidateProdutosCache();
     if(currentView==='bancoitens') runProductSearch();
   }catch(e){
     console.error(e);
@@ -5826,14 +6437,14 @@ function finishEditingIndicator(id){ editingIndicatorIds.delete(id); renderIndic
 
 function renderIndicatorsTable(){
   const el = document.getElementById('view-content');
-  const canEdit = currentRole!=='viewer';
+  const canEditHere = canEdit('indicadores');
   const indicators = window.__indicators || [];
   el.innerHTML = `
     <table class="indicators-table">
-      <thead><tr><th>Indicador</th><th>Meta</th><th>Frequência</th>${canEdit?'<th></th>':''}</tr></thead>
+      <thead><tr><th>Indicador</th><th>Meta</th><th>Frequência</th>${canEditHere?'<th></th>':''}</tr></thead>
       <tbody>
         ${indicators.map(i=>{
-          const isEditing = canEdit && editingIndicatorIds.has(i.id);
+          const isEditing = canEditHere && editingIndicatorIds.has(i.id);
           if(isEditing){
             return `
             <tr>
@@ -5850,12 +6461,12 @@ function renderIndicatorsTable(){
             <td>${i.name}</td>
             <td class="meta-col">${i.meta}</td>
             <td>${i.freq}</td>
-            ${canEdit?`<td style="display:flex; gap:6px;"><button class="btn" style="padding:4px 8px; font-size:11px;" onclick="startEditingIndicator('${i.id}')" title="Editar">✎</button><button class="btn btn-danger" style="padding:4px 9px; font-size:11px;" onclick="removeIndicator('${i.id}')">Excluir</button></td>`:''}
+            ${canEditHere?`<td style="display:flex; gap:6px;"><button class="btn" style="padding:4px 8px; font-size:11px;" onclick="startEditingIndicator('${i.id}')" title="Editar">✎</button><button class="btn btn-danger" style="padding:4px 9px; font-size:11px;" onclick="removeIndicator('${i.id}')">Excluir</button></td>`:''}
           </tr>`;
         }).join('')}
       </tbody>
     </table>
-    ${canEdit?`<button class="btn btn-primary" style="margin-top:14px;" onclick="addIndicator()">+ Novo Indicador</button>`:''}
+    ${canEditHere?`<button class="btn btn-primary" style="margin-top:14px;" onclick="addIndicator()">+ Novo Indicador</button>`:''}
   `;
 }
 
@@ -5921,7 +6532,7 @@ function renderProcessosResults(){
     return hasFilters ? `<div class="empty-state"><h3>Nenhum processo encontrado</h3><p>Nenhum processo bate com os filtros aplicados.</p><button class="btn" onclick="clearPageFilters('processos')">Limpar filtros</button></div>` : `<div class="empty-state">
       <h3>Nenhum processo ativo</h3>
       <p>Crie seu primeiro processo para começar a controlar custos, prazos e documentos.</p>
-      ${currentRole!=='viewer' ? `<button class="btn btn-primary" onclick="openProcessModal()">+ Novo Processo</button>` : ''}
+      ${canEdit('processos') ? `<button class="btn btn-primary" onclick="openProcessModal()">+ Novo Processo</button>` : ''}
     </div>`;
   }
   const sorted = [...list].sort((a,b)=> processProgressRatio(b) - processProgressRatio(a) || (a.chegadaPrevista||'9999').localeCompare(b.chegadaPrevista||'9999'));
@@ -5977,7 +6588,7 @@ function processCard(p, note){
       ${renderAlertBanner(p)}
     </div>
     <div class="process-side">
-      <div class="process-value">${fmtBRL(costs.total)}</div>
+      <div class="stat-chip"><span class="stat-chip-value">${fmtBRL(costs.total)}</span></div>
       <div class="process-eta">Chegada: ${fmtDate(p.chegadaPrevista)}</div>
     </div>
   </div>`;
@@ -6063,7 +6674,7 @@ function desembaracoCard(p){
   if(extra.canalDesembaraco) infoParts.push(`<span><b>Canal:</b> ${canalBadgeHtml(extra.canalDesembaraco)}</span>`);
   if(extra.despachante) infoParts.push(`<span><b>Despachante:</b> ${extra.despachante}</span>`);
   const devolucao = containerReturnDate(p);
-  if(devolucao && !isContainerReturnDone(p)) infoParts.push(`<span><b>Devolução container:</b> ${fmtDate(devolucao.date)}${devolucao.estimated?' (estimada)':''}</span>`);
+  if(devolucao && !isContainerReturnDone(p)) infoParts.push(`<span><b>Devolução container:</b> ${fmtDate(devolucao.date)}</span>`);
   let pendingHtml = '';
   if(p.pendingSince){
     const dias = daysBetween(p.pendingSince, todayStr());
@@ -6125,7 +6736,7 @@ function transitoCard(p){
 
 /* ---------- FORNECEDORES ---------- */
 function renderFornecedores(){
-  const header = currentRole!=='viewer' ? `<div style="margin-bottom:18px;"><button class="btn btn-primary" onclick="openSupplierModal()">+ Novo Fornecedor</button></div>` : '';
+  const header = canEdit('fornecedores') ? `<div style="margin-bottom:18px;"><button class="btn btn-primary" onclick="openSupplierModal()">+ Novo Fornecedor</button></div>` : '';
   if(state.suppliers.length===0){
     return header + `<div class="empty-state">
       <h3>Nenhum fornecedor cadastrado</h3>
@@ -6149,7 +6760,7 @@ function renderFornecedores(){
 
 /* ---------- PARCEIROS ---------- */
 function renderParceiros(){
-  const header = currentRole!=='viewer' ? `<div style="margin-bottom:18px;"><button class="btn btn-primary" onclick="openPartnerModal()">+ Novo Parceiro</button></div>` : '';
+  const header = canEdit('parceiros') ? `<div style="margin-bottom:18px;"><button class="btn btn-primary" onclick="openPartnerModal()">+ Novo Parceiro</button></div>` : '';
   if(state.partners.length===0){
     return header + `<div class="empty-state">
       <h3>Nenhum parceiro cadastrado</h3>
@@ -6265,10 +6876,10 @@ function openPartnerModal(id){
         <div class="form-group"><label>Observações</label><textarea id="pt-notes">${s.notes||''}</textarea></div>
       </div>
       <div class="modal-footer">
-        <div>${existing && currentRole!=='viewer' ?`<button class="btn btn-danger" onclick="deletePartner('${s.id}')">Excluir</button>`:'<span></span>'}</div>
+        <div>${existing && canEdit('parceiros') ?`<button class="btn btn-danger" onclick="deletePartner('${s.id}')">Excluir</button>`:'<span></span>'}</div>
         <div style="display:flex; gap:8px;">
-          <button class="btn" onclick="closeModal()">${currentRole==='viewer'?'Fechar':'Cancelar'}</button>
-          ${currentRole!=='viewer' ? `<button class="btn btn-primary" onclick="savePartner('${s.id}')">Salvar Parceiro</button>` : ''}
+          <button class="btn" onclick="closeModal()">${!canEdit('parceiros')?'Fechar':'Cancelar'}</button>
+          ${canEdit('parceiros') ? `<button class="btn btn-primary" onclick="savePartner('${s.id}')">Salvar Parceiro</button>` : ''}
         </div>
       </div>
     </div>
@@ -6602,7 +7213,7 @@ function openProcessModal(id){
   /* Trava de segurança: Viewer nunca deve cair no modal completo, mesmo que algum ponto de
      entrada futuro esqueça de checar o papel antes de chamar esta função. Se tiver um id,
      manda pro resumo (olho); se for "Novo Processo" (sem id), simplesmente não abre nada. */
-  if(currentRole==='viewer'){ if(id) openProcessViewModal(id); return; }
+  if(!canEdit('processos')){ if(id) openProcessViewModal(id); return; }
   const existing = id ? state.processes.find(p=>p.id===id) : null;
   const base = existing || {id:uid(), status:'fase1', tipo:'definitiva', docs:{}};
   const p = initProcessData(JSON.parse(JSON.stringify(base)));
@@ -6622,7 +7233,7 @@ function openProcessModal(id){
   overlay.id = 'modal-overlay';
   overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
   overlay.innerHTML = `
-    <div class="modal ${currentRole==='viewer'?'modal-readonly':''}">
+    <div class="modal ${!canEdit('processos')?'modal-readonly':''}">
       <div class="modal-header">
         <h2>${existing?'Editar Processo':'Novo Processo'}</h2>
         <button class="modal-close" onclick="closeModal()">×</button>
@@ -6784,7 +7395,7 @@ function openProcessModal(id){
         </div>
 
         <div class="tab-pane" id="tab-itens">
-          ${currentRole!=='viewer' ? `
+          ${canEdit('processos') ? `
           <div class="item-autocomplete-wrap" style="margin-bottom:14px;">
             <input type="text" id="item-pn-input" placeholder="Digite o PN do produto..." style="width:100%; padding:10px 12px; border:1px solid var(--border-strong); border-radius:6px; font-size:13.5px;" oninput="onItemPNInput(this.value)">
             <div class="item-autocomplete-list" id="item-autocomplete-list" style="display:none;"></div>
@@ -6910,12 +7521,12 @@ function openProcessModal(id){
       </div>
       <div class="modal-footer">
         <div style="display:flex; gap:8px;">
-          ${existing && currentRole!=='viewer' ?`<button class="btn btn-danger" onclick="deleteProcess('${p.id}')">Excluir</button>`:''}
+          ${existing && canEdit('processos') ?`<button class="btn btn-danger" onclick="deleteProcess('${p.id}')">Excluir</button>`:''}
           <button class="btn btn-pdf" onclick="generateCapaPDF()">Gerar Capa (PDF)</button>
         </div>
         <div style="display:flex; gap:8px;">
-          <button class="btn" onclick="closeModal()">${currentRole==='viewer'?'Fechar':'Cancelar'}</button>
-          ${currentRole!=='viewer' ? `<button class="btn btn-primary" onclick="saveProcess()">Salvar Processo</button>` : ''}
+          <button class="btn" onclick="closeModal()">${!canEdit('processos')?'Fechar':'Cancelar'}</button>
+          ${canEdit('processos') ? `<button class="btn btn-primary" onclick="saveProcess()">Salvar Processo</button>` : ''}
         </div>
       </div>
     </div>
@@ -7282,11 +7893,11 @@ function renderDocsTab(){
   p.customDocs = p.customDocs || [];
   const el = document.getElementById('docs-list');
   if(!el) return;
-  const canEdit = currentRole!=='viewer';
+  const canEditHere = canEdit('processos');
 
-  const fixedRows = getDocTypesForProcess(p).map(d=>renderDocRow(d, d, p, canEdit, false)).join('');
-  const customRows = p.customDocs.map(cd=>renderDocRow('custom:'+cd.id, cd.name, p, canEdit, true)).join('');
-  const addRow = canEdit ? `
+  const fixedRows = getDocTypesForProcess(p).map(d=>renderDocRow(d, d, p, canEditHere, false)).join('');
+  const customRows = p.customDocs.map(cd=>renderDocRow('custom:'+cd.id, cd.name, p, canEditHere, true)).join('');
+  const addRow = canEditHere ? `
     <div style="display:flex; gap:8px; margin-top:10px;">
       <input type="text" id="new-custom-doc-name" placeholder="Ex: Segunda Fatura, Certificado de Origem..." style="flex:1; padding:9px 11px; border:1px solid var(--border-strong); border-radius:6px; font-size:13px;">
       <button class="btn" onclick="addCustomDoc(document.getElementById('new-custom-doc-name').value); document.getElementById('new-custom-doc-name').value='';">+ Outro Documento</button>
@@ -7834,10 +8445,10 @@ function openSupplierModal(id){
         <div class="form-group"><label>Observações Gerais</label><textarea id="s-notes">${s.notes||''}</textarea></div>
       </div>
       <div class="modal-footer">
-        <div>${existing && currentRole!=='viewer' ?`<button class="btn btn-danger" onclick="deleteSupplier('${s.id}')">Excluir</button>`:'<span></span>'}</div>
+        <div>${existing && canEdit('fornecedores') ?`<button class="btn btn-danger" onclick="deleteSupplier('${s.id}')">Excluir</button>`:'<span></span>'}</div>
         <div style="display:flex; gap:8px;">
-          <button class="btn" onclick="closeModal()">${currentRole==='viewer'?'Fechar':'Cancelar'}</button>
-          ${currentRole!=='viewer' ? `<button class="btn btn-primary" onclick="saveSupplier('${s.id}')">Salvar Fornecedor</button>` : ''}
+          <button class="btn" onclick="closeModal()">${!canEdit('fornecedores')?'Fechar':'Cancelar'}</button>
+          ${canEdit('fornecedores') ? `<button class="btn btn-primary" onclick="saveSupplier('${s.id}')">Salvar Fornecedor</button>` : ''}
         </div>
       </div>
     </div>
