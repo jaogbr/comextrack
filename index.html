@@ -1106,13 +1106,16 @@ const STAGE_DEFS = [
     /* Lista fixa pedida — pagamentos são guardados por CHAVE (não por posição no array), então
        adicionar/renomear itens aqui é seguro e não embaralha o progresso de processos que já
        têm pagamentos marcados (diferente do checklist de tick, que é por índice). Armazenagem
-       Zona Primária e Transporte DTA somem sozinhos pro modal aéreo, logo abaixo. */
+       Zona Primária, Transporte DTA e Lavagem de Container somem sozinhos pro modal aéreo,
+       logo abaixo. Lavagem de Container é "condicional": tem uma pergunta Sim/Não antes —
+       só mostra a linha de pagamento normal (valor, Pedido SAP, Vencimento) quando for Sim. */
     items:[
       {key:'freteInternacional', label:'Frete Internacional'},
       {key:'armazenagemZonaPrimaria', label:'Armazenagem Zona Primária'},
       {key:'armazenagemZonaSecundaria', label:'Armazenagem Zona Secundária'},
       {key:'dta', label:'Transporte DTA'},
       {key:'prestacaoDespachante', label:'Honorários Despachante'},
+      {key:'lavagemContainer', label:'Lavagem de Container', condicional:true},
     ]},
   {key:'fase9', label:'Fase 9 · Encerramento', cls:'stamp-entregue',
     items:['Despesa de importação','Custo de importação','Enviar pasta para encerrado','Fechamento físico do processo']},
@@ -1789,12 +1792,7 @@ function renderProvisionamentoTab(){
           <input type="text" inputmode="decimal" id="prov-dta" value="${extra.provTransporteDtaBrl?fmtNumberBR(extra.provTransporteDtaBrl):''}" oninput="maskCurrencyInput(this);" onchange="updateExtraField('provTransporteDtaBrl', parseBRMasked(this.value)); updateProvPreview();" placeholder="0,00 (opcional por enquanto)">
         </div>
       </div>
-      <div class="prov-line">
-        <div class="prov-line-label">Lavagem de Container <span style="font-weight:400; text-transform:none; font-style:italic;">— quando aplicável</span></div>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <input type="text" inputmode="decimal" id="prov-lavagem" value="${extra.provLavagemContainerBrl?fmtNumberBR(extra.provLavagemContainerBrl):''}" oninput="maskCurrencyInput(this);" onchange="updateExtraField('provLavagemContainerBrl', parseBRMasked(this.value)); updateProvPreview();" placeholder="0,00 (opcional)">
-        </div>
-      </div>
+      <div class="form-hint">Lavagem de Container agora é preenchida direto na etapa Pagamentos (Fase 8) — só aparece lá quando marcada como "Sim".</div>
       ` : ''}
     </div>
 
@@ -1828,7 +1826,7 @@ function congelarProvisionamento(){
   const icmsValor = (p.regime!=='revenda') ? (parseFloat(p.icms)||0) : 0;
   const siscomexValor = getTaxaSiscomexDespachante(p).valor;
   const dtaValor = parseFloat(extra.provTransporteDtaBrl)||0;
-  const lavagemValor = parseFloat(extra.provLavagemContainerBrl)||0;
+  const lavagemValor = getLavagemContainerValor(p);
   const armazenagemZP = arm.status==='ok' ? arm.total : 0;
   const armazenagemZS = armZS.status==='ok' ? armZS.total : 0;
   const totalGeral = honorarios + impostos.total + icmsValor + freteInternacionalBrl + armazenagemZP + armazenagemZS + siscomexValor + dtaValor + lavagemValor;
@@ -1962,7 +1960,7 @@ function updateProvPreview(){
   const icmsValor = (p.regime!=='revenda') ? (parseFloat(p.icms)||0) : 0;
   const siscomexValor = getTaxaSiscomexDespachante(p).valor;
   const dtaValor = parseFloat(extra.provTransporteDtaBrl)||0;
-  const lavagemValor = parseFloat(extra.provLavagemContainerBrl)||0;
+  const lavagemValor = getLavagemContainerValor(p);
 
   const totalEl = document.getElementById('prov-total-body');
   if(totalEl){
@@ -4415,12 +4413,20 @@ function originModalMeta(p){
   const pais = p.origemPais || 'Origem não definida';
   return `${flag?flag+' ':''}${pais} · ${modalIcon(p.modal)} ${modalLabel(p.modal)}`;
 }
+/* Compartilhada: um item de Pagamentos "condicional" (hoje só Lavagem de Container)
+   respondido explicitamente "Não" não é uma pendência — não há pagamento nenhum a fazer,
+   então nunca deve travar a etapa, o histórico "Pendente:" nem o cálculo de conclusão. */
+function isPaymentItemNaoAplicavel(p, it){
+  if(!it.condicional) return false;
+  const flagKey = 'teve'+it.key.charAt(0).toUpperCase()+it.key.slice(1);
+  return !!(p.extra && p.extra[flagKey] === false);
+}
 function currentPendingKey(p){
   const stages = getStagesForProcess(p);
   const stage = stages.find(s=>s.key===p.status);
   if(!stage) return String(p.status);
   if(stage.type==='payments'){
-    const idx = stage.items.findIndex(it=>!(p.payments[it.key]||{}).checked);
+    const idx = stage.items.findIndex(it=>!isPaymentItemNaoAplicavel(p,it) && !(p.payments[it.key]||{}).checked);
     return `${p.status}:pay:${idx}`;
   }
   const checked = p.checklist[stage.key]||[];
@@ -4498,9 +4504,10 @@ function getStagesForProcess(p){
     }
 
     if(s.key==='fase8' && isAereo){
-      // Armazenagem Zona Primária e Transporte DTA não existem no aéreo — remove os dois,
-      // fica só Frete Internacional, Armazenagem Zona Secundária e Honorários Despachante.
-      const items = s.items.filter(it=>it.key!=='armazenagemZonaPrimaria' && it.key!=='dta');
+      // Armazenagem Zona Primária, Transporte DTA e Lavagem de Container não existem no
+      // aéreo — remove os três, fica só Frete Internacional, Armazenagem Zona Secundária e
+      // Honorários Despachante.
+      const items = s.items.filter(it=>it.key!=='armazenagemZonaPrimaria' && it.key!=='dta' && it.key!=='lavagemContainer');
       return {...s, items};
     }
 
@@ -4555,7 +4562,7 @@ function stageComplete(p, stageKey){
   const stage = getStagesForProcess(p).find(s=>s.key===stageKey);
   if(!stage) return false;
   if(stage.type==='payments'){
-    const fixedOk = stage.items.every(it=> (p.payments[it.key]||{}).checked===true);
+    const fixedOk = stage.items.every(it=> isPaymentItemNaoAplicavel(p,it) || (p.payments[it.key]||{}).checked===true);
     const customOk = (p.customPayments||[]).every(cp=> (p.payments['custom:'+cp.id]||{}).checked===true);
     return fixedOk && customOk;
   }
@@ -4671,7 +4678,7 @@ function currentStepLabel(p){
      está pendente. */
   for(const stage of stages){
     if(stage.type==='payments'){
-      const pend = stage.items.find(it=> !(p.payments[it.key]||{}).checked);
+      const pend = stage.items.find(it=> !isPaymentItemNaoAplicavel(p,it) && !(p.payments[it.key]||{}).checked);
       if(pend) return `Pendente: ${pend.label}`;
     } else {
       const checked = p.checklist[stage.key]||[];
@@ -4722,34 +4729,47 @@ function computeCostosComparativo(p){
   const pago = (key)=> !!(payments[key] && payments[key].checked);
   const valorPago = (key)=> pago(key) ? (parseFloat(payments[key].valor)||0) : null;
   const isAereo = p.modal === 'aereo';
+  /* Depois que o Provisionamento é enviado ao Financeiro (congelado), ELE passa a ser a
+     referência de "Inicial" desta comparação — não mais o que estiver solto na aba Custos
+     (que pode ter sido preenchido antes, depois, ou nunca). Sem Provisionamento congelado
+     ainda, cai pro cálculo ao vivo a partir de Custos, como já era antes. */
+  const congelado = p.provisionamentoCongelado ? p.provisionamentoCongelado.snapshot : null;
 
-  const freteInicialBrl = (parseFloat(p.frete)||0) * cambio;
+  const freteInicialBrl = congelado ? (congelado.freteInternacional||0) : (parseFloat(p.frete)||0) * cambio;
   const freteRealizadoBrl = valorPago('freteInternacional');
 
-  const honorariosInicialBrl = getHonorariosDespachante(p).valor;
+  const honorariosInicialBrl = congelado ? (congelado.honorarios||0) : getHonorariosDespachante(p).valor;
   const honorariosRealizadoBrl = valorPago('prestacaoDespachante');
 
-  const dtaInicialBrl = 0; // estrutura preparada — fórmula definitiva de cálculo ainda não definida
+  const dtaInicialBrl = congelado ? (congelado.transporteDTA||0) : 0; // sem Provisionamento ainda, fórmula definitiva de cálculo não existe
   const dtaRealizadoBrl = valorPago('dta');
 
-  const armZP = !isAereo ? computeArmazenagemZonaPrimaria(p) : null;
-  const armZPInicialBrl = armZP && armZP.status==='ok' ? armZP.total : 0;
+  const armZP = (!isAereo && !congelado) ? computeArmazenagemZonaPrimaria(p) : null;
+  const armZPInicialBrl = congelado ? (congelado.armazenagemZP||0) : (armZP && armZP.status==='ok' ? armZP.total : 0);
   const armZPRealizadoBrl = valorPago('armazenagemZonaPrimaria');
 
-  const armZS = computeArmazenagemZonaSecundaria(p);
-  const armZSInicialBrl = armZS && armZS.status==='ok' ? armZS.total : 0;
+  const armZS = !congelado ? computeArmazenagemZonaSecundaria(p) : null;
+  const armZSInicialBrl = congelado ? (congelado.armazenagemZS||0) : (armZS && armZS.status==='ok' ? armZS.total : 0);
   const armZSRealizadoBrl = valorPago('armazenagemZonaSecundaria');
+
+  const lavagemInicialBrl = congelado ? (congelado.lavagemContainer||0) : 0;
+  const lavagemRealizadoBrl = ((p.extra||{}).teveLavagemContainer) ? valorPago('lavagemContainer') : null;
 
   const linhas = [
     { label:'Frete Internacional', inicial:freteInicialBrl, realizado:freteRealizadoBrl, pago:pago('freteInternacional') },
     ...(isAereo ? [] : [{ label:'Armazenagem Zona Primária', inicial:armZPInicialBrl, realizado:armZPRealizadoBrl, pago:pago('armazenagemZonaPrimaria') }]),
     { label:'Armazenagem Zona Secundária', inicial:armZSInicialBrl, realizado:armZSRealizadoBrl, pago:pago('armazenagemZonaSecundaria') },
     ...(isAereo ? [] : [{ label:'Transporte DTA', inicial:dtaInicialBrl, realizado:dtaRealizadoBrl, pago:pago('dta') }]),
+    ...(isAereo ? [] : [{ label:'Lavagem de Container', inicial:lavagemInicialBrl, realizado:lavagemRealizadoBrl, pago:pago('lavagemContainer') }]),
     { label:'Honorário Despachante', inicial:honorariosInicialBrl, realizado:honorariosRealizadoBrl, pago:pago('prestacaoDespachante') },
   ].map(l=>({ ...l, atual: l.realizado!=null ? l.realizado : l.inicial, diferenca: l.realizado!=null ? (l.realizado - l.inicial) : null }));
 
   const costs = computeCosts(p);
-  const baseFixa = costs.fobBrl + costs.seguroBrl + costs.ii + costs.ipi + costs.pis + costs.cofins + costs.icms + costs.despesas + costs.taxaSiscomex;
+  /* Impostos e Taxa Siscomex também têm equivalente no Provisionamento — depois de congelado,
+     usam o valor que foi enviado ao Financeiro, não o que estiver na aba Custos agora. */
+  const impostosInicial = congelado ? (congelado.impostosII + congelado.impostosIPI + congelado.impostosPIS + congelado.impostosCOFINS + congelado.icms) : (costs.ii + costs.ipi + costs.pis + costs.cofins + costs.icms);
+  const taxaSiscomexInicial = congelado ? (congelado.taxaSiscomex||0) : costs.taxaSiscomex;
+  const baseFixa = costs.fobBrl + costs.seguroBrl + impostosInicial + costs.despesas + taxaSiscomexInicial;
 
   const custoTotalInicial = baseFixa + linhas.reduce((s,l)=>s+l.inicial, 0);
   const custoTotalRealizado = baseFixa + linhas.reduce((s,l)=>s+l.atual, 0);
@@ -8784,6 +8804,26 @@ function toggleTemperaturaControlada(val){
     document.querySelectorAll('.genset-toggle-btn').forEach(b=>b.classList.toggle('active', b.dataset.val==='nao'));
   }
 }
+/* Genérico pra qualquer item de Pagamentos marcado como "condicional" (hoje só Lavagem de
+   Container): guarda a resposta Sim/Não em p.extra['teve'+Chave], e só quando Sim a linha de
+   pagamento normal (valor, Pedido SAP, Vencimento) aparece — igual aos demais itens dessa
+   etapa. Desmarcar pra Não não apaga o pagamento já preenchido, só some da tela e dos totais
+   até marcar Sim de novo. */
+function toggleCondicionalPayment(flagKey, val){
+  const p = window.__editingProcess;
+  p.extra = p.extra || {};
+  p.extra[flagKey] = val;
+  renderEtapasTab();
+  autoPersistCurrentProcess();
+}
+/* Valor da lavagem só entra nos totais quando "teve lavagem" = Sim E o pagamento estiver
+   marcado — nunca soma um valor perdido de um "Sim" antigo que a pessoa depois desmarcou. */
+function getLavagemContainerValor(p){
+  if(!p || !(p.extra||{}).teveLavagemContainer) return 0;
+  const rec = (p.payments||{}).lavagemContainer;
+  return (rec && rec.checked) ? (parseFloat(rec.valor)||0) : 0;
+}
+
 function toggleGenset(val){
   window.__editingProcess.genset = val;
   document.querySelectorAll('.genset-toggle-btn').forEach(b=>{
@@ -9509,11 +9549,14 @@ function renderEtapasTab(){
 
   const html = stages.map((s,i)=>{
     const isPayments = s.type==='payments';
+    /* Item "condicional" (hoje só Lavagem de Container) respondido "Não" não é uma pendência —
+       não existe pagamento nenhum a fazer, então não deve travar a etapa em menos de 100%. */
+    const itemsAplicaveis = isPayments ? s.items.filter(it=>!isPaymentItemNaoAplicavel(p,it)) : s.items;
     const customPayCount = isPayments ? (p.customPayments||[]).length : 0;
     const doneCount = isPayments
-      ? s.items.filter(it=>(p.payments[it.key]||{}).checked).length + (p.customPayments||[]).filter(cp=>(p.payments['custom:'+cp.id]||{}).checked).length
+      ? itemsAplicaveis.filter(it=>(p.payments[it.key]||{}).checked).length + (p.customPayments||[]).filter(cp=>(p.payments['custom:'+cp.id]||{}).checked).length
       : (p.checklist[s.key]||[]).filter(Boolean).length;
-    const total = s.items.length + customPayCount;
+    const total = (isPayments ? itemsAplicaveis.length : s.items.length) + customPayCount;
     const isDone = doneCount===total;
     const isCurrent = s.key===currentKey;
     const stateCls = isDone ? 'done' : (isCurrent ? 'current' : '');
@@ -9540,6 +9583,20 @@ function renderEtapasTab(){
       };
       bodyHtml = s.items.map(it=>{
         const label = (it.key==='dta' && p.extra && p.extra.transportadoraDTA) ? `${it.label} (${p.extra.transportadoraDTA})` : it.label;
+        if(it.condicional){
+          const teve = !!(p.extra && p.extra['teve'+it.key.charAt(0).toUpperCase()+it.key.slice(1)]);
+          const flagKey = 'teve'+it.key.charAt(0).toUpperCase()+it.key.slice(1);
+          const perguntaHtml = `<div class="payment-row" style="align-items:center;">
+            <div class="payment-row-main" style="align-items:center;">
+              <div class="payment-label" style="flex:1;">${label} — houve?</div>
+              <div class="type-toggle">
+                <button type="button" onclick="toggleCondicionalPayment('${flagKey}', false)" class="${!teve?'active':''}">Não</button>
+                <button type="button" onclick="toggleCondicionalPayment('${flagKey}', true)" class="${teve?'active':''}">Sim</button>
+              </div>
+            </div>
+          </div>`;
+          return perguntaHtml + (teve ? paymentRow(it.key, label) : '');
+        }
         return paymentRow(it.key, label);
       }).join('');
       bodyHtml += (p.customPayments||[]).map(cp=>`
@@ -9857,7 +9914,7 @@ function updateCostPreview(){
   const dtaValor = !isAereo ? (pago('dta') ? valorPago('dta') : dtaEstimado) : 0;
   const dtaTag = (!isAereo && pago('dta')) ? ' <span class="cost-realizado-tag">pago</span>' : '';
 
-  const lavagemValor = !isAereo ? (parseFloat((pLike.extra||{}).provLavagemContainerBrl)||0) : 0;
+  const lavagemValor = !isAereo ? getLavagemContainerValor(pLike) : 0;
 
   const custoTotalHierarquia = costs.fobBrl + freteBrl + costs.seguroBrl + costs.ii + costs.ipi + costs.pis + costs.cofins + (icmsAplicavel?costs.icms:0) + honorarios + costs.taxaSiscomex + costs.despesas + armZPValor + armZSValor + dtaValor + lavagemValor;
 
@@ -9891,6 +9948,10 @@ function renderCustosComparativo(pLike){
   const el = document.getElementById('custos-comparativo');
   if(!el) return;
   const comp = computeCostosComparativo(pLike);
+  const congelado = !!pLike.provisionamentoCongelado;
+  const fonteInicialHtml = congelado
+    ? `<div class="form-hint" style="margin-bottom:10px; color:var(--ink-blue);">📨 O valor Inicial abaixo vem do Provisionamento enviado ao Financeiro em ${formatHistoryDate(pLike.provisionamentoCongelado.ts)} — não muda mais sozinho, mesmo que a aba Custos seja editada depois.</div>`
+    : `<div class="form-hint" style="margin-bottom:10px;">O valor Inicial abaixo ainda é calculado ao vivo a partir da aba Custos, porque o Provisionamento deste processo ainda não foi enviado ao Financeiro. Assim que for enviado, o Inicial passa a vir de lá.</div>`;
   const linhasHtml = comp.linhas.map(l=>`
     <div class="prov-line">
       <div class="prov-line-label">${l.label}${l.pago?' <span style="color:var(--ink-green,#15803d); font-weight:600;">✓ pago</span>':''}</div>
@@ -9902,6 +9963,7 @@ function renderCustosComparativo(pLike){
     </div>
   `).join('');
   el.innerHTML = `
+    ${fonteInicialHtml}
     ${linhasHtml}
     <div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:14px;">
       <div class="stat-box"><span class="stat-box-label">Custo Total Inicial</span><span class="stat-box-value">${fmtBRL(comp.custoTotalInicial)}</span></div>
