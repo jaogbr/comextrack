@@ -434,7 +434,12 @@ body.dark-mode .eye-btn:hover{border-color:var(--ink-blue);}
 .import-status-badge.alterado{background:var(--ink-amber-bg); color:var(--ink-amber);}
 .import-status-badge.inalterado{background:var(--paper); color:var(--muted);}
 
-.item-row{display:grid; grid-template-columns:100px 1fr 100px 90px 110px 40px; gap:8px; align-items:center; background:var(--paper); border:1px solid var(--border); border-radius:6px; padding:9px 11px; margin-bottom:6px;}
+.item-row{display:grid; grid-template-columns:100px 1fr 90px 100px 90px 110px 40px; gap:8px; align-items:center; background:var(--paper); border:1px solid var(--border); border-radius:6px; padding:9px 11px; margin-bottom:6px;}
+.item-col-copy{
+  cursor:pointer; margin-left:4px; opacity:0.55; font-size:10px; vertical-align:middle;
+  border:none; background:none; padding:0; color:inherit; font-weight:700;
+}
+.item-col-copy:hover{opacity:1;}
 .item-row input{padding:6px 8px; border:1px solid var(--border-strong); border-radius:5px; font-size:12.5px;}
 .item-row .item-pn{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12px;}
 .item-row .item-pn-link{cursor:pointer; text-decoration:none; border-bottom:1px dotted transparent;}
@@ -2959,6 +2964,7 @@ function renderItensTab(){
       <div class="item-row">
         <span class="item-pn item-pn-link" onclick="openItemMasterProduct('${it.pn.replace(/'/g,"\\'")}')" title="Ver cadastro no Banco de Itens">${it.pn}</span>
         <span class="item-desc">${it.descricao||'—'}${alteradoHtml}</span>
+        <span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--muted);">${it.codigoII||'—'}</span>
         <input type="text" inputmode="decimal" value="${it.valorUnitarioUsado?fmtNumberBR(it.valorUnitarioUsado):''}" oninput="maskCurrencyInput(this); updateItemField(${idx},'valorUnitarioUsado', parseBRMasked(this.value));" title="Valor unitário usado neste processo" style="font-family:'IBM Plex Mono',monospace; font-weight:700;">
         <input type="number" step="1" value="${it.quantidade}" oninput="updateItemField(${idx},'quantidade', this.value)" style="font-family:'IBM Plex Mono',monospace; font-weight:700;">
         <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; text-align:right;">${fmtUSD((parseFloat(it.valorUnitarioUsado)||0)*(parseFloat(it.quantidade)||0))}</span>
@@ -2971,6 +2977,7 @@ function renderItensTab(){
       <div class="item-row">
         <span class="item-pn item-pn-link" onclick="openItemMasterProduct('${it.pn.replace(/'/g,"\\'")}')" title="Ver cadastro no Banco de Itens">${it.pn}</span>
         <span class="item-desc">${it.descricao||'—'}${alteradoHtml}</span>
+        <span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--muted);">${it.codigoII||'—'}</span>
         <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px;">${fmtUSD(parseFloat(it.valorUnitarioUsado)||0)}</span>
         <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px;">${it.quantidade}</span>
         <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; text-align:right;">${fmtUSD((parseFloat(it.valorUnitarioUsado)||0)*(parseFloat(it.quantidade)||0))}</span>
@@ -3025,6 +3032,36 @@ function useItemsTotalAsFOB(valor){
   alert('Valor copiado para o campo FOB (USD) na aba Custos. Clique em Salvar Processo para confirmar.');
 }
 
+/* Copia a coluna inteira (uma linha por item, pronto pra colar direto no Excel) sem precisar
+   selecionar célula por célula — cada botão 📋 no cabeçalho copia só a coluna dele. */
+async function copyItemColumn(field){
+  const p = window.__editingProcess;
+  const itens = p.itens || [];
+  if(!itens.length) return;
+  const valores = itens.map(it=>{
+    if(field==='valorTotal') return String((parseFloat(it.valorUnitarioUsado)||0)*(parseFloat(it.quantidade)||0));
+    if(field==='valorUnitarioUsado') return it.valorUnitarioUsado!=null ? String(it.valorUnitarioUsado) : '';
+    return it[field]!=null ? String(it[field]) : '';
+  });
+  const texto = valores.join('\n');
+  try{
+    await navigator.clipboard.writeText(texto);
+  }catch(e){
+    // navegadores mais antigos/sem permissão de clipboard — fallback via textarea temporário
+    const ta = document.createElement('textarea');
+    ta.value = texto; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(e2){ console.error('Não foi possível copiar', e2); }
+    document.body.removeChild(ta);
+  }
+  const btn = event && event.target;
+  if(btn){
+    const original = btn.textContent;
+    btn.textContent = '✓';
+    setTimeout(()=>{ btn.textContent = original; }, 1200);
+  }
+}
+
 let itemSearchTimeout = null;
 let __itemAutocompleteResults = [];
 function onItemPNInput(val){
@@ -3054,7 +3091,7 @@ async function selectItemProduct(i){
   p.itens = p.itens || [];
   const newId = uid();
   p.itens.push({
-    id: newId, pn: r.pn, descricao: r.descricao||'', ncm: r.ncm||'', fabricante: r.fabricante||'',
+    id: newId, pn: r.pn, descricao: r.descricao||'', ncm: r.ncm||'', fabricante: r.fabricante||'', codigoII: r.codigoII||'',
     valorUnitarioMestre: r.valorUnitario||'', valorUnitarioUsado: r.valorUnitario||'', quantidade: 1,
     exTarifario: !!r.exTarifario, exTarifarioNumero: r.exTarifarioNumero||'', exTarifarioVencimento: r.exTarifarioVencimento||'',
   });
@@ -3103,7 +3140,7 @@ async function quickAddProductAndItem(pn){
   const p = window.__editingProcess;
   p.itens = p.itens || [];
   const newId = uid();
-  p.itens.push({ id:newId, pn, descricao, ncm, fabricante, valorUnitarioMestre:valorUnitario, valorUnitarioUsado:valorUnitario, quantidade:1, exTarifario:false, exTarifarioNumero:'', exTarifarioVencimento:'' });
+  p.itens.push({ id:newId, pn, descricao, ncm, fabricante, codigoII:'', valorUnitarioMestre:valorUnitario, valorUnitarioUsado:valorUnitario, quantidade:1, exTarifario:false, exTarifarioNumero:'', exTarifarioVencimento:'' });
   editingItemIds.add(newId);
   document.getElementById('item-pn-input').value = '';
   document.getElementById('item-autocomplete-list').style.display = 'none';
@@ -9433,7 +9470,13 @@ function openProcessModal(id){
           </div>
           ` : ''}
           <div class="item-row" style="background:var(--paper); font-size:10.5px; font-weight:700; text-transform:uppercase; color:var(--muted); letter-spacing:0.03em;">
-            <span>PN</span><span>Descrição</span><span>Valor Unit.</span><span>Quantidade</span><span>Valor Total</span><span></span>
+            <span>PN<button class="item-col-copy" onclick="copyItemColumn('pn')" title="Copiar coluna inteira">📋</button></span>
+            <span>Descrição<button class="item-col-copy" onclick="copyItemColumn('descricao')" title="Copiar coluna inteira">📋</button></span>
+            <span>II<button class="item-col-copy" onclick="copyItemColumn('codigoII')" title="Copiar coluna inteira">📋</button></span>
+            <span>Valor Unit.<button class="item-col-copy" onclick="copyItemColumn('valorUnitarioUsado')" title="Copiar coluna inteira">📋</button></span>
+            <span>Quantidade<button class="item-col-copy" onclick="copyItemColumn('quantidade')" title="Copiar coluna inteira">📋</button></span>
+            <span>Valor Total<button class="item-col-copy" onclick="copyItemColumn('valorTotal')" title="Copiar coluna inteira">📋</button></span>
+            <span></span>
           </div>
           <div id="itens-list"></div>
           <div id="itens-totals"></div>
