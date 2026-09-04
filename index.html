@@ -861,6 +861,11 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 }
 .doc-item.checked .doc-check{background:var(--ink-green); border-color:var(--ink-green);}
 .doc-item span{font-size:13px; line-height:1.4;}
+.finalize-confirm-box{
+  display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  padding:11px 13px; margin:6px 0 10px 0; background:var(--ink-amber-bg); border:1px solid var(--ink-amber);
+  border-radius:8px; font-size:12.5px; font-weight:700; color:var(--text);
+}
 @keyframes pendencyPulse{
   0%{box-shadow:0 0 0 0 rgba(184,68,31,0.55); background:var(--ink-red-bg);}
   70%{box-shadow:0 0 0 9px rgba(184,68,31,0);}
@@ -1562,10 +1567,19 @@ const STAGE_DEFS = [
 function migrateBLDraftOrder(){
   let changed = false;
   (state.processes||[]).forEach(p=>{
-    if(!p || p._blOrderMigrated){ return; }
+    if(!p) return;
     const checklist = p.checklist || {};
     const oldFase5 = Array.isArray(checklist['fase5']) ? checklist['fase5'] : null;
-    if(oldFase5){
+    /* CORREÇÃO DE SEGURANÇA: nunca confiar só na flag `_blOrderMigrated` pra decidir se já
+       migrou — collectProcessFormData() (salvamento do processo) não preservava essa flag,
+       então ela se perdia a cada "Salvar Processo" e a migração rodava de novo em cima de um
+       array JÁ migrado (5 itens), tratando por engano o novo item[0] ("Despachante
+       notificado") como se fosse o antigo "Aprovar Draft de BL" e embaralhando tudo — foi
+       esse o bug que "desmarcava" a DDR sozinha depois de salvar. Agora a decisão é pelo
+       TAMANHO real do array: só o formato ANTIGO tinha 6 itens na Fase 5 (com "Aprovar Draft
+       de BL" no índice 0). Um array de 5 (formato novo) nunca é tocado de novo, com ou sem
+       flag — a função fica idempotente por construção, não por marca. */
+    if(oldFase5 && oldFase5.length===6){
       const draftBLDone = oldFase5[0]===true;
       const restoFase5 = oldFase5.slice(1); // vira a nova Fase 5 (5 itens: Despachante notificado...DDR)
       const oldFase4 = Array.isArray(checklist['fase4']) ? checklist['fase4'] : [];
@@ -10439,6 +10453,7 @@ function renderEtapasTab(){
       `;
     } else {
       const checked = p.checklist[s.key] || [];
+      const isLastStage = i===stages.length-1;
       bodyHtml = s.items.map((label,idx)=>{
         let row = `<div class="doc-item ${checked[idx]?'checked':''}" id="stage-item-${s.key}-${idx}" onclick="toggleStageItem('${s.key}',${idx})">
           <div class="doc-check">${checked[idx]?'✓':''}</div><span>${label}</span>
@@ -10447,6 +10462,18 @@ function renderEtapasTab(){
           row += `<div class="item-fields">${s.itemFields[idx].map(f=>renderExtraFieldInput(f,p)).join('')}${s.containersItemIndex===idx?renderContainersTable(p):''}</div>`;
         } else if(s.containersItemIndex===idx){
           row += `<div class="item-fields">${renderContainersTable(p)}</div>`;
+        }
+        const isFinalItem = isLastStage && idx===s.items.length-1;
+        const pendingConfirm = window.__confirmFinalizeItem;
+        if(isFinalItem && pendingConfirm && pendingConfirm.stageKey===s.key && pendingConfirm.idx===idx){
+          row += `
+            <div class="finalize-confirm-box">
+              <span>Finalizar o processo?</span>
+              <div style="display:flex; gap:8px; flex-shrink:0;">
+                <button type="button" class="btn" onclick="cancelFinalizeProcess()">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="confirmFinalizeProcess()">Sim</button>
+              </div>
+            </div>`;
         }
         return row;
       }).join('');
@@ -10553,11 +10580,48 @@ function toggleStageOpen(key){
   renderEtapasTab();
 }
 
+/* Marcar o ÚLTIMO item da ÚLTIMA etapa (ex: "Fechamento físico do processo") é o que tira o
+   processo do Painel e manda pra Finalizados — uma ação que não dá pra desfazer sozinho depois
+   (o processo some da lista de ativos). Por isso, em vez de marcar direto, mostra uma
+   confirmação inline ("Finalizar o processo?") antes de gravar de verdade. Desmarcar continua
+   instantâneo, sem confirmação (não há risco de "sumir" nada ao desmarcar). */
 function toggleStageItem(stageKey, idx){
   const p = window.__editingProcess;
-  p.checklist[stageKey][idx] = !p.checklist[stageKey][idx];
+  const stages = getStagesForProcess(p);
+  const lastStage = stages[stages.length-1];
+  const isFinalItem = lastStage && stageKey===lastStage.key && idx===lastStage.items.length-1;
+  const willBeChecked = !p.checklist[stageKey][idx];
+  if(isFinalItem && willBeChecked){
+    window.__confirmFinalizeItem = {stageKey, idx};
+    window.__openStage = stageKey;
+    renderEtapasTab();
+    return;
+  }
+  p.checklist[stageKey][idx] = willBeChecked;
   window.__openStage = stageKey;
   renderEtapasTab();
+}
+
+function cancelFinalizeProcess(){
+  window.__confirmFinalizeItem = null;
+  renderEtapasTab();
+}
+
+/* Confirma a finalização: marca o item de verdade, salva o processo (mesmo fluxo de sempre —
+   collectProcessFormData()/persistState()) e, só depois de confirmado que salvou, navega pra
+   Finalizados — é ali que o processo passa a aparecer a partir de agora. */
+async function confirmFinalizeProcess(){
+  const pending = window.__confirmFinalizeItem;
+  if(!pending) return;
+  const p = window.__editingProcess;
+  if(!p || !p.checklist[pending.stageKey]) return;
+  p.checklist[pending.stageKey][pending.idx] = true;
+  window.__confirmFinalizeItem = null;
+  await saveProcess();
+  /* saveProcess() só fecha o modal (zera window.__editingProcess) quando o salvamento realmente
+     deu certo — se falhou (offline, validação), o modal continua aberto de propósito. Só navega
+     pra Finalizados quando a confirmação de que salvou já aconteceu. */
+  if(!window.__editingProcess && canView('finalizados')) setView('finalizados');
 }
 
 function toggleDoc(el, docName){
@@ -10897,6 +10961,7 @@ function collectProcessFormData(){
     tipo: window.__editingProcess.tipo || 'definitiva',
     status: status,
     checklist: window.__editingProcess.checklist,
+    _blOrderMigrated: true,
     payments: window.__editingProcess.payments,
     extra: window.__editingProcess.extra,
     history: window.__editingProcess.history || [],
@@ -11026,6 +11091,7 @@ function closeModal(){
   const overlay = document.getElementById('modal-overlay');
   if(overlay) overlay.remove();
   window.__editingProcess = null;
+  window.__confirmFinalizeItem = null;
 }
 
 /* ---------- GERAÇÃO DE CAPA (PDF via impressão) ---------- */
