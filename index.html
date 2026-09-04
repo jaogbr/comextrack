@@ -48,9 +48,9 @@ body{
 
 /* SIDEBAR */
 .sidebar{
-  width:220px; flex-shrink:0;
+  width:250px; flex-shrink:0;
   background-color:var(--navy);
-  background-size:cover; background-repeat:no-repeat; background-position:center 25%;
+  background-size:cover; background-repeat:no-repeat; background-position:center 88%;
   color:#DCE4EC;
   display:flex; flex-direction:column;
   padding:24px 0;
@@ -409,6 +409,9 @@ body.dark-mode .eye-btn:hover{border-color:var(--ink-blue);}
 .phase-mini{font-family:'IBM Plex Mono',monospace; font-size:9.5px; font-weight:600; color:var(--muted); background:var(--paper); padding:2px 7px; border-radius:10px; text-transform:uppercase; letter-spacing:0.03em; margin-left:6px; vertical-align:middle;}
 
 .filter-bar{display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:20px;}
+.dashboard-greeting{margin-bottom:22px;}
+.dashboard-greeting h1{font-family:'Zilla Slab',serif; font-weight:800; font-size:26px; color:var(--navy); margin-bottom:4px;}
+.dashboard-greeting p{font-size:13.5px; color:var(--muted);}
 .filter-bar input, .filter-bar select{padding:8px 10px; border:1px solid var(--border-strong); border-radius:6px; font-size:13px; font-family:'Inter',sans-serif;}
 .filter-bar input[type="text"]{flex:1; min-width:180px;}
 .filter-bar .btn{padding:8px 12px; font-size:12.5px;}
@@ -1084,6 +1087,7 @@ let currentUser = null;
 let currentRole = 'viewer';
 let currentUserCargoId = null;
 let currentUserRoleLabel = 'Usuário'; // nome amigável do cargo, pra mostrar na sidebar (ex: "Administrador", "Editor")
+let currentUserNome = ''; // nome de exibição cadastrado pelo próprio usuário — usado só na saudação da página inicial
 let currentUserPermissoes = null; // matriz de permissões do cargo do usuário logado — null quando é 'admin' (bypass total)
 let currentUserVerAlertas = true; // permissão à parte da matriz — controla se o cargo vê os alertas de pendência nos cards de processo (ex: "faltando provisionamento")
 let unsubscribeData = null;
@@ -1252,6 +1256,7 @@ async function ensureUserRole(user){
   }
   currentRole = userData.role || 'editor';
   currentUserCargoId = userData.cargoId || (currentRole==='viewer' ? 'viewer' : (currentRole==='admin' ? null : 'editor'));
+  currentUserNome = userData.nome || '';
   await ensureDefaultCargos();
   if(currentRole==='admin'){
     currentUserPermissoes = null; // bypass — admin nunca depende da matriz
@@ -1943,7 +1948,13 @@ function countryFlag(country){
   if(!iso) return '';
   return `<img src="${flagUrl(iso)}" alt="${country}" style="width:16px;height:11px;object-fit:cover;border-radius:2px;vertical-align:-1px;display:inline-block;">`;
 }
-function modalIcon(modal){ return modal==='aereo' ? '✈️' : '🚢'; }
+function svgShipIcon(){
+  return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M3 16l1.5 4.5a2 2 0 0 0 1.9 1.4h11.2a2 2 0 0 0 1.9-1.4L21 16"/><path d="M5 16V9a1 1 0 0 1 1-1h2V4h8v4h2a1 1 0 0 1 1 1v7"/><path d="M10 8V5h4v3"/><path d="M2 16h20"/></svg>';
+}
+function svgPlaneIcon(){
+  return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M2.5 13.5l7-2 5.5-7.5a1.5 1.5 0 0 1 2.5 1.7l-4 7.3 5.5-1 2 1.5-7 3-1.5 4.5-2-1v-4l-6 1.5-2-3z"/></svg>';
+}
+function modalIcon(modal){ return modal==='aereo' ? svgPlaneIcon() : svgShipIcon(); }
 function modalLabel(modal){ return modal==='aereo' ? 'Aéreo' : 'Marítimo'; }
 function computePerformanceMetrics(p){
   const extra = p.extra || {};
@@ -2713,7 +2724,7 @@ function viewFieldHtml(label, value){
     <span class="view-label">${label}</span>
     <span class="view-value-row">
       <span class="view-value">${display}</span>
-      ${canCopy ? `<button class="copy-icon-btn" onclick="copyToClipboard('${plain.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n')}')" title="Copiar">📋</button>` : ''}
+      ${canCopy ? `<button class="copy-icon-btn" onclick="copyToClipboard('${plain.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n')}')" title="Copiar"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></button>` : ''}
     </span>
   </div>`;
 }
@@ -2818,7 +2829,7 @@ function openProcessViewModal(id, event){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  attachOverlayOutsideClose(overlay, closeModal);
   overlay.innerHTML = `
     <div class="modal">
       <div class="modal-header">
@@ -2948,7 +2959,7 @@ function detectHistoryChanges(prev, next){
 
   fieldChange('Data prevista de chegada alterada', '📅', prev.chegadaPrevista, next.chegadaPrevista, fmtDate);
   fieldChange('Chegada na Zona Primária confirmada', '⚓', (prev.extra||{}).dataChegadaZonaPrimaria, (next.extra||{}).dataChegadaZonaPrimaria, fmtDate);
-  fieldChange('Data de embarque alterada', '🚢', prev.dataEmbarqueReal, next.dataEmbarqueReal, fmtDate);
+  fieldChange('Data de embarque alterada', svgShipIcon(), prev.dataEmbarqueReal, next.dataEmbarqueReal, fmtDate);
   fieldChange('Data de chegada ao porto alterada', '⚓', (prev.extra||{}).dataChegadaBetim, (next.extra||{}).dataChegadaBetim, fmtDate);
   fieldChange('Número da DUIMP registrado', '📄', (prev.extra||{}).numeroDUIMP, (next.extra||{}).numeroDUIMP);
   fieldChange('DUIMP desembaraçada — data', '✅', (prev.extra||{}).dataDesembaraco, (next.extra||{}).dataDesembaraco, fmtDate);
@@ -3171,9 +3182,9 @@ async function copyItemColumn(field){
   }
   const btn = event && event.target;
   if(btn){
-    const original = btn.textContent;
+    const original = btn.innerHTML;
     btn.textContent = '✓';
-    setTimeout(()=>{ btn.textContent = original; }, 1200);
+    setTimeout(()=>{ btn.innerHTML = original; }, 1200);
   }
 }
 
@@ -3674,7 +3685,7 @@ function openFollowUpTablePreview(processes, title){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'followup-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  attachOverlayOutsideClose(overlay, ()=>overlay.remove());
   overlay.innerHTML = `
     <div class="modal" style="max-width:1100px;">
       <div class="modal-header">
@@ -4682,7 +4693,7 @@ function openEmailPreview(subject, bodyHtml, bodyText, title, ccList, showEstoqu
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'email-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  attachOverlayOutsideClose(overlay, ()=>overlay.remove());
   const ccValue = (ccList||[]).join('; ');
   const ccHtml = (ccList && ccList.length) ? `
         <div class="form-group">
@@ -5017,14 +5028,28 @@ function isProcessDone(p){
   return getStagesForProcess(p).every(s=>stageComplete(p, s.key));
 }
 
+/* Ícones de status do Painel — mesmo sistema visual dos ícones de navegação (linha, cor
+   herdada via currentColor). Cada estado usa um ícone semanticamente relacionado: produção
+   (caixa fechada), aguardando embarque (ampulheta), trânsito (caminhão), desembaraço
+   (prancheta em andamento), entregue (caixa com check). */
+function svgStatusIcon(key){
+  const icons = {
+    producao: '<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
+    aguardando_embarque: '<path d="M6 2h12M6 22h12"/><path d="M6 2c0 5 4 6 6 8-2 2-6 3-6 8M18 2c0 5-4 6-6 8 2 2 6 3 6 8"/>',
+    transito: '<rect x="1" y="7" width="13" height="10" rx="1"/><path d="M14 10h4l4 4v3h-2"/><circle cx="6" cy="19" r="1.6"/><circle cx="17.5" cy="19" r="1.6"/>',
+    desembaraco: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3V2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M8 11l2 2 4-4"/><path d="M8 17h6"/>',
+    entregue: '<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M9 12.5l2 2 4-4"/>',
+  };
+  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${icons[key]||icons.producao}</svg>`;
+}
 function getDashboardConfig(){
   const dflt = {
     labels: {
-      producao: {label:'Em Produção', icon:'📦'},
-      aguardando_embarque: {label:'Aguardando Embarque', icon:'⏳'},
-      transito: {label:'Em Trânsito', icon:'🚢'},
-      desembaraco: {label:'Em Desembaraço', icon:'📋'},
-      entregue: {label:'Entregue', icon:'✅'},
+      producao: {label:'Em Produção', icon:svgStatusIcon('producao')},
+      aguardando_embarque: {label:'Aguardando Embarque', icon:svgStatusIcon('aguardando_embarque')},
+      transito: {label:'Em Trânsito', icon:svgStatusIcon('transito')},
+      desembaraco: {label:'Em Desembaraço', icon:svgStatusIcon('desembaraco')},
+      entregue: {label:'Entregue', icon:svgStatusIcon('entregue')},
     },
     rules: [],
   };
@@ -5039,10 +5064,10 @@ function bucketLabel(id, cfg){
   if(String(id).indexOf('custom:')===0){
     const rid = id.slice(7);
     const r = (cfg.rules||[]).find(x=>x.id===rid);
-    return r ? `${r.icon?r.icon+' ':''}${r.label}` : id;
+    return r ? r.label : id;
   }
   const l = cfg.labels[id];
-  return l ? `${l.icon?l.icon+' ':''}${l.label}` : id;
+  return l ? l.label : id;
 }
 
 function getBucket(p){
@@ -5540,13 +5565,13 @@ function render(){
       </div>
     </aside>
     <main>
-      <div class="topbar" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+      ${viewTitle() ? `<div class="topbar" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
         <div>
           <h1>${viewTitle()}</h1>
           <p>${viewSubtitle()}</p>
         </div>
         <img src="${LOGO_AZUL}" alt="ComexTrack" style="height:56px; opacity:0.85; flex-shrink:0;">
-      </div>
+      </div>` : ''}
       <div class="view-content" id="view-content"></div>
     </main>
   `;
@@ -5666,7 +5691,7 @@ function ensureViewableCurrentView(){
   currentView = first ? first.key : 'dashboard';
 }
 function viewTitle(){
-  if(currentView==='dashboard') return 'Painel Geral';
+  if(currentView==='dashboard') return '';
   if(currentView==='processos') return 'Processos de Importação';
   if(currentView==='finalizados') return 'Processos Finalizados';
   if(currentView==='fornecedores') return 'Fornecedores';
@@ -5682,7 +5707,7 @@ function viewTitle(){
   if(currentView==='personalizacao') return 'Personalização do Painel';
 }
 function viewSubtitle(){
-  if(currentView==='dashboard') return 'Visão consolidada dos seus embarques em andamento';
+  if(currentView==='dashboard') return '';
   if(currentView==='processos') return `${state.processes.filter(p=>getBucket(p)!=='finalizados').length} processo(s) ativo(s)`;
   if(currentView==='finalizados') return `${state.processes.filter(p=>getBucket(p)==='finalizados').length} processo(s) encerrado(s)`;
   if(currentView==='fornecedores') return `${state.suppliers.length} fornecedor(es) cadastrado(s)`;
@@ -5752,10 +5777,14 @@ async function renderUsuariosSubTab(el, tabsHtml){
     `;
   };
   const rows = users.map(u=>`
-    <div class="supplier-card" style="cursor:default; display:flex; align-items:center; justify-content:space-between;">
-      <div>
+    <div class="supplier-card" style="cursor:default; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:220px;">
         <h3 style="font-size:14px;">${u.email}</h3>
         <div class="supplier-meta">${u.id===currentUser.uid?'Você':''}</div>
+      </div>
+      <div class="form-group" style="margin-bottom:0; width:180px;">
+        <label style="font-size:10.5px;">Nome de exibição</label>
+        <input type="text" value="${u.nome||''}" placeholder="Ex: João" onchange="saveUserNome('${u.id}', this.value)" style="padding:6px 9px; font-size:12.5px;">
       </div>
       <select class="team-role-select" onchange="changeUserCargo('${u.id}', this.value)" ${(u.id===currentUser.uid && currentRole==='admin')?'disabled title="Você não pode alterar seu próprio cargo administrativo por aqui — peça a outro administrador."':''}>
         ${cargoOptionsHtml(u)}
@@ -5803,6 +5832,16 @@ async function renderCargosSubTab(el, tabsHtml){
 /* Troca o cargo de um usuário — trata "admin" como caso especial (não é um doc em 'cargos').
    Sempre garante que reste pelo menos 1 administrador na plataforma antes de rebaixar alguém,
    pra nunca deixar a plataforma sem ninguém com acesso administrativo (pedido explicitamente). */
+/* Nome de exibição — só usado pra personalizar a saudação da página inicial ("Olá, Nome"),
+   não é o nome completo/legal do usuário nem afeta login ou permissões. */
+async function saveUserNome(uid, nome){
+  await db.collection('users').doc(uid).set({ nome: nome.trim() }, {merge:true});
+  if(currentUser && uid===currentUser.uid){
+    currentUserNome = nome.trim();
+    if(currentView==='dashboard') renderView();
+  }
+}
+
 async function changeUserCargo(uid, value){
   if(value==='admin' && currentRole!=='admin'){
     alert('Só um administrador pode promover alguém a Administrador.');
@@ -5848,7 +5887,7 @@ function openCargoModal(id){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  attachOverlayOutsideClose(overlay, closeModal);
   overlay.innerHTML = `
     <div class="modal">
       <div class="modal-header">
@@ -6091,7 +6130,7 @@ function renderFilterBar(pageKey, universe, stageOptions){
 
   const pills = [`<button class="stage-pill ${!f.stage?'active':''}" onclick="setPageStageFilter('${pageKey}','')">Todos (${countBase.length})</button>`]
     .concat(stageOptions.map(id=>{
-      const label = bucketLabel(id, cfg).replace(/^\S+\s/,'');
+      const label = bucketLabel(id, cfg);
       return `<button class="stage-pill ${f.stage===id?'active':''}" onclick="setPageStageFilter('${pageKey}','${id}')">${label} (${stageCounts[id]||0})</button>`;
     })).join('');
 
@@ -6148,7 +6187,14 @@ function renderDashboard(){
   const stageOptions = dashboardBucketOrder(cfg);
   const universe = state.processes.filter(p=>getBucket(p)!=='finalizados');
   const filterBar = renderFilterBar('dashboard', universe, stageOptions);
-  return filterBar + `<div id="dashboard-results">${renderDashboardResults()}</div>`;
+  const nomeExibicao = currentUserNome || currentUserRoleLabel || 'usuário';
+  const greeting = `
+    <div class="dashboard-greeting">
+      <h1>Olá, ${nomeExibicao}</h1>
+      <p>Acompanhe seus embarques e operações de comércio exterior.</p>
+    </div>
+  `;
+  return filterBar + greeting + `<div id="dashboard-results">${renderDashboardResults()}</div>`;
 }
 
 /* Ordem de exibição do Painel: processos mais adiantados no fluxo aparecem primeiro
@@ -6249,7 +6295,7 @@ function openAttentionDetailsModal(){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  attachOverlayOutsideClose(overlay, closeModal);
   overlay.innerHTML = `
     <div class="modal">
       <div class="modal-header">
@@ -6290,7 +6336,7 @@ function renderDashboardResults(){
     ${bucketOrder.map(id=>`
       <div class="kpi-card" style="--kpi-accent:${kpiAccents[id]||'var(--ink-teal)'}; --kpi-accent-bg:${kpiAccentsBg[id]||'var(--ink-teal-bg)'}">
         <div class="kpi-icon-circle">${bucketIconOnly(id,cfg)}</div>
-        <div class="kpi-label">${bucketLabel(id, cfg).replace(/^\S+\s/,'')}</div>
+        <div class="kpi-label">${bucketLabel(id, cfg)}</div>
         <div class="kpi-value">${buckets[id].length}</div>
       </div>
     `).join('')}
@@ -6330,7 +6376,7 @@ function renderDashboardResults(){
     const list = buckets[id];
     if(!list.length) return;
     anyContent = true;
-    const title = bucketLabel(id, cfg).replace(/^\S+\s/,'');
+    const title = bucketLabel(id, cfg);
     const bandColor = kpiAccents[id] || 'var(--ink-teal)';
     // Por padrão TODAS as seções vêm abertas — só fecha se a pessoa clicar pra recolher
     // (fica lembrado nesta sessão via window.__dashboardBandState).
@@ -6655,7 +6701,7 @@ async function openProductModal(pn){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  attachOverlayOutsideClose(overlay, closeModal);
   overlay.innerHTML = `
     <div class="modal">
       <div class="modal-header">
@@ -7105,7 +7151,7 @@ function openCodigoImpostoModal(id){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  attachOverlayOutsideClose(overlay, closeModal);
   overlay.innerHTML = `
     <div class="modal">
       <div class="modal-header">
@@ -7233,7 +7279,7 @@ function openFinalidadesModal(){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  attachOverlayOutsideClose(overlay, closeModal);
   overlay.innerHTML = `
     <div class="modal">
       <div class="modal-header">
@@ -7309,7 +7355,7 @@ function openTiposItemModal(){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  attachOverlayOutsideClose(overlay, closeModal);
   overlay.innerHTML = `
     <div class="modal">
       <div class="modal-header">
@@ -7461,7 +7507,7 @@ function openNCMModal(id){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  attachOverlayOutsideClose(overlay, closeModal);
   overlay.innerHTML = `
     <div class="modal">
       <div class="modal-header">
@@ -7807,7 +7853,7 @@ function openRotaModal(id){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  attachOverlayOutsideClose(overlay, closeModal);
   overlay.innerHTML = `
     <div class="modal" style="max-width:560px;">
       <div class="modal-header">
@@ -8040,7 +8086,7 @@ function openProdutoMestreModal(id){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  attachOverlayOutsideClose(overlay, closeModal);
   overlay.innerHTML = `
     <div class="modal">
       <div class="modal-header">
@@ -8260,7 +8306,7 @@ function openImportModal(){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  attachOverlayOutsideClose(overlay, closeModal);
   overlay.innerHTML = `
     <div class="modal" style="max-width:760px;">
       <div class="modal-header">
@@ -8695,7 +8741,7 @@ function processCard(p, note){
 
   return `
   <div class="process-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessCardClick('${p.id}')">
-    <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo">👁️</button>
+    <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
     ${refBadgeHtml(p)}
     <div class="process-main">
       <h3>${p.produto || 'Sem descrição'}<span class="phase-mini">${info.label.replace(/^Fase \d+ · /,'')}</span></h3>
@@ -8732,7 +8778,7 @@ function producaoCard(p){
   }).join('');
   return `
   <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessCardClick('${p.id}')">
-    <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo">👁️</button>
+    <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
     ${refBadgeHtml(p)}
     <div>
       <h3 style="font-size:15px;font-weight:600;">${p.produto||'Sem descrição'}<span class="phase-mini">${stageInfoFor(p,p.status).label.replace(/^Fase \d+ · /,'')}</span></h3>
@@ -8765,7 +8811,7 @@ function aguardandoEmbarqueCard(p){
   if(extra.agenteCarga) logiParts.push(`<span><b>Agente:</b> ${extra.agenteCarga}</span>`);
   return `
   <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessCardClick('${p.id}')">
-    <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo">👁️</button>
+    <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
     ${refBadgeHtml(p)}
     <div>
       <h3 style="font-size:15px;font-weight:600;">${p.produto||'Sem descrição'}</h3>
@@ -8803,7 +8849,7 @@ function desembaracoCard(p){
   }
   return `
   <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessCardClick('${p.id}')">
-    <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo">👁️</button>
+    <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
     ${refBadgeHtml(p)}
     <div>
       <h3 style="font-size:15px;font-weight:600;"><img src="${DESEMBARACO_ICON}" alt="" style="width:16px;height:16px;object-fit:contain;vertical-align:-3px;margin-right:5px;">${p.produto||'Sem descrição'}</h3>
@@ -8835,7 +8881,7 @@ function transitoCard(p){
   if(extra.transportadoraDTA) logiParts.push(`<span><b>DTA:</b> ${extra.transportadoraDTA}</span>`);
   return `
   <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessCardClick('${p.id}')">
-    <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo">👁️</button>
+    <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
     ${refBadgeHtml(p)}
     <div>
       <h3 style="font-size:15px;font-weight:600;">${p.produto||'Sem descrição'}</h3>
@@ -8941,7 +8987,7 @@ function openPartnerModal(id){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  attachOverlayOutsideClose(overlay, closeModal);
   overlay.innerHTML = `
     <div class="modal" style="max-width:480px;">
       <div class="modal-header">
@@ -9447,7 +9493,7 @@ function openProcessModal(id){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  attachOverlayOutsideClose(overlay, closeModal);
   overlay.innerHTML = `
     <div class="modal ${!canEdit('processos')?'modal-readonly':''}">
       <div class="modal-header">
@@ -9459,7 +9505,7 @@ function openProcessModal(id){
           <button class="tab-btn active" data-tab="geral" onclick="switchTab('geral')">Visão Geral</button>
           <button class="tab-btn" data-tab="etapas" onclick="switchTab('etapas')">Etapas</button>
           <button class="tab-btn" data-tab="itens" onclick="switchTab('itens')">📦 Itens</button>
-          <button class="tab-btn" data-tab="preanalise" onclick="switchTab('preanalise')">📋 Pré-Análise Tributária</button>
+          <button class="tab-btn" data-tab="preanalise" onclick="switchTab('preanalise')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:3px;"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path d="M15 2v5h5"/><path d="M8 13h8M8 17h5"/></svg> Pré-Análise Tributária</button>
           <button class="tab-btn" data-tab="custos" onclick="switchTab('custos')">Custos</button>
           <button class="tab-btn" data-tab="provisionamento" onclick="switchTab('provisionamento')">🧮 Provisionamento</button>
           <button class="tab-btn" data-tab="docs" onclick="switchTab('docs')">Documentos</button>
@@ -9481,8 +9527,8 @@ function openProcessModal(id){
           <div class="form-group" style="max-width:320px;">
             <label style="font-size:13px; font-weight:700;">Modal</label>
             <select id="f-modal" onchange="onModalChange(this.value)" style="font-size:14.5px; font-weight:600; padding:11px 12px;">
-              <option value="maritimo" ${p.modal==='maritimo'?'selected':''}>🚢 Marítimo</option>
-              <option value="aereo" ${p.modal==='aereo'?'selected':''}>✈️ Aéreo</option>
+              <option value="maritimo" ${p.modal==='maritimo'?'selected':''}>Marítimo</option>
+              <option value="aereo" ${p.modal==='aereo'?'selected':''}>Aéreo</option>
             </select>
           </div>
           <div class="form-row">
@@ -9640,12 +9686,12 @@ function openProcessModal(id){
           </div>
           ` : ''}
           <div class="item-row" style="background:var(--paper); font-size:10px; font-weight:700; text-transform:uppercase; color:var(--muted); letter-spacing:0.02em;">
-            <span>PN<button class="item-col-copy" onclick="copyItemColumn('pn')" title="Copiar coluna inteira">📋</button></span>
-            <span>Descrição<button class="item-col-copy" onclick="copyItemColumn('descricao')" title="Copiar coluna inteira">📋</button></span>
-            <span>II<button class="item-col-copy" onclick="copyItemColumn('codigoII')" title="Copiar coluna inteira">📋</button></span>
-            <span>Vl. Unit.<button class="item-col-copy" onclick="copyItemColumn('valorUnitarioUsado')" title="Copiar coluna inteira">📋</button></span>
-            <span>Qtd.<button class="item-col-copy" onclick="copyItemColumn('quantidade')" title="Copiar coluna inteira">📋</button></span>
-            <span>Vl. Total<button class="item-col-copy" onclick="copyItemColumn('valorTotal')" title="Copiar coluna inteira">📋</button></span>
+            <span>PN<button class="item-col-copy" onclick="copyItemColumn('pn')" title="Copiar coluna inteira"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></button></span>
+            <span>Descrição<button class="item-col-copy" onclick="copyItemColumn('descricao')" title="Copiar coluna inteira"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></button></span>
+            <span>II<button class="item-col-copy" onclick="copyItemColumn('codigoII')" title="Copiar coluna inteira"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></button></span>
+            <span>Vl. Unit.<button class="item-col-copy" onclick="copyItemColumn('valorUnitarioUsado')" title="Copiar coluna inteira"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></button></span>
+            <span>Qtd.<button class="item-col-copy" onclick="copyItemColumn('quantidade')" title="Copiar coluna inteira"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></button></span>
+            <span>Vl. Total<button class="item-col-copy" onclick="copyItemColumn('valorTotal')" title="Copiar coluna inteira"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></button></span>
             <span></span>
           </div>
           <div id="itens-list"></div>
@@ -10683,6 +10729,20 @@ async function deleteProcess(id){
   render();
 }
 
+/* Fecha o modal clicando fora dele — MAS só quando o clique começa E termina no fundo
+   (overlay), não só termina lá. Sem isso, selecionar um texto arrastando o mouse e soltando
+   um pouco além da borda do card (bem comum ao copiar algo) contava como "clique fora" e
+   fechava o modal, derrubando tudo que estava preenchido. Agora precisa das duas coisas:
+   pressionar E soltar o clique em cima do fundo, não só uma das duas. */
+function attachOverlayOutsideClose(overlay, closeFn){
+  let mouseDownOnOverlay = false;
+  overlay.addEventListener('mousedown', (e)=>{ mouseDownOnOverlay = (e.target === overlay); });
+  overlay.addEventListener('click', (e)=>{
+    if(e.target === overlay && mouseDownOnOverlay) closeFn();
+    mouseDownOnOverlay = false;
+  });
+}
+
 function closeModal(){
   const overlay = document.getElementById('modal-overlay');
   if(overlay) overlay.remove();
@@ -10885,7 +10945,7 @@ function openSupplierModal(id){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
-  overlay.onclick = (e)=>{ if(e.target===overlay) closeModal(); };
+  attachOverlayOutsideClose(overlay, closeModal);
   overlay.innerHTML = `
     <div class="modal" style="max-width:480px;">
       <div class="modal-header">
