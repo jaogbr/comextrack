@@ -76,8 +76,10 @@ body{
 .sidebar-collapse-btn:hover{background:var(--navy-light);}
 .sidebar-collapse-btn svg{transition:transform 0.22s ease; flex-shrink:0;}
 .sidebar.collapsed .sidebar-collapse-btn svg{transform:rotate(180deg);}
-.sidebar.collapsed .brand{display:none;}
-.sidebar.collapsed .nav{padding-top:34px;}
+.sidebar.collapsed .brand{padding:0 10px 14px 10px; margin-bottom:14px;}
+/* Sem padding-top extra aqui: agora que o logo continua visível (só menor) quando recolhida,
+   a própria marca já ocupa o espaço necessário abaixo do botão de recolher/expandir — não
+   precisa mais de uma folga artificial só pra isso. */
 .sidebar.collapsed .nav-item{justify-content:center; gap:0; padding:10px 0;}
 .sidebar.collapsed .nav-item .dot{display:none;}
 .sidebar.collapsed .nav-label{display:none;}
@@ -122,6 +124,11 @@ body{
   display:flex; align-items:center; gap:8px;
 }
 .brand-mark svg{flex-shrink:0;}
+/* Logo do topo da sidebar: some no texto grande de sempre quando aberta; quando a sidebar
+   recolhe, em vez de sumir completamente, encolhe e continua visível ali em cima — mesmo
+   pedido explícito de manter alguma marca da plataforma mesmo no modo compacto. */
+.brand-logo-img{height:130px; max-width:100%; display:block; transition:height 0.22s ease;}
+.sidebar.collapsed .brand-logo-img{height:30px;}
 .brand-sub{
   font-family:'Helvetica', sans-serif; font-size:10px; color:#7C8FA8;
   letter-spacing:0.12em; text-transform:uppercase; margin-top:4px;
@@ -893,6 +900,16 @@ body.dark-mode .fixed-field-value{background:var(--card); border-color:var(--bor
 .prov-line-total .prov-line-value{font-size:16px;}
 .prov-line-grand-total .prov-line-label{font-size:13px; font-weight:800; letter-spacing:.4px;}
 .prov-line-grand-total .prov-line-value{font-size:20px; font-weight:800; color:var(--navy);}
+/* Grupo "Despachante" no resumo do Provisionamento (Honorários + Impostos + Taxa SISCOMEX
+   somados num valor só, com cada parcela ainda visível quebrada por baixo — pedido
+   explícito). O total do grupo fica em negrito como um subtotal normal; as parcelas ficam
+   recuadas, menores e mais claras, deixando óbvio que já estão somadas ali em cima e não
+   devem ser contadas de novo no Total Provisionado geral. */
+.prov-line-group-total{font-weight:700;}
+.prov-line-group-total .prov-line-value{font-size:15px;}
+.prov-line-sub{padding:7px 0 7px 18px; opacity:0.75;}
+.prov-line-sub .prov-line-label{font-size:12px;}
+.prov-line-sub .prov-line-value{font-size:12.5px; font-weight:500;}
 .prov-edit-btn{background:none; border:none; cursor:pointer; font-size:11.5px; color:var(--muted); padding:2px 4px;}
 .prov-edit-btn:hover{color:var(--text);}
 .prov-details{margin:4px 0 10px; font-size:12px;}
@@ -2675,17 +2692,32 @@ function renderProvisionamentoCongeladoHtml(p){
   const c = p.provisionamentoCongelado;
   const s = c.snapshot;
   const impostosTotal = s.impostosTotalEfetivo!==undefined ? s.impostosTotalEfetivo : (s.impostosII + s.impostosIPI + s.impostosPIS + s.impostosCOFINS);
-  const linhas = [
-    ['Honorários do Despachante', s.honorarios],
-    ['Impostos (II+IPI+PIS+COFINS)', impostosTotal],
-    ['ICMS', s.icms],
+  const isAereo = p.modal === 'aereo';
+
+  /* Grupo "Despachante" — Honorários + Impostos + Taxa SISCOMEX somados num valor só (é o
+     despachante quem recolhe/repassa os três), mas com cada parcela ainda visível quebrada
+     logo abaixo, pedido explícito. Depois vem Frete Internacional e Armazenagem — no aéreo
+     como uma linha só; no marítimo, Zona Primária e Zona Secundária separadas, mais
+     Transporte DTA. ICMS e Lavagem de Container (quando existirem) continuam aparecendo
+     como linhas próprias, fora do grupo Despachante — não fazem parte do que o despachante
+     de fato cobra por fora. */
+  const despachanteTotal = (s.honorarios||0) + impostosTotal + (s.taxaSiscomex||0);
+  const despachanteHtml = `
+    <div class="prov-line prov-line-group-total"><div class="prov-line-label">Despachante</div><div class="prov-line-value">${fmtBRL(despachanteTotal)}</div></div>
+    <div class="prov-line prov-line-sub"><div class="prov-line-label">Honorários do Despachante</div><div class="prov-line-value">${fmtBRL(s.honorarios||0)}</div></div>
+    <div class="prov-line prov-line-sub"><div class="prov-line-label">Impostos (II+IPI+PIS+COFINS)</div><div class="prov-line-value">${fmtBRL(impostosTotal)}</div></div>
+    <div class="prov-line prov-line-sub"><div class="prov-line-label">Taxa SISCOMEX</div><div class="prov-line-value">${fmtBRL(s.taxaSiscomex||0)}</div></div>
+  `;
+
+  const restoLinhas = [
     ['Frete Internacional', s.freteInternacional],
-    ['Armazenagem — Zona Primária', s.armazenagemZP],
-    ['Armazenagem — Zona Secundária', s.armazenagemZS],
-    ['Taxa SISCOMEX', s.taxaSiscomex],
-    ['Transporte DTA', s.transporteDTA],
-    ['Lavagem de Container', s.lavagemContainer],
-  ].filter(([,v])=>v>0);
+    ...(isAereo
+      ? [['Armazenagem', s.armazenagemZS]]
+      : [['Armazenagem Zona Primária', s.armazenagemZP], ['Armazenagem Zona Secundária', s.armazenagemZS], ['Transporte DTA', s.transporteDTA]]),
+  ];
+  const extraLinhas = [['ICMS', s.icms], ['Lavagem de Container', s.lavagemContainer]].filter(([,v])=>v>0);
+  const restoHtml = restoLinhas.map(([label,valor])=>`<div class="prov-line"><div class="prov-line-label">${label}</div><div class="prov-line-value">${fmtBRL(valor||0)}</div></div>`).join('')
+    + extraLinhas.map(([label,valor])=>`<div class="prov-line"><div class="prov-line-label">${label}</div><div class="prov-line-value">${fmtBRL(valor)}</div></div>`).join('');
 
   return `
     <div class="prov-section" style="background:var(--ink-blue-bg); border-color:var(--ink-blue);">
@@ -2698,7 +2730,8 @@ function renderProvisionamentoCongeladoHtml(p){
       </div>
     </div>
     <div class="prov-section" style="margin-top:16px;">
-      ${linhas.map(([label,valor])=>`<div class="prov-line"><div class="prov-line-label">${label}</div><div class="prov-line-value">${fmtBRL(valor)}</div></div>`).join('')}
+      ${despachanteHtml}
+      ${restoHtml}
       <div class="stat-box" style="margin-top:14px;"><span class="stat-box-label">Total Provisionado</span><span class="stat-box-value">${fmtBRL(s.total)}</span></div>
     </div>
     ${canEdit('processos') ? `
@@ -5695,19 +5728,40 @@ function isProcessDone(p){
 }
 
 /* Ícones de status do Painel — mesmo sistema visual dos ícones de navegação (linha, cor
-   herdada via currentColor). Cada estado usa um ícone semanticamente relacionado: produção
-   (caixa fechada), aguardando embarque (ampulheta), trânsito (caminhão), desembaraço
+   herdada via currentColor, pinta sozinho na cor da etapa porque o círculo que envolve o
+   ícone já define `color` — ver .kpi-icon-circle). Cada estado usa um ícone semanticamente
+   relacionado: produção (caixa fechada), aguardando embarque (ampulheta), trânsito (navio —
+   a maioria das cargas viaja por mar/ar nesse estágio, não de caminhão), desembaraço
    (prancheta em andamento), entregue (caixa com check). */
 function svgStatusIcon(key){
+  /* "Em Trânsito" usa o mesmo desenho preenchido do ícone de Marítimo (silhueta de navio) —
+     não dá pra encaixar no wrapper genérico "fill:none, stroke:currentColor" dos outros 4
+     porque esse ícone é preenchido, não traçado; por isso monta o próprio <svg> aqui. */
+  if(key==='transito'){
+    return '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="11" y="1" width="2" height="3"/><path d="M5 5h14l-2 5H7z"/><path d="M3.5 11h17l-3 9h-11z"/><path d="M1.5 22.5c1.3-1.3 3.3-1.3 4.6 0 1.3 1.3 3.3 1.3 4.6 0 1.3-1.3 3.3-1.3 4.6 0 1.3 1.3 3.3 1.3 4.6 0v1.7c-1.3 1.3-3.3 1.3-4.6 0-1.3-1.3-3.3-1.3-4.6 0-1.3 1.3-3.3 1.3-4.6 0-1.3-1.3-3.3-1.3-4.6 0z"/></svg>';
+  }
   const icons = {
     producao: '<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
     aguardando_embarque: '<path d="M6 2h12M6 22h12"/><path d="M6 2c0 5 4 6 6 8-2 2-6 3-6 8M18 2c0 5-4 6-6 8 2 2 6 3 6 8"/>',
-    transito: '<rect x="1" y="7" width="13" height="10" rx="1"/><path d="M14 10h4l4 4v3h-2"/><circle cx="6" cy="19" r="1.6"/><circle cx="17.5" cy="19" r="1.6"/>',
     desembaraco: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3V2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M8 11l2 2 4-4"/><path d="M8 17h6"/>',
     entregue: '<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M9 12.5l2 2 4-4"/>',
   };
   return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${icons[key]||icons.producao}</svg>`;
 }
+/* Os 5 estágios fixos do Painel (producao/aguardando_embarque/transito/desembaraco/entregue)
+   usam SEMPRE o ícone SVG acima, na cor da própria etapa — não são mais customizáveis por
+   emoji (a Personalização do Painel permitia digitar um emoji livre aqui, que sobrescrevia
+   esse ícone; foi isso que fez emoji aparecer nos cards de cima). O NOME de cada estágio
+   continua totalmente personalizável — só o ícone dos 5 fixos que ficou travado no padrão
+   visual da plataforma. Regras personalizadas (buckets extras criados pelo usuário) não são
+   afetadas por essa trava — continuam com o próprio campo de ícone de sempre. */
+function fixedBucketIcon(key){ return svgStatusIcon(key); }
+const FIXED_BUCKET_IDS = ['producao','aguardando_embarque','transito','desembaraco','entregue'];
+/* Cor de cada estágio fixo do Painel — fonte única de verdade, usada tanto nos cards de KPI
+   quanto nos separadores de seção abaixo deles quanto na tela de Personalização (pro círculo
+   de ícone ali já aparecer na cor certa também, sem duplicar esse mapeamento em 3 lugares). */
+const DASHBOARD_KPI_ACCENTS = {producao:'var(--ink-blue)', aguardando_embarque:'var(--ink-amber)', transito:'var(--ink-purple)', desembaraco:'var(--ink-red)', entregue:'var(--ink-green)'};
+const DASHBOARD_KPI_ACCENTS_BG = {producao:'var(--ink-blue-bg)', aguardando_embarque:'var(--ink-amber-bg)', transito:'var(--ink-purple-bg)', desembaraco:'var(--ink-red-bg)', entregue:'var(--ink-green-bg)'};
 function getDashboardConfig(){
   const dflt = {
     labels: {
@@ -6214,12 +6268,11 @@ function render(){
   app.innerHTML = `
     <aside class="sidebar ${sidebarCollapsed?'collapsed':''}" id="app-sidebar" style="background-image:url('${SIDEBAR_SHIP_IMG}');">
       <button type="button" class="sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="${sidebarCollapsed?'Expandir menu':'Recolher menu'}">${svgSidebarCollapseIcon()}</button>
-      ${sidebarCollapsed ? '' : `
       <div class="brand">
         <div class="brand-mark" style="justify-content:center;">
-          <img src="${LOGO_BRANCO}" alt="ComexTrack" style="height:130px; display:block;">
+          <img src="${LOGO_BRANCO}" alt="ComexTrack" class="brand-logo-img">
         </div>
-      </div>`}
+      </div>
       <nav class="nav">
         ${renderNavHtml()}
       </nav>
@@ -6727,7 +6780,7 @@ function renderPersonalizacao(){
   const bucketRows = Object.keys(cfg.labels).map(id=>{
     const l = cfg.labels[id];
     return `<div class="config-row">
-      <input type="text" class="config-icon" id="cfg-icon-${id}" value="${l.icon||''}" maxlength="4">
+      <span class="kpi-icon-circle" style="width:26px; height:26px; flex-shrink:0; --kpi-accent:${DASHBOARD_KPI_ACCENTS[id]||'var(--ink-teal)'}; --kpi-accent-bg:${DASHBOARD_KPI_ACCENTS_BG[id]||'var(--ink-teal-bg)'};">${fixedBucketIcon(id)}</span>
       <input type="text" class="config-label" id="cfg-label-${id}" value="${l.label||''}">
       <span class="config-id-tag">${id}</span>
     </div>`;
@@ -6735,7 +6788,7 @@ function renderPersonalizacao(){
 
   return `
     <div class="section-title">Estágios Fixos do Painel<div class="rule"></div></div>
-    <div class="form-hint" style="margin-bottom:12px;">Personalize o nome e o ícone (emoji) de cada estágio padrão que aparece no Painel Geral.</div>
+    <div class="form-hint" style="margin-bottom:12px;">Personalize o nome de cada estágio padrão que aparece no Painel Geral. O ícone segue fixo no padrão visual da plataforma, colorido de acordo com a etapa.</div>
     <div class="config-list">${bucketRows}</div>
 
     <div class="section-title">Regras Personalizadas<div class="rule"></div></div>
@@ -6778,7 +6831,6 @@ async function saveDashboardConfig(){
   const labels = {};
   Object.keys(cfg.labels).forEach(id=>{
     labels[id] = {
-      icon: document.getElementById('cfg-icon-'+id).value.trim(),
       label: document.getElementById('cfg-label-'+id).value.trim() || id,
     };
   });
@@ -6933,6 +6985,11 @@ function bucketIconOnly(id, cfg){
     const r = (cfg.rules||[]).find(x=>x.id===rid);
     return (r && r.icon) ? r.icon : svgPinIcon();
   }
+  /* Os 5 estágios fixos SEMPRE usam o ícone SVG padrão (fixedBucketIcon), não o que estiver
+     salvo em cfg.labels[id].icon — é essa trava que impede um emoji digitado na Personalização
+     (ou herdado de uma configuração antiga) de voltar a aparecer aqui. O nome (label) continua
+     vindo normalmente da configuração salva, só o ícone que ficou fixo. */
+  if(FIXED_BUCKET_IDS.includes(id)) return fixedBucketIcon(id);
   const l = cfg.labels[id];
   return (l && l.icon) ? l.icon : svgPinIcon();
 }
@@ -7046,11 +7103,11 @@ function renderDashboardResults(){
   const finalizadosCount = state.processes.filter(p=>getBucket(p)==='finalizados').length;
   const totalAtivos = state.processes.filter(p=>getBucket(p)!=='finalizados').length;
 
-  /* TESTE VISUAL — Painel v2: a mesma cor por etapa (kpiAccents) agora também alimenta os
-     retângulos-separador de seção abaixo — os cards de resumo (KPI) e os separadores das
-     etapas "conversam" na mesma família de cor, como pedido. */
-  const kpiAccents = {producao:'var(--ink-blue)', aguardando_embarque:'var(--ink-amber)', transito:'var(--ink-purple)', desembaraco:'var(--ink-red)', entregue:'var(--ink-green)'};
-  const kpiAccentsBg = {producao:'var(--ink-blue-bg)', aguardando_embarque:'var(--ink-amber-bg)', transito:'var(--ink-purple-bg)', desembaraco:'var(--ink-red-bg)', entregue:'var(--ink-green-bg)'};
+  /* TESTE VISUAL — Painel v2: a mesma cor por etapa (DASHBOARD_KPI_ACCENTS) agora também
+     alimenta os retângulos-separador de seção abaixo — os cards de resumo (KPI) e os
+     separadores das etapas "conversam" na mesma família de cor, como pedido. */
+  const kpiAccents = DASHBOARD_KPI_ACCENTS;
+  const kpiAccentsBg = DASHBOARD_KPI_ACCENTS_BG;
   const kpis = `
   <div class="active-count-label">Processos ativos: ${totalAtivos}</div>
   <div class="kpi-row">
@@ -11914,6 +11971,20 @@ function collectProcessFormData(){
     produtoMestreNome: window.__editingProcess.produtoMestreNome || '',
     produtoMestreSnapshot: window.__editingProcess.produtoMestreSnapshot || null,
     rotaAplicada: window.__editingProcess.rotaAplicada || null,
+    /* Provisionamento congelado (snapshot enviado ao Financeiro) NÃO vem de nenhum campo do
+       formulário — é escrito direto em window.__editingProcess por congelarProvisionamento()/
+       refazerProvisionamento(). Precisa ser copiado aqui manualmente igual aos outros campos
+       "gerenciados por código" acima (checklist, extra, produtoMestreSnapshot etc.), senão
+       cada salvamento subsequente sobrescreve o processo sem ele e a tela de "enviado" nunca
+       sobrevive a um fechar/reabrir do processo — só parecia funcionar durante a mesma sessão
+       do modal porque o objeto em memória continuava com o valor, mas o que ia pro Firestore
+       (e voltava na próxima abertura) já vinha sem. */
+    provisionamentoCongelado: window.__editingProcess.provisionamentoCongelado || null,
+    /* Mesmo caso do provisionamento acima: os lotes já extraídos da fatura (aba Lotes) também
+       são escritos direto em window.__editingProcess por extractAllLotes(), fora do
+       formulário — sem isso aqui, a extração "sumia" a cada reabertura do processo, obrigando
+       a rodar de novo toda vez mesmo já tendo sido feita antes. */
+    lotesExtraidos: window.__editingProcess.lotesExtraidos || null,
     temperaturaControlada: !!window.__editingProcess.temperaturaControlada,
     temperaturaValor: document.getElementById('f-temperatura').value,
     temperaturaOutro: document.getElementById('f-temperatura-outro').value,
