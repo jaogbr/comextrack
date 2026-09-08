@@ -60,7 +60,38 @@ body{
   padding:24px 0;
   position:sticky; top:0; height:100vh;
   overflow-y:auto; overflow-x:hidden;
+  transition:width 0.22s ease;
 }
+/* RECOLHER/EXPANDIR — só a largura anima; o conteúdo principal (main{flex:1}) já reaproveita
+   o espaço liberado automaticamente por estar no mesmo flex container (#app), sem precisar
+   de nenhum JS pra redimensionar nada além da própria sidebar. Preserva cores, ícones, ordem
+   e todas as funcionalidades — só oculta texto e centraliza ícone quando recolhida. */
+.sidebar.collapsed{width:76px;}
+.sidebar-collapse-btn{
+  position:absolute; top:22px; right:14px; width:26px; height:26px; border-radius:50%;
+  background:var(--navy); border:1px solid rgba(255,255,255,0.28); color:#fff;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:6;
+  box-shadow:0 2px 8px rgba(0,0,0,0.35); transition:background 0.15s;
+}
+.sidebar-collapse-btn:hover{background:var(--navy-light);}
+.sidebar-collapse-btn svg{transition:transform 0.22s ease; flex-shrink:0;}
+.sidebar.collapsed .sidebar-collapse-btn svg{transform:rotate(180deg);}
+.sidebar.collapsed .brand{display:none;}
+.sidebar.collapsed .nav{padding-top:34px;}
+.sidebar.collapsed .nav-item{justify-content:center; gap:0; padding:10px 0;}
+.sidebar.collapsed .nav-item .dot{display:none;}
+.sidebar.collapsed .nav-label{display:none;}
+.sidebar.collapsed .nav-reorder-toggle{display:none;}
+.sidebar.collapsed .sidebar-footer{padding:0 14px;}
+.sidebar.collapsed .sidebar-account{justify-content:center; gap:0; padding:8px;}
+.sidebar.collapsed .sidebar-account-text, .sidebar.collapsed .sidebar-account-chevron{display:none;}
+.sidebar.collapsed .sidebar-footer-row{display:none;}
+.sidebar-footer-row{display:flex; align-items:center; justify-content:space-between; margin:10px 0;}
+.sidebar.collapsed .sidebar-account-dropdown{position:absolute; top:0; left:100%; margin-left:10px; width:230px;}
+.sidebar.collapsed .new-process-btn{width:40px; height:40px; padding:0; border-radius:50%; margin:0 auto; display:flex; align-items:center; justify-content:center; font-size:19px; line-height:1;}
+.sidebar.collapsed .save-indicator-text{display:none;}
+#save-indicator{font-size:11px; color:#7C8FA8; margin-bottom:8px; text-align:center;}
+
 .sidebar::before{
   content:''; position:absolute; inset:0; z-index:0; pointer-events:none;
   /* A foto inteira (do topo ao fundo) é o fundo da própria .sidebar agora — não é mais um
@@ -72,6 +103,13 @@ body{
   background:linear-gradient(180deg, rgba(8,15,28,0.62) 0%, rgba(8,15,28,0.42) 45%, rgba(8,15,28,0.18) 75%, rgba(8,15,28,0.05) 100%);
 }
 .sidebar > *{position:relative; z-index:1;}
+/* O botão de recolher/expandir precisa vencer TANTO o position quanto o z-index da regra
+   acima — sem isso, mesmo posicionado corretamente, a caixa (invisível, mas presente) do
+   .brand que vem logo depois dele no DOM empata em z-index e fica por cima na pilha de
+   empilhamento, interceptando o clique mesmo com o botão aparecendo visualmente por baixo
+   (já que .brand não tem fundo opaco ali). Selector com 2 classes garante prioridade sobre
+   o ".sidebar > *" (1 classe), então usamos exatamente essa combinação em vez de !important. */
+.sidebar > .sidebar-collapse-btn{position:absolute; z-index:10;}
 .brand{
   padding:0 20px 20px 20px;
   border-bottom:1px solid rgba(255,255,255,0.1);
@@ -444,7 +482,7 @@ body.dark-mode .preanalise-row-alert{background:rgba(220,38,38,0.1);}
 .eye-btn{
   position:absolute; top:10px; right:10px; background:var(--navy); border:1px solid var(--navy);
   border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center;
-  cursor:pointer; font-size:14px; z-index:2; box-shadow:0 1px 3px rgba(15,27,45,0.25);
+  cursor:pointer; font-size:14px; z-index:2; box-shadow:0 1px 3px rgba(15,27,45,0.25); color:#fff;
 }
 .eye-btn:hover{background:var(--navy-light); border-color:var(--navy-light);}
 body.dark-mode .eye-btn{background:var(--card); border-color:var(--border-strong);}
@@ -801,8 +839,10 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .process-grid-4 .form-group, .process-grid-2 .form-group{margin-bottom:12px;}
 .process-grid-2{display:grid; grid-template-columns:repeat(2,1fr); gap:6px 16px;}
 .process-span-2{grid-column:span 2;}
+.process-span-4{grid-column:span 4;}
+.process-section-title-icon{display:inline-flex; vertical-align:-3px; margin-right:6px;}
 @media (max-width:980px){.process-grid-4{grid-template-columns:repeat(2,1fr);} .process-summary-row{grid-template-columns:1fr;}}
-@media (max-width:620px){.process-grid-4, .process-grid-2{grid-template-columns:1fr;} .process-span-2{grid-column:span 1;}}
+@media (max-width:620px){.process-grid-4, .process-grid-2{grid-template-columns:1fr;} .process-span-2, .process-span-4{grid-column:span 1;}}
 
 
 .form-row{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;}
@@ -815,6 +855,13 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .form-group input:focus, .form-group select:focus, .form-group textarea:focus{outline:2px solid var(--ink-blue); outline-offset:1px; border-color:var(--ink-blue);}
 .form-group textarea{resize:vertical; min-height:60px;}
 .form-hint{font-size:11px; color:var(--muted); margin-top:4px; font-style:italic; font-weight:300;}
+/* "Modo fixo" do cadastro de Produto (Banco de Itens): campo já preenchido mostra como um
+   valor travado (não parece um input) até a pessoa clicar em "Editar Produto". */
+.fixed-field-value{
+  padding:8px 10px; background:var(--paper); border:1px solid var(--border); border-radius:6px;
+  font-size:13px; color:var(--text); min-height:19px; line-height:1.4;
+}
+body.dark-mode .fixed-field-value{background:var(--card); border-color:var(--border-strong);}
 
 .tabs{display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:18px; flex-wrap:wrap;}
 .tab-btn{
@@ -2029,6 +2076,16 @@ function seedCodigosImpostoParaNcmsConhecidas(){
 let state = { processes: [], suppliers: [], partners: [], ncms: [] };
 let currentView = 'dashboard';
 let saveTimer = null;
+/* Preferência de sidebar recolhida/expandida — persistida em localStorage, igual ao padrão já
+   usado pro tema (claro/escuro) e pra ordem das abas. Lida de forma síncrona na declaração
+   pra já vir com o estado certo no primeiro render(), sem "pulo" visual. */
+let sidebarCollapsed = false;
+try{ sidebarCollapsed = localStorage.getItem('comextrack_sidebar_collapsed') === '1'; }catch(e){}
+function toggleSidebarCollapse(){
+  sidebarCollapsed = !sidebarCollapsed;
+  try{ localStorage.setItem('comextrack_sidebar_collapsed', sidebarCollapsed ? '1' : '0'); }catch(e){}
+  render();
+}
 
 /* Ponto único de verdade pra travar uma ação de salvar/editar/excluir de verdade (não só
    esconder botão). Sem argumento, infere a aba a partir de currentView (cobre a esmagadora
@@ -2063,6 +2120,13 @@ function applyStoredTheme(){
    troca de tema. Mesmo estilo dos ícones já usados na tela de login. */
 function svgChevronDown(){
   return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+}
+/* Ícone único do botão de recolher/expandir a sidebar — chevron apontando pra esquerda
+   ("recolher") por padrão; quando a sidebar está recolhida, o CSS (.sidebar.collapsed
+   .sidebar-collapse-btn svg) gira ele 180° e ele passa a apontar pra direita ("expandir"),
+   sem precisar trocar de ícone via JS. */
+function svgSidebarCollapseIcon(){
+  return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>';
 }
 function svgSunIcon(){
   return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8L6 18M18 6l1.8-1.8"/></svg>';
@@ -2977,22 +3041,35 @@ function getProcessAlerts(p){
 
   const stages = getStagesForProcess(p);
   const statusIdx = stages.findIndex(s=>s.key===p.status);
-  for(let i=0;i<statusIdx;i++){
-    const s = stages[i];
-    if(stageComplete(p, s.key)) continue;
-    let pendentes;
-    if(s.type==='payments'){
-      pendentes = s.items.filter(it=>!(p.payments[it.key]||{}).checked).map(it=>it.label);
-    } else {
-      const checked = p.checklist[s.key]||[];
-      pendentes = s.items.filter((_,idx)=>!checked[idx]);
-    }
-    if(pendentes.length){
-      const faseLabel = s.label.replace(/^Fase \d+ · /,'');
-      pendentes.forEach(label=>{
-        alerts.push(`Pendente da fase anterior (${faseLabel}): ${label}`);
-      });
-    }
+
+  /* Vários itens de checklist abaixo já ganham um alerta específico e datado (com janela de
+     dias/urgência própria) — pra esses, o mecanismo genérico de "Pendente da fase anterior"
+     (que roda por ÚLTIMO nesta função, depois de todo alerta específico já calculado) não deve
+     gerar um SEGUNDO alerta pro mesmo item: mostrar a mesma pendência ao mesmo tempo em "Prazos
+     próximos"/"Atrasados" (o alerta específico) E em "Pendências documentais" (o genérico) é
+     repetição, não duas informações diferentes. `handledPendencies` guarda a chave
+     "stageKey:índice" de cada item já coberto.
+     A maioria só entra aqui quando o alerta específico de fato dispara (se a condição de data
+     dele não se aplica — ex: sem Data de Embarque preenchida — o item continua elegível pro
+     genérico normalmente, pra não sumir pendência nenhuma). "Embarque confirmado" (Fase 4) e
+     "Pagamento" (Fase 3) são exceção, marcadas incondicionalmente logo abaixo: por pedido
+     explícito, a primeira só pode ser cobrada quando existe Data de Embarque preenchida E ela
+     já passou, e a segunda só quando a Modalidade de Pagamento é "Adiantado" — nenhum outro
+     caminho, incluindo o genérico, pode cobrá-las fora dessas condições. */
+  const handledPendencies = new Set();
+  const fase4StageForFlag = stages.find(s=>s.key==='fase4');
+  if(fase4StageForFlag && fase4StageForFlag.embarqueConfirmadoItemIndex!=null){
+    handledPendencies.add('fase4:'+fase4StageForFlag.embarqueConfirmadoItemIndex);
+  }
+  /* "Pagamento" (Fase 3, índice 0): só é cobrado — por qualquer caminho, específico OU
+     genérico — quando a Modalidade de Pagamento (definida na Visão Geral) estiver marcada
+     como "Adiantado". Qualquer outra coisa (A prazo, Factoring, ou ainda sem definir) exclui
+     esse item de QUALQUER alerta incondicionalmente, pedido explícito — mesmo tratamento já
+     dado a "Embarque confirmado" acima. */
+  const modalidadePagamento = extra.modalidadePagamento || '';
+  const pagamentoAdiantado = /^adiantado/i.test(modalidadePagamento);
+  if(!pagamentoAdiantado){
+    handledPendencies.add('fase3:0');
   }
 
   /* Novo alerta pedido: agente de cargas precisa estar definido com folga antes da prontidão
@@ -3009,21 +3086,16 @@ function getProcessAlerts(p){
       } else {
         alerts.push(`Prontidão da carga foi há ${Math.abs(diasParaProntidao)} dias e o agente de cargas ainda não foi definido`);
       }
+      handledPendencies.add('fase4:1');
     }
 
     /* Alerta de Pagamento (Fase 3, item "Pagamento"):
        - só passa a existir dentro da janela de 5 dias antes da prontidão (antes disso, nada
-         de alerta — pedido explícito, mais apertado que a janela de 20 dias do agente de
-         cargas acima);
-       - continua mudando de tom depois que a prontidão passa (pendência de verdade, "Já se
-         passaram X dias..."), igual antes;
-       - não dispara quando a Modalidade de Pagamento estiver marcada como "A prazo" ou
-         "Factoring" — nesses casos o pagamento acontece depois da entrega, não faz sentido
-         cobrar antes da prontidão. */
-    const modalidadePagamento = extra.modalidadePagamento || '';
-    const pagamentoAPrazoOuFactoring = /^(a prazo|factoring)/i.test(modalidadePagamento);
+         de alerta), e continua mudando de tom depois que a prontidão passa (pendência de
+         verdade, "Já se passaram X dias...");
+       - só dispara quando pagamentoAdiantado é true (ver exclusão incondicional acima). */
     const pagamentoRealizado = (p.checklist['fase3']||[])[0];
-    if(!pagamentoRealizado && !pagamentoAPrazoOuFactoring && diasParaProntidao<=5){
+    if(!pagamentoRealizado && pagamentoAdiantado && diasParaProntidao<=5){
       if(diasParaProntidao>0){
         alerts.push(`Faltam ${diasParaProntidao} dia${diasParaProntidao===1?'':'s'} para a prontidão da carga — pagamento ainda não realizado`);
       } else if(diasParaProntidao===0){
@@ -3031,6 +3103,7 @@ function getProcessAlerts(p){
       } else {
         alerts.push(`Prontidão da carga foi há ${Math.abs(diasParaProntidao)} dias e o pagamento ainda não foi realizado`);
       }
+      handledPendencies.add('fase3:0');
     }
   }
 
@@ -3041,29 +3114,32 @@ function getProcessAlerts(p){
        da Visão Geral está preenchido — mesmo já sabendo quem vai ser o despachante desde o
        início, ainda é preciso lembrar de notificar, e é isso que o alerta cobra. */
     const despachanteNotificado = (p.checklist['fase5']||[])[0];
-    if(diasDesdeEmbarque>=3 && !despachanteNotificado){
-      alerts.push(`Já se passaram ${diasDesdeEmbarque} dias do embarque sem notificar o despachante`);
-    }
-    if(diasParaEmbarque<=3 && diasParaEmbarque>0 && !despachanteNotificado){
-      alerts.push(`Faltam ${diasParaEmbarque} dia${diasParaEmbarque===1?'':'s'} para o embarque sem notificar o despachante`);
-    }
-    if(diasParaEmbarque===0 && !despachanteNotificado){
-      alerts.push('Embarca hoje e o despachante ainda não foi notificado');
+    if(!despachanteNotificado){
+      if(diasDesdeEmbarque>=3){
+        alerts.push(`Já se passaram ${diasDesdeEmbarque} dias do embarque sem notificar o despachante`);
+        handledPendencies.add('fase5:0');
+      } else if(diasParaEmbarque<=3 && diasParaEmbarque>0){
+        alerts.push(`Faltam ${diasParaEmbarque} dia${diasParaEmbarque===1?'':'s'} para o embarque sem notificar o despachante`);
+        handledPendencies.add('fase5:0');
+      } else if(diasParaEmbarque===0){
+        alerts.push('Embarca hoje e o despachante ainda não foi notificado');
+        handledPendencies.add('fase5:0');
+      }
     }
     /* Alerta de Provisionamento Financeiro: cobra assim que existir uma Data de Embarque
-       preenchida (não só depois que o embarque já aconteceu) — antes verificava só depois do
-       embarque passado (diasDesdeEmbarque>=0) e, por um engano de índice, checava o item
-       "Pagamento" (índice 0) em vez de "Provisionamento Financeiro" (índice 1) da Fase 3.
-       Corrigido pros dois: índice certo, e dispara com a data preenchida independente de já
-       ter passado ou não. */
+       preenchida (não só depois que o embarque já aconteceu). */
     const fase3checked = p.checklist['fase3']||[];
     if(!fase3checked[1]){
       if(diasDesdeEmbarque>0) alerts.push(`Já se passaram ${diasDesdeEmbarque} dia${diasDesdeEmbarque===1?'':'s'} do embarque sem enviar o provisionamento financeiro`);
       else if(diasDesdeEmbarque===0) alerts.push('Embarca hoje e o provisionamento financeiro ainda não foi enviado');
       else alerts.push(`Faltam ${diasParaEmbarque} dia${diasParaEmbarque===1?'':'s'} para o embarque e o provisionamento financeiro ainda não foi enviado`);
+      handledPendencies.add('fase3:1');
     }
-    /* Passou a data de embarque colocada e ninguém marcou "Embarque confirmado" (Fase 4) —
-       o processo fica "preso" em Aguardando Embarque até isso ser confirmado de verdade. */
+    /* "Embarque confirmado" (Fase 4): SÓ cobra quando a Data de Embarque existe (garantido
+       pelo `if(p.dataEmbarqueReal)` acima) E ela já passou (diasDesdeEmbarque>=0) — pedido
+       explícito. Sem data, ou com data ainda no futuro, nenhum alerta sobre essa etapa deve
+       aparecer, nem por aqui nem pelo mecanismo genérico (por isso ela é excluída dele
+       incondicionalmente lá em cima, e não só quando este bloco dispara). */
     const fase4Stage = stages.find(s=>s.key==='fase4');
     const embarqueConfirmadoIdx = fase4Stage ? fase4Stage.embarqueConfirmadoItemIndex : null;
     const embarqueConfirmado = embarqueConfirmadoIdx!=null ? !!(p.checklist['fase4']||[])[embarqueConfirmadoIdx] : false;
@@ -3075,25 +3151,36 @@ function getProcessAlerts(p){
   if(p.chegadaPrevista){
     const diasParaChegada = daysBetween(today, p.chegadaPrevista);
     /* Mesma lógica: acompanha o TICK "Solicitar DTA" (Fase 6), não se a Transportadora (DTA)
-       já foi escolhida na Visão Geral. */
-    const dtaSolicitada = (p.checklist['fase6']||[])[0];
+       já foi escolhida na Visão Geral. Só existe pro marítimo — no aéreo o item 0 da Fase 6 é
+       outra coisa ("Chegada e presença"), sem relação com DTA. */
     if(p.modal!=='aereo'){
-      if(diasParaChegada<=5 && diasParaChegada>0 && !dtaSolicitada){
-        alerts.push(`Faltam ${diasParaChegada} dia${diasParaChegada===1?'':'s'} para a chegada sem solicitar a DTA`);
-      }
-      if(diasParaChegada<=0 && !dtaSolicitada){
-        alerts.push(diasParaChegada===0 ? 'Chegada é hoje e a DTA ainda não foi solicitada' : `Chegada atrasada há ${Math.abs(diasParaChegada)} dias sem solicitar a DTA`);
+      const dtaSolicitada = (p.checklist['fase6']||[])[0];
+      if(!dtaSolicitada){
+        if(diasParaChegada<=5 && diasParaChegada>0){
+          alerts.push(`Faltam ${diasParaChegada} dia${diasParaChegada===1?'':'s'} para a chegada sem solicitar a DTA`);
+          handledPendencies.add('fase6:0');
+        } else if(diasParaChegada<=0){
+          alerts.push(diasParaChegada===0 ? 'Chegada é hoje e a DTA ainda não foi solicitada' : `Chegada atrasada há ${Math.abs(diasParaChegada)} dias sem solicitar a DTA`);
+          handledPendencies.add('fase6:0');
+        }
       }
     }
     const fase5checked = p.checklist['fase5']||[];
-    if(diasParaChegada<=5 && diasParaChegada>0 && !fase5checked[3]){
-      alerts.push(`Faltam ${diasParaChegada} dia${diasParaChegada===1?'':'s'} para a chegada sem rascunho da DUIMP`);
-    }
-    if(diasParaChegada<=0 && !fase5checked[3]){
-      alerts.push(diasParaChegada===0 ? 'Chegada é hoje sem rascunho da DUIMP' : `Chegada atrasada há ${Math.abs(diasParaChegada)} dias sem rascunho da DUIMP`);
+    if(!fase5checked[3]){
+      if(diasParaChegada<=5 && diasParaChegada>0){
+        alerts.push(`Faltam ${diasParaChegada} dia${diasParaChegada===1?'':'s'} para a chegada sem rascunho da DUIMP`);
+        handledPendencies.add('fase5:3');
+      } else if(diasParaChegada<=0){
+        alerts.push(diasParaChegada===0 ? 'Chegada é hoje sem rascunho da DUIMP' : `Chegada atrasada há ${Math.abs(diasParaChegada)} dias sem rascunho da DUIMP`);
+        handledPendencies.add('fase5:3');
+      }
     }
   }
 
+  /* Fatura e/ou Packing List: cobra assim que a data de Prontidão passar (hoje ou antes) e
+     esses dois documentos ainda não tiverem sido marcados — pedido explícito. Não é item de
+     checklist (é controlado por p.docs), então não tem equivalente no mecanismo genérico de
+     "Pendente da fase anterior" e não precisa de handledPendencies. */
   if(p.prontidao && daysBetween(p.prontidao, today) >= 0){
     const diasDesdeProntidao = daysBetween(p.prontidao, today);
     const hasFatura = p.docs && p.docs['Comercial Invoice (Fatura)'];
@@ -3120,11 +3207,14 @@ function getProcessAlerts(p){
   if(devolucao){
     const diasParaDevolucao = daysBetween(today, devolucao.date);
     const fase7checked = p.checklist['fase7']||[];
-    if(diasParaDevolucao<=5 && diasParaDevolucao>0 && !fase7checked[4]){
-      alerts.push(`Faltam ${diasParaDevolucao} dia${diasParaDevolucao===1?'':'s'} para a devolução do container e a etapa ainda não foi marcada`);
-    }
-    if(diasParaDevolucao<=0 && !fase7checked[4]){
-      alerts.push(diasParaDevolucao===0 ? 'Devolução do container é hoje e a etapa ainda não foi marcada' : `Devolução do container atrasada há ${Math.abs(diasParaDevolucao)} dias`);
+    if(!fase7checked[4]){
+      if(diasParaDevolucao<=5 && diasParaDevolucao>0){
+        alerts.push(`Faltam ${diasParaDevolucao} dia${diasParaDevolucao===1?'':'s'} para a devolução do container e a etapa ainda não foi marcada`);
+        handledPendencies.add('fase7:4');
+      } else if(diasParaDevolucao<=0){
+        alerts.push(diasParaDevolucao===0 ? 'Devolução do container é hoje e a etapa ainda não foi marcada' : `Devolução do container atrasada há ${Math.abs(diasParaDevolucao)} dias`);
+        handledPendencies.add('fase7:4');
+      }
     }
   }
 
@@ -3134,6 +3224,7 @@ function getProcessAlerts(p){
     const fase7checked = p.checklist['fase7']||[];
     if(fase7checked[2] && !fase7checked[3]){
       alerts.push('Recebimento em estoque marcado, mas a Nota Fiscal ainda não foi emitida');
+      handledPendencies.add('fase7:3');
     }
   }
 
@@ -3158,6 +3249,32 @@ function getProcessAlerts(p){
         : diasParaPrazoZS===0
           ? 'Prazo do 1º período de armazenagem na Zona Secundária vence hoje e o recebimento em estoque ainda não foi marcado'
           : `Faltam ${diasParaPrazoZS} dia${diasParaPrazoZS===1?'':'s'} para o fim do 1º período de armazenagem na Zona Secundária e o recebimento em estoque ainda não foi marcado`);
+      handledPendencies.add('fase7:2');
+    }
+  }
+
+  /* Pendências genéricas de fases anteriores — roda por ÚLTIMO, depois de todo alerta
+     específico já ter sido calculado acima, pra poder consultar handledPendencies e não
+     duplicar um item que já apareceu com um alerta específico e datado (ver comentário no
+     topo da função). */
+  for(let i=0;i<statusIdx;i++){
+    const s = stages[i];
+    if(stageComplete(p, s.key)) continue;
+    let pendentes;
+    if(s.type==='payments'){
+      pendentes = s.items.filter(it=>!(p.payments[it.key]||{}).checked).map(it=>it.label);
+    } else {
+      const checked = p.checklist[s.key]||[];
+      pendentes = s.items
+        .map((label,idx)=>({label,idx}))
+        .filter(({idx})=>!checked[idx] && !handledPendencies.has(s.key+':'+idx))
+        .map(({label})=>label);
+    }
+    if(pendentes.length){
+      const faseLabel = s.label.replace(/^Fase \d+ · /,'');
+      pendentes.forEach(label=>{
+        alerts.push(`Pendente da fase anterior (${faseLabel}): ${label}`);
+      });
     }
   }
 
@@ -3542,10 +3659,17 @@ function finishEditingItem(id){ editingItemIds.delete(id); renderItensTab(); }
    Como todo modal do app reaproveita o mesmo id="modal-overlay" (um modal por vez), não dá
    pra empilhar o modal do produto em cima do modal do processo sem quebrar o fechamento —
    por isso salva o processo primeiro (mesma função usada ao adicionar/remover item) e só
-   depois troca de modal, pra não perder nada que estava sendo editado. */
+   depois troca de modal, pra não perder nada que estava sendo editado.
+   Registra em setModalReturnTo que, ao fechar o modal do produto, o processo deve reabrir
+   direto na aba Itens — em vez de simplesmente cair na tela de fundo (que pode ser qualquer
+   página, dependendo de onde o processo foi aberto originalmente). */
 async function openItemMasterProduct(pn){
+  const processId = window.__editingProcess ? window.__editingProcess.id : null;
   await autoPersistCurrentProcess();
   closeModal();
+  if(processId){
+    setModalReturnTo(()=>{ openProcessModal(processId); switchTab('itens'); });
+  }
   openProductModal(pn);
 }
 
@@ -5375,25 +5499,40 @@ function currentPendingKey(p){
 }
 
 /* ===================== LÓGICA DE ETAPAS ===================== */
+/* Opções de Modalidade de Pagamento de um processo — vem da configuração do fornecedor
+   (Adiantado/A prazo/Factoring, com os dias de cada uma) quando ela existe; cai pro conjunto
+   padrão só quando o processo ainda não tem fornecedor selecionado ou o fornecedor não tem
+   nenhuma modalidade configurada. Extraído como função própria pra ser usado tanto na Fase 3
+   (rótulo do item "Pagamento") quanto no campo de seleção da Visão Geral, sem duplicar a
+   lógica em dois lugares. */
+function getModalidadePagamentoOptions(p){
+  const supplier = state.suppliers.find(x=>x.id===p.supplierId);
+  let options = [];
+  if(supplier && supplier.modalidades){
+    if(supplier.modalidades.adiantado) options.push('Adiantado');
+    if(supplier.modalidades.aPrazo && supplier.modalidades.aPrazo.checked) options.push(`A prazo (${supplier.modalidades.aPrazo.dias||'?'} dias)`);
+    if(supplier.modalidades.factoring && supplier.modalidades.factoring.checked) options.push(`Factoring (${supplier.modalidades.factoring.dias||'?'} dias)`);
+  }
+  if(options.length===0) options = ['Adiantado','A prazo','Factoring'];
+  return options;
+}
 function getStagesForProcess(p){
   if(p && p.tipo==='temporaria') return TEMP_STAGES;
   const isAereo = p && p.modal==='aereo';
   return STAGE_DEFS.map(s=>{
     if(s.key==='fase3'){
-      const supplier = state.suppliers.find(x=>x.id===p.supplierId);
-      let options = [];
-      if(supplier && supplier.modalidades){
-        if(supplier.modalidades.adiantado) options.push('Adiantado');
-        if(supplier.modalidades.aPrazo && supplier.modalidades.aPrazo.checked) options.push(`A prazo (${supplier.modalidades.aPrazo.dias||'?'} dias)`);
-        if(supplier.modalidades.factoring && supplier.modalidades.factoring.checked) options.push(`Factoring (${supplier.modalidades.factoring.dias||'?'} dias)`);
-      }
-      if(options.length===0) options = ['Adiantado','A prazo','Factoring'];
       const mp = p.extra && p.extra.modalidadePagamento;
       const label = mp ? `Pagamento (${mp})` : 'Pagamento';
       /* "Provisionamento Financeiro" fica no índice 1 (depois de "Pagamento", que permanece
          no índice 0) — assim nenhum processo já em andamento tem sua marcação de Pagamento
-         deslocada de posição no checklist. */
-      return {...s, items:[label, 'Provisionamento Financeiro'], extraFields:[{key:'modalidadePagamento', label:'Modalidade de Pagamento', type:'select', options}]};
+         deslocada de posição no checklist.
+         A Modalidade de Pagamento NÃO tem mais um campo editável aqui na Etapas — ela é
+         preenchida na aba Visão Geral (Informações Principais) e só é EXIBIDA aqui, refletida
+         automaticamente no rótulo do item acima ("Pagamento (Adiantado)", etc). Pedido
+         explícito: preencher uma vez na Visão Geral e deixar isso "puxar" pro resto do
+         processo (rótulo da etapa e alerta de cobrança de pagamento), em vez de ter o mesmo
+         dado editável em dois lugares diferentes. */
+      return {...s, items:[label, 'Provisionamento Financeiro']};
     }
 
     if(s.key==='fase4' && isAereo){
@@ -6073,36 +6212,39 @@ function render(){
   const app = document.getElementById('app');
   const userInitials = (currentUserRoleLabel||'US').slice(0,2).toUpperCase();
   app.innerHTML = `
-    <aside class="sidebar" id="app-sidebar" style="background-image:url('${SIDEBAR_SHIP_IMG}');">
+    <aside class="sidebar ${sidebarCollapsed?'collapsed':''}" id="app-sidebar" style="background-image:url('${SIDEBAR_SHIP_IMG}');">
+      <button type="button" class="sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="${sidebarCollapsed?'Expandir menu':'Recolher menu'}">${svgSidebarCollapseIcon()}</button>
+      ${sidebarCollapsed ? '' : `
       <div class="brand">
         <div class="brand-mark" style="justify-content:center;">
           <img src="${LOGO_BRANCO}" alt="ComexTrack" style="height:130px; display:block;">
         </div>
-      </div>
+      </div>`}
       <nav class="nav">
         ${renderNavHtml()}
       </nav>
       <div class="sidebar-footer">
-        <div class="sidebar-account" id="sidebar-account-trigger" onclick="toggleUserSwitcher()">
+        <div class="sidebar-account" id="sidebar-account-trigger" onclick="toggleUserSwitcher()" title="${sidebarCollapsed?(currentUserRoleLabel||'Usuário'):''}">
           <div class="sidebar-account-avatar">${userInitials}</div>
+          ${sidebarCollapsed ? '' : `
           <div class="sidebar-account-text">
             <div class="sidebar-account-name">${currentUserRoleLabel||'Usuário'}</div>
             <div class="sidebar-account-email">${currentUser?currentUser.email:''}</div>
           </div>
-          <span class="sidebar-account-chevron" id="sidebar-account-chevron">${svgChevronDown()}</span>
+          <span class="sidebar-account-chevron" id="sidebar-account-chevron">${svgChevronDown()}</span>`}
         </div>
         <div class="sidebar-account-dropdown" id="sidebar-account-dropdown" style="display:none;">
           <div class="sidebar-account-dropdown-loading">Carregando usuários...</div>
         </div>
-        <div style="display:flex; align-items:center; justify-content:space-between; margin:10px 0;">
+        <div class="sidebar-footer-row">
           <span class="role-badge ${currentRole}">${currentRole}</span>
           <div class="theme-segmented">
             <button class="theme-segmented-btn ${!document.body.classList.contains('dark-mode')?'active':''}" onclick="setTheme('light')" title="Modo claro">${svgSunIcon()}</button>
             <button class="theme-segmented-btn ${document.body.classList.contains('dark-mode')?'active':''}" onclick="setTheme('dark')" title="Modo escuro">${svgMoonIcon()}</button>
           </div>
         </div>
-        <div id="save-indicator" style="font-size:11px; color:#7C8FA8; margin-bottom:8px; text-align:center;">Dados salvos ${svgCheckInline()}</div>
-        ${hasAnyEditAccess() ? `<button class="new-process-btn" onclick="openProcessModal()">+ Novo Processo</button>` : `<div class="form-hint" style="color:#7C8FA8;">Modo somente leitura</div>`}
+        <div id="save-indicator"><span class="save-indicator-text">Dados salvos </span>${svgCheckInline()}</div>
+        ${hasAnyEditAccess() ? `<button class="new-process-btn" onclick="openProcessModal()" title="Novo Processo">${sidebarCollapsed?'+':'+ Novo Processo'}</button>` : (sidebarCollapsed ? '' : `<div class="form-hint" style="color:#7C8FA8;">Modo somente leitura</div>`)}
       </div>
     </aside>
     <main>
@@ -6228,22 +6370,28 @@ function renderNavHtml(){
   const items = getNavOrder().filter(i=> canView(i.key));
   const ncmAlertCount = getAllPendingNCMAlerts().length;
   const labelFor = (i)=> (i.key==='ncm' && ncmAlertCount) ? `${i.label} <span class="nav-alert-badge">${ncmAlertCount}</span>` : i.label;
+  /* Modo de reordenar abas não faz sentido com a sidebar recolhida (não cabe rótulo nem
+     setas de mover) — com ela recolhida, os itens sempre renderizam no formato normal
+     (clicável, navegando normalmente), sem alterar `navReorderMode` de verdade: ao
+     expandir de novo, o modo de reordenação continua exatamente como estava. */
+  const reorderActive = navReorderMode && !sidebarCollapsed;
   const body = items.map((i,idx)=>{
-    if(navReorderMode){
+    if(reorderActive){
       return `<div class="nav-item-reorder-row">
-        <button class="nav-item ${currentView===i.key?'active':''}" style="flex:1;" onclick="setView('${i.key}')"><span class="dot"></span><span class="nav-icon">${svgNavIcon(i.key)}</span>${labelFor(i)}</button>
+        <button class="nav-item ${currentView===i.key?'active':''}" style="flex:1;" onclick="setView('${i.key}')" title="${i.label}"><span class="dot"></span><span class="nav-icon">${svgNavIcon(i.key)}</span><span class="nav-label">${labelFor(i)}</span></button>
         <button class="nav-reorder-btn" onclick="moveNavItem('${i.key}',-1)" ${idx===0?'disabled':''}>↑</button>
         <button class="nav-reorder-btn" onclick="moveNavItem('${i.key}',1)" ${idx===items.length-1?'disabled':''}>↓</button>
       </div>`;
     }
-    return navItem(i.key, labelFor(i));
+    return navItem(i.key, labelFor(i), i.label);
   }).join('');
-  const toggleBtn = `<button class="nav-reorder-toggle" onclick="toggleNavReorderMode()">${navReorderMode?svgCheckInline()+' Concluir reordenação':svgReorderInline()+' Reordenar abas'}</button>`;
+  const toggleBtn = sidebarCollapsed ? '' : `<button class="nav-reorder-toggle" onclick="toggleNavReorderMode()">${navReorderMode?svgCheckInline()+' Concluir reordenação':svgReorderInline()+' Reordenar abas'}</button>`;
   return body + toggleBtn;
 }
 
-function navItem(key,label){
-  return `<button class="nav-item ${currentView===key?'active':''}" onclick="setView('${key}')"><span class="dot"></span><span class="nav-icon">${svgNavIcon(key)}</span>${label}</button>`;
+function navItem(key,label,titleText){
+  const tip = String(titleText||label).replace(/"/g,'&quot;');
+  return `<button class="nav-item ${currentView===key?'active':''}" onclick="setView('${key}')" title="${tip}"><span class="dot"></span><span class="nav-icon">${svgNavIcon(key)}</span><span class="nav-label">${label}</span></button>`;
 }
 function setView(v){
   if(!canView(v)){ alert('Você não tem permissão para visualizar esta área.'); return; }
@@ -7221,18 +7369,93 @@ async function runProductSearch(){
   `).join('');
 }
 
+/* Catálogo leve de "Modelos de Produto" — cadastrado na aba Produtos, separado do Produto
+   Mestre (que é usado pra template de PROCESSO inteiro, sem relação com isso). Existe só pra
+   alimentar o campo "Produto (modelo)" do cadastro de Item no Banco de Itens: nome, Registro
+   Anvisa e Fabricante, pra selecionar um modelo já cadastrado e preencher essas três caixas
+   de uma vez, em vez de digitar tudo de novo item por item. */
+async function ensureModelosProdutoLoaded(){
+  if(window.__modelosProduto) return;
+  window.__modelosProduto = [];
+  try{
+    const snap = await db.collection('modelosProduto').get();
+    snap.forEach(d=>window.__modelosProduto.push({id:d.id, ...d.data()}));
+  }catch(e){ console.error(e); }
+}
+
 async function openProductModal(pn){
+  await ensureModelosProdutoLoaded();
   const existing = pn ? await getProductByPN(pn) : null;
   const p = existing || { pn: pn||'', ativo:true, history:[] };
   window.__editingProduct = JSON.parse(JSON.stringify(p));
+  window.__productModalIsExisting = !!existing;
+  /* Produto já cadastrado abre "travado" — campos com aparência fixa, só leitura — até clicar
+     em "Editar Produto". Produto novo não tem nada pra travar, então já abre editável.
+     Depois de destravado nesta sessão do modal, fica editável até fechar (não trava de novo
+     sozinho no meio da edição). */
+  window.__productModalEditMode = !existing;
+  renderProductModalOverlay();
+}
 
-  const fieldsHtml = PRODUCT_FIELDS.map(f=>{
-    if(f.key==='pn' && existing) return `<div class="form-group"><label>${f.label}</label><input id="pf-${f.key}" value="${p[f.key]||''}"><div class="form-hint">Alterar o PN migra todo o histórico e os vínculos deste produto para o novo número.</div></div>`;
+function enableProductEditMode(){
+  window.__productModalEditMode = true;
+  renderProductModalOverlay();
+}
+
+/* Preenche Registro Anvisa e Fabricante automaticamente a partir do Modelo de Produto
+   selecionado (cadastrado na aba Produtos) — pedido explícito: uma vez selecionado, essas
+   caixas já vêm preenchidas sozinhas, sem precisar digitar de novo. Sobrescreve o que já
+   estava nesses dois campos (mesmo padrão já usado em "Aplicar Produto Mestre"). */
+function applyModeloProdutoToProduct(modeloId){
+  const modelo = (window.__modelosProduto||[]).find(m=>m.id===modeloId);
+  if(!modelo) return;
+  const fProduto = document.getElementById('pf-produto');
+  const fAnvisa = document.getElementById('pf-registroAnvisa');
+  const fFabricante = document.getElementById('pf-fabricante');
+  if(fProduto) fProduto.value = modelo.nome || '';
+  if(fAnvisa) fAnvisa.value = modelo.registroAnvisa || '';
+  if(fFabricante){
+    // Garante que o valor do modelo apareça como opção mesmo se não estiver na lista de
+    // fabricantes vinda dos Fornecedores (mesmo tratamento de "não vinculado" já usado abaixo).
+    if(modelo.fabricante && ![...fFabricante.options].some(o=>o.value===modelo.fabricante)){
+      const opt = document.createElement('option');
+      opt.value = modelo.fabricante; opt.textContent = modelo.fabricante+' (do modelo selecionado)';
+      fFabricante.appendChild(opt);
+    }
+    fFabricante.value = modelo.fabricante || '';
+  }
+}
+
+function productFieldDisplayValue(f, p){
+  const v = p[f.key];
+  if(f.key==='valorUnitario') return (v!==undefined && v!=='' && v!=null) ? fmtUSD(parseFloat(v)||0) : '—';
+  if(f.key==='peso') return (v!==undefined && v!=='' && v!=null) ? fmtNumberBR(v)+' kg' : '—';
+  if(f.key==='codigoII') return v ? formatCodigoII(v) : '—';
+  return (v!==undefined && v!==null && v!=='') ? v : '—';
+}
+
+function renderProductModalOverlay(){
+  const p = window.__editingProduct;
+  const existing = window.__productModalIsExisting;
+  const editMode = window.__productModalEditMode && canEdit('bancoitens');
+
+  /* Cada campo devolve seu próprio bloco .form-group (com a classe de largura já embutida —
+     process-span-2/4 pra campos que precisam de mais espaço), pra depois serem agrupados em
+     seções com título+ícone. O grid de 4 colunas (bem mais largo que antes) é o que evita
+     precisar rolar pra baixo pra ver o produto inteiro: a maioria dos campos cabe lado a lado
+     em vez de empilhados um embaixo do outro. */
+  function fieldBlock(f, spanCls){
+    const cls = `form-group${spanCls?' '+spanCls:''}`;
+    if(!editMode){
+      const extra = f.key==='ncm' ? `<div id="ncm-aliquotas-ref">${renderNcmAliquotasRef(p.ncm)}</div>` : '';
+      return `<div class="${cls}"><label>${f.label}</label><div class="fixed-field-value">${productFieldDisplayValue(f,p)}</div>${extra}</div>`;
+    }
+    if(f.key==='pn' && existing) return `<div class="${cls}"><label>${f.label}</label><input id="pf-${f.key}" value="${p[f.key]||''}"><div class="form-hint">Alterar o PN migra todo o histórico e os vínculos deste produto para o novo número.</div></div>`;
     if(f.key==='valorUnitario' || f.key==='peso'){
-      return `<div class="form-group"><label>${f.label}</label><input id="pf-${f.key}" type="text" inputmode="decimal" value="${p[f.key]?fmtNumberBR(p[f.key]):''}" oninput="maskCurrencyInput(this)"></div>`;
+      return `<div class="${cls}"><label>${f.label}</label><input id="pf-${f.key}" type="text" inputmode="decimal" value="${p[f.key]?fmtNumberBR(p[f.key]):''}" oninput="maskCurrencyInput(this)"></div>`;
     }
     if(f.key==='ncm'){
-      return `<div class="form-group">
+      return `<div class="${cls}">
         <label>${f.label}</label>
         <input id="pf-${f.key}" value="${p[f.key]||''}" placeholder="0000.00.00" oninput="onProductNcmInput(this.value)">
         <div id="ncm-aliquotas-ref">${renderNcmAliquotasRef(p.ncm)}</div>
@@ -7242,21 +7465,21 @@ async function openProductModal(pn){
       const fabricantes = getAllFabricantesFromSuppliers();
       const atual = p.fabricante || '';
       const naoListado = atual && !fabricantes.includes(atual);
-      return `<div class="form-group">
+      return `<div class="${cls}">
         <label>Fabricante</label>
         <select id="pf-fabricante">
           <option value="">Selecione...</option>
           ${fabricantes.map(fb=>`<option value="${fb}" ${atual===fb?'selected':''}>${fb}</option>`).join('')}
           ${naoListado ? `<option value="${atual}" selected>${atual} (não vinculado a nenhum fornecedor)</option>` : ''}
         </select>
-        <div class="form-hint">Vem dos fabricantes cadastrados em cada Fornecedor. Não encontrou? Adicione em Fornecedores → editar → Fabricantes.</div>
+        <div class="form-hint">Vem dos fabricantes cadastrados em cada Fornecedor, ou é preenchido sozinho ao selecionar um Modelo de Produto acima. Não encontrou? Adicione em Fornecedores → editar → Fabricantes.</div>
       </div>`;
     }
     if(f.key==='tipo'){
       const tipos = (state.tiposItem||[]).filter(t=>t.ativo!==false);
       const atual = p.tipo || '';
       const naoListado = atual && !tipos.some(t=>t.nome===atual);
-      return `<div class="form-group">
+      return `<div class="${cls}">
         <label>Tipo</label>
         <select id="pf-tipo">
           <option value="">Selecione...</option>
@@ -7267,13 +7490,35 @@ async function openProductModal(pn){
       </div>`;
     }
     if(f.key==='codigoII'){
-      return `<div class="form-group"><label>${f.label}</label><input id="pf-${f.key}" value="${formatCodigoII(p[f.key])}" placeholder="II000000" onblur="this.value=formatCodigoII(this.value)"><div class="form-hint">Formato fixo: "II" + 6 dígitos (ex: II000640). Ajustado automaticamente ao sair do campo.</div></div>`;
+      return `<div class="${cls}"><label>${f.label}</label><input id="pf-${f.key}" value="${formatCodigoII(p[f.key])}" placeholder="II000000" onblur="this.value=formatCodigoII(this.value)"><div class="form-hint">Formato fixo: "II" + 6 dígitos (ex: II000640). Ajustado automaticamente ao sair do campo.</div></div>`;
     }
-    return `<div class="form-group"><label>${f.label}</label><input id="pf-${f.key}" type="${f.type||'text'}" ${f.type==='number'?'step="0.01"':''} value="${p[f.key]!==undefined?p[f.key]:''}"></div>`;
-  }).join('');
+    if(f.key==='produto'){
+      const modelos = (window.__modelosProduto||[]).filter(m=>m.ativo!==false);
+      const atual = p.produto || '';
+      return `<div class="${cls}">
+        <label>${f.label}</label>
+        ${modelos.length ? `<select id="pf-produto-picker" onchange="applyModeloProdutoToProduct(this.value)">
+          <option value="">Selecionar de um modelo cadastrado...</option>
+          ${modelos.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('')}
+        </select>` : ''}
+        <input id="pf-produto" value="${atual}" placeholder="Nome do modelo do produto" style="${modelos.length?'margin-top:6px;':''}">
+        <div class="form-hint">${modelos.length ? 'Selecionar um modelo cadastrado em Produtos preenche este campo, Registro Anvisa e Fabricante sozinho. Também pode digitar direto aqui.' : 'Cadastre modelos em Produtos (aba Produtos) para poder selecioná-los aqui rapidamente.'}</div>
+      </div>`;
+    }
+    return `<div class="${cls}"><label>${f.label}</label><input id="pf-${f.key}" type="${f.type||'text'}" ${f.type==='number'?'step="0.01"':''} value="${p[f.key]!==undefined?p[f.key]:''}"></div>`;
+  }
 
-  const exTarifarioHtml = `
-    <div class="form-group">
+  const fieldByKey = {};
+  PRODUCT_FIELDS.forEach(f=>{ fieldByKey[f.key] = f; });
+  /* Largura de cada campo dentro do grid de 4 colunas — campos com select+dica ou texto mais
+     longo ganham mais espaço (span 2 ou a linha inteira), o resto fica 1 coluna. */
+  const SPAN = { descricao:'process-span-2', produto:'process-span-2', ncm:'process-span-2', fabricante:'process-span-2', descDetalhada:'process-span-4', obs:'process-span-4' };
+  const f = key => fieldByKey[key] ? fieldBlock(fieldByKey[key], SPAN[key]||'') : '';
+
+  const exTarifarioHtml = !editMode
+    ? `<div class="form-group process-span-2"><label>EX Tarifário</label><div class="fixed-field-value">${p.exTarifario ? `Sim — nº ${p.exTarifarioNumero||'—'}, vencimento ${p.exTarifarioVencimento?fmtDate(p.exTarifarioVencimento):'—'}` : 'Não'}</div></div>`
+    : `
+    <div class="form-group process-span-4">
       <label>EX Tarifário</label>
       <div class="type-toggle">
         <button type="button" class="ex-toggle-btn" data-val="nao" onclick="toggleProductExTarifario(false)">Não</button>
@@ -7281,7 +7526,7 @@ async function openProductModal(pn){
       </div>
       <div class="form-hint">Quando marcado, o Imposto de Importação (II) deste item é considerado zerado nos cálculos de referência, independentemente da alíquota cadastrada para o NCM.</div>
     </div>
-    <div class="form-group" id="ex-tarifario-wrap" style="display:${p.exTarifario?'block':'none'};">
+    <div class="form-group process-span-4" id="ex-tarifario-wrap" style="display:${p.exTarifario?'block':'none'};">
       <div class="form-row">
         <div class="form-group"><label>Número do EX</label><input id="pf-exTarifarioNumero" value="${p.exTarifarioNumero||''}" placeholder="Ex: 000.123"></div>
         <div class="form-group"><label>Vencimento do EX</label><input type="date" id="pf-exTarifarioVencimento" value="${p.exTarifarioVencimento||''}"></div>
@@ -7289,8 +7534,10 @@ async function openProductModal(pn){
     </div>
   `;
 
-  const extracaoLotesHtml = `
-    <div class="form-group">
+  const extracaoLotesHtml = !editMode
+    ? `<div class="form-group process-span-2"><label>Extração de Lotes da Fatura</label><div class="fixed-field-value">${p.tipoExtracaoLotes ? (LOTE_EXTRACTION_RULES[p.tipoExtracaoLotes]?LOTE_EXTRACTION_RULES[p.tipoExtracaoLotes].label:p.tipoExtracaoLotes) : 'Nenhuma (não extrai automaticamente)'}</div></div>`
+    : `
+    <div class="form-group process-span-2">
       <label>Extração de Lotes da Fatura</label>
       <select id="pf-tipo-extracao">
         <option value="" ${!p.tipoExtracaoLotes?'selected':''}>Nenhuma (não extrai automaticamente)</option>
@@ -7300,8 +7547,10 @@ async function openProductModal(pn){
     </div>
   `;
 
-  const validadeHtml = `
-    <div class="form-group">
+  const validadeHtml = !editMode
+    ? `<div class="form-group process-span-2"><label>Validade do Produto</label><div class="fixed-field-value">${p.validadeUnidade==='indeterminado' ? 'Indeterminado (sem validade)' : (p.validadeQtd ? p.validadeQtd+' '+(p.validadeUnidade==='anos'?'ano(s)':'mes(es)') : '—')}</div></div>`
+    : `
+    <div class="form-group process-span-2">
       <label>Validade do Produto</label>
       <select id="pf-validade-unidade" onchange="onProductValidadeUnidadeChange(this.value)">
         <option value="meses" ${(!p.validadeUnidade || p.validadeUnidade==='meses')?'selected':''}>Meses</option>
@@ -7315,6 +7564,35 @@ async function openProductModal(pn){
     </div>
   `;
 
+  /* Hierarquia em seções com ícone — a mesma ideia visual já usada na Visão Geral do
+     processo (título pequeno em caixa alta + linha divisória), só que aqui com um ícone na
+     frente de cada título pra ficar mais fácil identificar de relance qual bloco é qual,
+     como pedido. Nenhum campo novo foi criado — só reorganizados em grupos lógicos. */
+  const sectionIcon = (svg) => `<span class="process-section-title-icon">${svg}</span>`;
+  const gridCls = editMode ? 'process-grid-4' : 'process-grid-4';
+  const sectionsHtml = `
+    <div class="process-section">
+      <div class="process-section-title">${sectionIcon(svgTagIcon(13))}Identificação</div>
+      <div class="${gridCls}">${f('pn')}${f('descricao')}${f('produto')}${f('tipo')}</div>
+    </div>
+    <div class="process-section">
+      <div class="process-section-title">${sectionIcon(svgMoneyIcon(13))}Comercial</div>
+      <div class="${gridCls}">${f('valorUnitario')}${f('peso')}</div>
+    </div>
+    <div class="process-section">
+      <div class="process-section-title">${sectionIcon(svgBarcodeIcon(13))}Fiscal / Tributário</div>
+      <div class="${gridCls}">${f('ncm')}${f('fabricante')}${f('codigo')}${f('codigoII')}${f('codCatalogo')}${exTarifarioHtml}</div>
+    </div>
+    <div class="process-section">
+      <div class="process-section-title">${sectionIcon(svgDocumentIcon(13))}Regulatório</div>
+      <div class="${gridCls}">${f('registroAnvisa')}${f('descDetalhada')}${f('obs')}</div>
+    </div>
+    <div class="process-section">
+      <div class="process-section-title">${sectionIcon(svgClockIcon(13))}Operacional</div>
+      <div class="${gridCls}">${extracaoLotesHtml}${validadeHtml}</div>
+    </div>
+  `;
+
   const historyHtml = (p.history||[]).length ? (p.history||[]).slice().sort((a,b)=>b.ts-a.ts).map(h=>`
     <div class="history-item">
       <div class="history-date">${formatHistoryDate(h.ts)}${h.userEmail?' · '+h.userEmail:''}</div>
@@ -7325,12 +7603,17 @@ async function openProductModal(pn){
 
   const usageHtml = existing ? renderProductUsageHistory(p.pn) : '';
 
+  /* Modal bem mais largo nos dois modos agora (edição ganha ainda mais espaço) — combinado
+     com o grid de 4 colunas por seção, é isso que evita ter que rolar pra baixo pra ver o
+     produto inteiro: a maior parte dos campos fica lado a lado em vez de empilhada. */
+  const editModeBtnHtml = (!editMode && existing && canEdit('bancoitens')) ? `<div style="margin-bottom:16px;"><button class="btn btn-primary" onclick="enableProductEditMode()">${svgEditIcon()} Editar Produto</button></div>` : '';
+
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
   attachOverlayOutsideClose(overlay, closeModal);
   overlay.innerHTML = `
-    <div class="modal">
+    <div class="modal" style="max-width:${editMode?'1320px':'980px'};">
       <div class="modal-header">
         <h2>${existing?'Editar Produto':'Novo Produto'}</h2>
         <button class="modal-close" onclick="closeModal()">×</button>
@@ -7348,19 +7631,17 @@ async function openProductModal(pn){
               <div class="status-badge-hint">Produtos não são excluídos — apenas marcados como inativos, pra preservar o histórico.</div>
             </div>
           ` : ''}
-          ${fieldsHtml}
-          ${exTarifarioHtml}
-          ${extracaoLotesHtml}
-          ${validadeHtml}
+          ${editModeBtnHtml}
+          ${sectionsHtml}
         </div>
         ${existing?`<div class="tab-pane" id="tab-usoprocessos">${usageHtml}</div>`:''}
         ${existing?`<div class="tab-pane" id="tab-histprod">${historyHtml}</div>`:''}
       </div>
       <div class="modal-footer">
-        <div>${existing?`<button class="btn ${p.ativo===false?'':'btn-danger'}" onclick="toggleProductActive('${sanitizePN(p.pn)}', ${p.ativo===false})">${p.ativo===false?'Reativar':'Marcar como Inativo'}</button>`:'<span></span>'}</div>
+        <div>${existing&&editMode?`<button class="btn ${p.ativo===false?'':'btn-danger'}" onclick="toggleProductActive('${sanitizePN(p.pn)}', ${p.ativo===false})">${p.ativo===false?'Reativar':'Marcar como Inativo'}</button>`:'<span></span>'}</div>
         <div style="display:flex; gap:8px;">
-          <button class="btn" onclick="closeModal()">${!canEdit('bancoitens')?'Fechar':'Cancelar'}</button>
-          ${canEdit('bancoitens') ? `<button class="btn btn-primary" onclick="saveProduct(${!!existing})">Salvar Produto</button>` : ''}
+          <button class="btn" onclick="closeModal()">${!editMode?'Fechar':'Cancelar'}</button>
+          ${editMode ? `<button class="btn btn-primary" onclick="saveProduct(${!!existing})">Salvar Produto</button>` : ''}
         </div>
       </div>
     </div>
@@ -7396,6 +7677,15 @@ function getProductUsageHistory(pn){
   return rows;
 }
 
+/* Abre um processo a partir da lista "Usado em Processos" dentro do cadastro de um produto
+   (Banco de Itens) — espelho de openItemMasterProduct: ao fechar o processo, volta pro
+   cadastro do produto, direto na aba "Usado em Processos", em vez de cair na tela de fundo. */
+function openProcessFromProductUsage(pn, processId){
+  closeModal();
+  setModalReturnTo(()=>{ openProductModal(pn); switchTab('usoprocessos'); });
+  openProcessModal(processId);
+}
+
 function renderProductUsageHistory(pn){
   const rows = getProductUsageHistory(pn);
   if(!rows.length){
@@ -7403,7 +7693,7 @@ function renderProductUsageHistory(pn){
   }
   const totalQtd = rows.reduce((s,r)=>s+r.quantidade, 0);
   const rowsHtml = rows.map(r=>`
-    <div class="history-item" style="cursor:pointer;" onclick="closeModal(); openProcessModal('${r.processId}');" title="Abrir processo">
+    <div class="history-item" style="cursor:pointer;" onclick="openProcessFromProductUsage('${sanitizePN(pn).replace(/'/g,"\\'")}', '${r.processId}');" title="Abrir processo">
       <div class="history-date">${r.dataPedido?fmtDate(r.dataPedido):'Data não informada'} · ${r.fornecedor}${r.isDone?' · Finalizado':''}</div>
       <div class="history-title">${r.ref}</div>
       <div class="history-detail">Quantidade trazida: <strong>${r.quantidade}</strong> · Status: ${r.statusLabel}</div>
@@ -7419,6 +7709,19 @@ function renderProductUsageHistory(pn){
    mas zera o II quando o item tem EX Tarifário marcado (mesmo com o EX vencido — o alerta
    de vencimento é só visual, quem decide se o EX ainda vale é o usuário). Ponto único pra
    quem for usar isso em cálculos futuros (ex: Custos automático por item). */
+/* Atalhos de dentro do cadastro de Produto (Banco de Itens) pra NCM: cadastrar uma NCM nova
+   ou vincular um Código de Imposto a ela. Espelha o mesmo padrão de retorno usado entre
+   Processo ↔ Item — ao fechar o modal da NCM, volta pro cadastro do produto de onde veio
+   (se for um produto já existente; um produto novo ainda não salvo não tem PN pra reabrir,
+   então nesse caso só volta pra página de NCM mesmo, igual já era antes). */
+function openNCMFromProduct(ncmId){
+  const pn = window.__editingProduct ? window.__editingProduct.pn : '';
+  closeModal();
+  setView('ncm');
+  if(pn){ setModalReturnTo(()=>{ openProductModal(pn); }); }
+  if(ncmId){ switchNcmSubTab('ncm'); openNCMModal(ncmId); }
+  else { openNCMModal(); }
+}
 function getEffectiveAliquotas(product){
   const entry = findNCMEntry(product && product.ncm);
   const base = {
@@ -7436,7 +7739,7 @@ function renderNcmAliquotasRef(ncmValue){
   if(!ncmValue) return `<div class="form-hint">Digite o NCM para ver a alíquota cadastrada na aba NCM.</div>`;
   const entry = findNCMEntry(ncmValue);
   if(!entry){
-    return `<div class="form-hint">${svgWarnInline()} Este NCM ainda não está cadastrado na aba NCM. <a href="#" onclick="event.preventDefault(); closeModal(); setView('ncm'); openNCMModal();">Cadastrar agora</a>.</div>`;
+    return `<div class="form-hint">${svgWarnInline()} Este NCM ainda não está cadastrado na aba NCM. <a href="#" onclick="event.preventDefault(); openNCMFromProduct();">Cadastrar agora</a>.</div>`;
   }
   const has = v => v!==''&&v!=null;
   const parts = [
@@ -7460,7 +7763,7 @@ function renderNcmAliquotasRef(ncmValue){
         const fin = getFinalidadeById(c.finalidadeId);
         return `${c.codigo}${fin?' ('+fin.nome+')':''} — ICMS ${c.icms==='DIFERIMENTO'?'DIFERIMENTO':c.icms+'%'}`;
       }).join(' · ')}</strong></div>`
-    : `<div class="form-hint" style="margin-top:4px; color:var(--ink-red);">${svgWarnInline()} Não existe Código de Imposto cadastrado para esta NCM. <a href="#" onclick="event.preventDefault(); closeModal(); setView('ncm'); switchNcmSubTab('ncm'); openNCMModal('${entry.id}');">Vincular agora</a>.</div>`;
+    : `<div class="form-hint" style="margin-top:4px; color:var(--ink-red);">${svgWarnInline()} Não existe Código de Imposto cadastrado para esta NCM. <a href="#" onclick="event.preventDefault(); openNCMFromProduct('${entry.id}');">Vincular agora</a>.</div>`;
 
   return aliquotasLine + codigoLine;
 }
@@ -8663,18 +8966,138 @@ async function toggleRotaActive(id, makeActive){
 }
 
 /* ===================== PRODUTOS MESTRE (informações gerais da carga) =====================
-   Importante: isto é independente dos Itens (PN) do processo — não há nenhuma integração
-   entre este cadastro e a aba Itens, por enquanto. */
+   Importante: isto é independente dos Itens (PN) do processo — Produto Mestre é usado como
+   template pra características de PROCESSO inteiro (fornecedor, portos, temperatura, genset),
+   sem relação com o Banco de Itens.
+   "Modelos de Produto" (logo abaixo) é outro cadastro, mais simples e separado, que existe só
+   pra alimentar o campo "Produto (modelo)" do Banco de Itens — nome, Registro Anvisa e
+   Fabricante de cada modelo, pra selecionar e preencher essas caixas de uma vez no item. */
 
 async function renderProdutosMestrePage(){
   const el = document.getElementById('view-content');
   el.innerHTML = `<div class="form-hint">Carregando produtos...</div>`;
   let produtos = [];
+  let modelos = [];
   try{
-    const snap = await db.collection('produtosMestre').get();
-    snap.forEach(doc=>produtos.push({id:doc.id, ...doc.data()}));
+    const [snapMestre, snapModelos] = await Promise.all([
+      db.collection('produtosMestre').get(),
+      db.collection('modelosProduto').get(),
+    ]);
+    snapMestre.forEach(doc=>produtos.push({id:doc.id, ...doc.data()}));
+    snapModelos.forEach(doc=>modelos.push({id:doc.id, ...doc.data()}));
   }catch(e){ console.error(e); }
   window.__produtosMestre = produtos;
+  window.__modelosProduto = modelos;
+  renderProdutosMestreList();
+}
+
+/* ---------- Modelos de Produto (Nome / Registro Anvisa / Fabricante — pro Banco de Itens) ---------- */
+function renderModeloProdutoCard(m){
+  return `
+    <div class="supplier-card" onclick="openModeloProdutoModal('${m.id}')">
+      <h3>${m.nome} ${m.ativo===false?'<span class="product-inactive-badge">Inativo</span>':''}</h3>
+      <div class="supplier-meta">Fabricante: ${m.fabricante||'—'}</div>
+      <div class="supplier-meta">Registro Anvisa: ${m.registroAnvisa||'—'}</div>
+    </div>
+  `;
+}
+
+function renderModelosProdutoSection(){
+  const canEditHere = canEdit('produtosmestre');
+  const modelos = (window.__modelosProduto||[]).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+  const header = `
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+      <div>
+        <h3 style="margin:0;">Modelos de Produto</h3>
+        <div class="form-hint" style="margin-top:2px;">Aparecem como opção selecionável no campo "Produto (modelo)" ao cadastrar um item no Banco de Itens — selecionar um já preenche Registro Anvisa e Fabricante sozinho.</div>
+      </div>
+      ${canEditHere ? `<button class="btn btn-primary" onclick="openModeloProdutoModal()" style="flex-shrink:0;">+ Novo Modelo</button>` : ''}
+    </div>
+  `;
+  const body = modelos.length
+    ? `<div class="supplier-grid">${modelos.map(renderModeloProdutoCard).join('')}</div>`
+    : `<div class="empty-state" style="padding:24px;"><p>Nenhum modelo cadastrado ainda.</p></div>`;
+  return `<div class="process-section" style="margin-bottom:24px;">${header}${body}</div>`;
+}
+
+function openModeloProdutoModal(id){
+  const existing = id ? (window.__modelosProduto||[]).find(m=>m.id===id) : null;
+  const m = existing || {id:uid(), nome:'', ativo:true};
+  window.__editingModeloProduto = JSON.parse(JSON.stringify(m));
+  const canEditHere = canEdit('produtosmestre');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modal-overlay';
+  attachOverlayOutsideClose(overlay, closeModal);
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:520px;">
+      <div class="modal-header">
+        <h2>${existing?'Editar Modelo de Produto':'Novo Modelo de Produto'}</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        ${existing ? `
+          <div class="status-badge-row">
+            <span class="role-badge ${m.ativo===false?'viewer':'admin'}">${m.ativo===false?'Inativo':'Ativo'}</span>
+            <div class="status-badge-hint">Modelos não são excluídos — apenas marcados como inativos (deixam de aparecer como opção nos itens novos, mas os já vinculados continuam intactos).</div>
+          </div>
+        ` : ''}
+        <div class="form-group"><label>Nome do Produto</label><input id="mp-nome" value="${m.nome||''}" placeholder="Ex: Veraview X800" ${!canEditHere?'disabled':''}></div>
+        <div class="form-group"><label>Registro Anvisa</label><input id="mp-registroAnvisa" value="${m.registroAnvisa||''}" placeholder="Ex: 80146590123" ${!canEditHere?'disabled':''}></div>
+        <div class="form-group"><label>Fabricante</label><input id="mp-fabricante" value="${m.fabricante||''}" placeholder="Ex: J. Morita Mfg. Corp." ${!canEditHere?'disabled':''}></div>
+      </div>
+      <div class="modal-footer">
+        <div>${existing&&canEditHere?`<button class="btn ${m.ativo===false?'':'btn-danger'}" onclick="toggleModeloProdutoActive('${m.id}', ${m.ativo===false})">${m.ativo===false?'Reativar':'Marcar como Inativo'}</button>`:'<span></span>'}</div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" onclick="closeModal()">${canEditHere?'Cancelar':'Fechar'}</button>
+          ${canEditHere ? `<button class="btn btn-primary" onclick="saveModeloProduto(${!!existing})">Salvar Modelo</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+async function saveModeloProduto(isEdit){
+  if(!requireEditPermission('produtosmestre')) return;
+  const nome = (document.getElementById('mp-nome').value||'').trim();
+  if(!nome){ alert('Informe o nome do produto.'); return; }
+  const prev = window.__editingModeloProduto || {};
+  const data = {
+    id: prev.id || uid(),
+    nome,
+    registroAnvisa: document.getElementById('mp-registroAnvisa').value||'',
+    fabricante: document.getElementById('mp-fabricante').value||'',
+    ativo: prev.ativo===false ? false : true,
+    createdAt: prev.createdAt || Date.now(),
+    updatedAt: Date.now(),
+  };
+  try{
+    await db.collection('modelosProduto').doc(data.id).set(data);
+  }catch(e){
+    console.error(e);
+    alert('Não foi possível salvar o modelo de produto.');
+    return;
+  }
+  const idx = (window.__modelosProduto||[]).findIndex(x=>x.id===data.id);
+  if(idx>=0) window.__modelosProduto[idx]=data; else (window.__modelosProduto=window.__modelosProduto||[]).push(data);
+  closeModal();
+  renderProdutosMestreList();
+}
+
+async function toggleModeloProdutoActive(id, makeActive){
+  if(!requireEditPermission('produtosmestre')) return;
+  try{
+    await db.collection('modelosProduto').doc(id).set({ativo:makeActive, updatedAt:Date.now()}, {merge:true});
+    const idx = (window.__modelosProduto||[]).findIndex(x=>x.id===id);
+    if(idx>=0) window.__modelosProduto[idx].ativo = makeActive;
+  }catch(e){
+    console.error(e);
+    alert('Não foi possível atualizar o modelo de produto.');
+    return;
+  }
+  closeModal();
   renderProdutosMestreList();
 }
 
@@ -8692,10 +9115,11 @@ function renderProdutoMestreCard(pr){
 function renderProdutosMestreList(){
   const el = document.getElementById('view-content');
   const canEditHere = canEdit('produtosmestre');
+  const modelosSectionHtml = renderModelosProdutoSection();
   const produtos = (window.__produtosMestre||[]).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
   const header = canEditHere ? `<div style="margin-bottom:18px;"><button class="btn btn-primary" onclick="openProdutoMestreModal()">+ Novo Produto</button></div>` : '';
   if(!produtos.length){
-    el.innerHTML = header + `<div class="empty-state"><h3>Nenhum produto cadastrado</h3><p>Cadastre as características recorrentes de um tipo de carga (fornecedor, país, portos, temperatura, genset) pra reaproveitar rapidamente na criação de processos.</p></div>`;
+    el.innerHTML = modelosSectionHtml + header + `<div class="empty-state"><h3>Nenhum produto cadastrado</h3><p>Cadastre as características recorrentes de um tipo de carga (fornecedor, país, portos, temperatura, genset) pra reaproveitar rapidamente na criação de processos.</p></div>`;
     return;
   }
 
@@ -8728,7 +9152,7 @@ function renderProdutosMestreList(){
     `;
   }).join('');
 
-  el.innerHTML = header + sectionsHtml;
+  el.innerHTML = modelosSectionHtml + header + sectionsHtml;
 }
 
 function renderPMDesempenhoHtml(pr){
@@ -10286,6 +10710,12 @@ function openProcessModal(id){
                   ${state.partners.filter(pt=>pt.tipo==='Despachante').map(pt=>`<option value="${pt.empresa}" ${((p.extra||{}).despachante===pt.empresa)?'selected':''}>${pt.empresa}</option>`).join('')}
                 </select>
               </div>
+              <div class="form-group"><label>Modalidade de Pagamento</label>
+                <select onchange="updateExtraField('modalidadePagamento', this.value)">
+                  <option value="">Selecione...</option>
+                  ${getModalidadePagamentoOptions(p).map(o=>`<option value="${o}" ${(p.extra||{}).modalidadePagamento===o?'selected':''}>${o}</option>`).join('')}
+                </select>
+              </div>
               <div class="form-group" id="dta-field-wrap" style="display:${p.modal==='aereo'?'none':'block'};"><label>Transportadora (DTA)</label>
                 <select onchange="updateExtraField('transportadoraDTA', this.value)">
                   <option value="">Selecione...</option>
@@ -10298,7 +10728,7 @@ function openProcessModal(id){
                 </select>
               </div>
             </div>
-            <div class="form-hint">Definir Despachante/Transportadora aqui só registra quem vai atuar no processo — não substitui marcar "Despachante notificado" e "Solicitar DTA" na aba Etapas, que é o que os alertas de pendência acompanham. Cada Referência do Fornecedor vira automaticamente um espaço de documento na aba Documentos ("Invoice - referência").</div>
+            <div class="form-hint">Definir Despachante/Transportadora aqui só registra quem vai atuar no processo — não substitui marcar "Despachante notificado" e "Solicitar DTA" na aba Etapas, que é o que os alertas de pendência acompanham. A Modalidade de Pagamento definida aqui já reflete sozinha no rótulo do item "Pagamento" da aba Etapas e no alerta de cobrança de pagamento — só é cobrado quando estiver marcada como "Adiantado". Cada Referência do Fornecedor vira automaticamente um espaço de documento na aba Documentos ("Invoice - referência").</div>
           </div>
 
           <div class="process-section">
@@ -11581,11 +12011,28 @@ function attachOverlayOutsideClose(overlay, closeFn){
   });
 }
 
+/* Pilha de "retornar à origem" entre modais — mecanismo genérico, não específico de nenhum
+   par de telas. Qualquer navegação que troque um modal por outro (fecha modal A, abre modal
+   B) pode registrar, com setModalReturnTo(fn), o que fazer quando o modal B for fechado —
+   em vez de simplesmente sumir e mostrar a página de fundo (o que geralmente é uma tela sem
+   relação nenhuma com o que a pessoa estava fazendo). closeModal() consome esse registro
+   UMA VEZ só (limpa antes de rodar), então não vaza pra fechamentos futuros não relacionados,
+   e closeModal() continua funcionando exatamente como antes (não faz nada além de remover o
+   overlay) pra qualquer modal que não tenha registrado retorno — a esmagadora maioria. */
+window.__modalReturnTo = null;
+function setModalReturnTo(fn){
+  window.__modalReturnTo = fn;
+}
 function closeModal(){
   const overlay = document.getElementById('modal-overlay');
   if(overlay) overlay.remove();
   window.__editingProcess = null;
   window.__confirmFinalizeItem = null;
+  if(window.__modalReturnTo){
+    const fn = window.__modalReturnTo;
+    window.__modalReturnTo = null;
+    fn();
+  }
 }
 
 /* ---------- GERAÇÃO DE CAPA (PDF via impressão) ---------- */
