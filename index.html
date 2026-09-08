@@ -599,12 +599,12 @@ body.dark-mode .stage-extra input, body.dark-mode .payment-row input,
 body.dark-mode .config-icon, body.dark-mode .config-label, body.dark-mode .config-row select{
   background:#232E3D; color:var(--text); border-color:var(--border-strong);
 }
-body.dark-mode .doc-item, body.dark-mode .stage-header, body.dark-mode .stage-body{background:#1A222E;}
+body.dark-mode .doc-item, body.dark-mode .stage-body{background:#1A222E;}
+body.dark-mode .stage-block.stage-empty .stage-header{background:#1A222E;}
 body.dark-mode .theme-toggle-btn{background:#232E3D; color:#fff; border-color:#3A4A5F;}
 body.dark-mode .process-ref-badge .ref-value{color:#E8A25C;}
 body.dark-mode .kpi-card, body.dark-mode .process-card, body.dark-mode .transit-card, body.dark-mode .supplier-card, body.dark-mode .contact-card{background:var(--card);}
-body.dark-mode .stage-block.done .stage-header, body.dark-mode .stage-block.current .stage-header{color:#152A3D;}
-body.dark-mode .stage-block.done .stage-title, body.dark-mode .stage-block.current .stage-title{color:#152A3D;}
+body.dark-mode .stage-block.stage-empty .stage-title{color:#8C9BB5;}
 body.dark-mode .contact-role, body.dark-mode .supplier-flag{color:#9AA9C2;}
 body.dark-mode .contact-phone{color:#7FB3E8;}
 body.dark-mode .stage-progress{color:#8C9BB5;}
@@ -979,23 +979,31 @@ body.dark-mode .stat-chip-secondary{background:var(--paper);}
 .stage-block{
   border:1px solid var(--border); border-radius:8px; margin-bottom:8px; overflow:hidden;
 }
-.stage-block.current{border-color:var(--ink-red); box-shadow:0 0 0 1px var(--ink-red-bg);}
-.stage-block.done{border-color:#B7DBC9;}
+/* Estado de preenchimento da etapa (independe da cor de identidade da fase, que continua vindo
+   inline via getStageVisual — isto aqui só controla o quão "forte" essa cor aparece, pra dar
+   pra ver de relance quais fases já têm coisa marcada e quais estão zeradas). */
+.stage-block.stage-empty{border-color:var(--border);}
+.stage-block.stage-empty .stage-header{background:#fff;}
+.stage-block.stage-empty .stage-num{background:var(--border-strong) !important;}
+.stage-block.stage-empty .stage-title{color:var(--muted);}
+.stage-block.current{box-shadow:0 0 0 1px rgba(0,0,0,0.04);}
+.stage-block.done{border-width:1.5px;}
+.stage-block.done .stage-title{color:#fff;}
+.stage-block.done .stage-progress{color:rgba(255,255,255,0.85);}
 .stage-header{
   display:flex; align-items:center; gap:12px; padding:11px 14px; cursor:pointer;
-  background:#fff; user-select:none;
+  background:#fff; user-select:none; position:relative;
 }
-.stage-block.done .stage-header{background:var(--ink-green-bg);}
-.stage-block.current .stage-header{background:var(--ink-red-bg);}
 .stage-num{
   width:22px; height:22px; border-radius:50%; background:var(--border-strong); color:#fff;
   font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;
   font-family:'Helvetica', sans-serif;
 }
-.stage-block.done .stage-num{background:var(--ink-green);}
-.stage-block.current .stage-num{background:var(--ink-red);}
 .stage-title{flex:1; font-size:13.5px; font-weight:600;}
-.stage-progress{font-family:'Helvetica', sans-serif; font-size:11.5px; color:var(--muted);}
+.stage-progress{font-family:'Helvetica', sans-serif; font-size:11.5px; color:var(--muted); font-weight:600;}
+.stage-fill-track{position:absolute; left:0; bottom:0; width:100%; height:3px; background:rgba(0,0,0,0.06);}
+.stage-fill-bar{height:100%; transition:width 0.2s;}
+.stage-block.stage-empty .stage-fill-track{display:none;}
 .stage-body{padding:12px 14px 14px 14px; display:flex; flex-direction:column; gap:8px; background:#fff;}
 .stage-hint{font-size:11.5px; color:var(--muted); margin-top:2px; font-style:italic;}
 
@@ -5389,24 +5397,34 @@ function getStagesForProcess(p){
     }
 
     if(s.key==='fase4' && isAereo){
-      return {...s, containersItemIndex: undefined, itemFields:{
+      /* "Aprovar Draft de BL" (índice 3) vira "Aprovar Draft de AWB" no aéreo — mesma etapa,
+         mesmo campo de número (chave `numeroBL` mantida por baixo dos panos, só o rótulo muda
+         pra "Número do AWB"), sem criar campo/chave novo, mesmo padrão já usado em outros
+         pontos do app pra diferenças aéreo/marítimo (ex: Armazenagem Zona Secundária).
+         IMPORTANTE: este bloco só existe pra Fase 4; a Fase 5 (Despachante notificado, etc.)
+         não tem NENHUMA diferença de conteúdo entre aéreo e marítimo — ver aviso logo abaixo. */
+      const items = s.items.slice();
+      items[3] = 'Aprovar Draft de AWB';
+      return {...s, items, containersItemIndex: undefined, itemFields:{
         1: s.itemFields[1],
         2: [
           {key:'numeroBooking', label:'Número do Booking', type:'text'},
           {key:'numeroAWB', label:'AWB', type:'text'},
           {key:'ciaAerea', label:'Companhia Aérea', type:'text'},
         ],
+        3: [{key:'numeroBL', label:'Número do AWB', type:'text'}],
       }};
     }
 
-    if(s.key==='fase5' && isAereo){
-      const items = s.items.slice();
-      items[0] = 'Aprovar Draft de AWB';
-      return {...s, items, itemFields:{
-        0: [{key:'numeroBL', label:'Número do AWB', type:'text'}],
-        4: s.itemFields[4],
-      }};
-    }
+    /* ATENÇÃO: NÃO reintroduzir um override pra `s.key==='fase5' && isAereo` sem ler o
+       comentário acima. Já existiu aqui uma renomeação de "Aprovar Draft de AWB" pensada pra
+       quando esse item ainda morava na Fase 5 (antes da migração de ordem do BL Draft — ver
+       migrateBLDraftOrder() e o comentário em STAGE_DEFS/fase4). Depois que o item passou pra
+       Fase 4 (índice 3), esse override ficou órfão e sobrescrevia por engano o item 0 da Fase 5
+       real, que é "Despachante notificado" — fazendo essa etapa sumir/virar "Aprovar Draft de
+       AWB" pra qualquer processo aéreo, e também derrubando o campo de data do "Rascunho da
+       DUIMP" (índice 3) no processo. A Fase 5 é idêntica pros dois modais; a renomeação AWB
+       fica só na Fase 4, acima. */
 
     if(s.key==='fase6' && isAereo){
       const items = ['Chegada e presença'];
@@ -10853,10 +10871,23 @@ function renderEtapasTab(){
       ? itemsAplicaveis.filter(it=>(p.payments[it.key]||{}).checked).length + (p.customPayments||[]).filter(cp=>(p.payments['custom:'+cp.id]||{}).checked).length
       : (p.checklist[s.key]||[]).filter(Boolean).length;
     const total = (isPayments ? itemsAplicaveis.length : s.items.length) + customPayCount;
-    const isDone = doneCount===total;
+    const isDone = total>0 && doneCount===total;
     const isCurrent = s.key===currentKey;
-    const stateCls = isDone ? 'done' : (isCurrent ? 'current' : '');
+    const hasProgress = doneCount>0;
+    /* stage-empty / (implícito) parcial / done controlam o quanto a cor de identidade da fase
+       aparece (ver CSS) — é isso que deixa visível de relance quais fases já têm algo marcado
+       e quais estão zeradas, sem perder a cor por fase que já existia. */
+    const stateCls = [isDone?'done':'', isCurrent?'current':'', !hasProgress?'stage-empty':''].filter(Boolean).join(' ');
     const isOpen = window.__openStage === s.key;
+    const visual = getStageVisual(s.key,p);
+    const pct = total>0 ? Math.round(doneCount/total*100) : 0;
+    /* Header: cor sólida da fase quando concluída (inconfundível), tom claro quando tem
+       progresso ou é a etapa atual, e sem cor (fica branco/neutro, ver CSS .stage-empty) quando
+       zerada — pra fases vazias não competirem visualmente com as que já têm coisa marcada. */
+    const headerBg = isDone ? `var(${visual.colorVar})` : ((hasProgress || isCurrent) ? `var(${visual.bgVar})` : null);
+    const numBg = (hasProgress || isCurrent) ? `var(${visual.colorVar})` : null;
+    const borderColor = isCurrent ? `var(${visual.colorVar})` : (isDone ? `var(${visual.colorVar})` : null);
+    const boxShadow = isCurrent ? `0 0 0 1px var(${visual.bgVar})` : null;
 
     let bodyHtml = '';
     if(isPayments){
@@ -10938,12 +10969,19 @@ function renderEtapasTab(){
       }
     }
 
+    const blockStyle = [
+      borderColor ? `border-color:${borderColor};` : '',
+      boxShadow ? `box-shadow:${boxShadow};` : ''
+    ].join('');
+    const headerStyle = headerBg ? `background:${headerBg};` : '';
+    const numStyle = numBg ? `background:${numBg};` : '';
     return `
-    <div class="stage-block ${stateCls}" ${isCurrent?`style="border-color:var(${getStageVisual(s.key,p).colorVar}); box-shadow:0 0 0 1px var(${getStageVisual(s.key,p).bgVar});"`:''}>
-      <div class="stage-header" onclick="toggleStageOpen('${s.key}')" style="background:var(${getStageVisual(s.key,p).bgVar});">
-        <div class="stage-num" style="background:var(${getStageVisual(s.key,p).colorVar});">${isDone?svgCheckInline(15):getStageVisual(s.key,p).icon(p)}</div>
+    <div class="stage-block ${stateCls}" ${blockStyle?`style="${blockStyle}"`:''}>
+      <div class="stage-header" onclick="toggleStageOpen('${s.key}')" ${headerStyle?`style="${headerStyle}"`:''}>
+        <div class="stage-num" ${numStyle?`style="${numStyle}"`:''}>${isDone?svgCheckInline(15):visual.icon(p)}</div>
         <div class="stage-title">${s.label}</div>
         <div class="stage-progress">${doneCount}/${total}</div>
+        ${total>0?`<div class="stage-fill-track"><div class="stage-fill-bar" style="width:${pct}%; background:var(${visual.colorVar});"></div></div>`:''}
       </div>
       <div class="stage-body" style="display:${isOpen?'flex':'none'}">
         ${bodyHtml}
