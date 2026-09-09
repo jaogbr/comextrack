@@ -225,6 +225,26 @@ body{
 .sidebar-switch-current{font-size:9.5px; color:#C4CEDB; text-transform:uppercase; flex-shrink:0;}
 .sidebar-switch-divider{height:1px; background:rgba(255,255,255,0.12); margin:2px 0;}
 .sidebar-switch-logout{color:#F2A08C;}
+/* Variante clara — o mesmo menu (toggleUserSwitcher) é reaproveitado no dropdown do topbar,
+   que agora tem fundo de vidro claro; os tons acima (#C4CEDB, #DCE4EC etc.) foram pensados
+   pro fundo escuro da sidebar e ficariam ilegíveis aqui, então sobrescrevo só dentro do
+   .topbar-account-dropdown — a versão da sidebar continua exatamente igual. */
+.topbar-account-dropdown .sidebar-switch-label{color:#7A889B;}
+.topbar-account-dropdown .sidebar-switch-row{color:#0F1B2D;}
+.topbar-account-dropdown .sidebar-switch-row:hover{background:rgba(91,143,198,0.12);}
+.topbar-account-dropdown .sidebar-switch-avatar{background:rgba(42,92,138,0.14); color:#2A5C8A;}
+.topbar-account-dropdown .sidebar-switch-current{color:#7A889B;}
+.topbar-account-dropdown .sidebar-switch-divider{background:rgba(203,214,228,0.6);}
+.topbar-account-dropdown .sidebar-switch-logout{color:#C0392B;}
+.topbar-account-dropdown .sidebar-account-dropdown-loading{color:#7A889B;}
+.topbar-account-dropdown .form-hint{color:#7A889B;}
+body.dark-mode .topbar-account-dropdown .sidebar-switch-label,
+body.dark-mode .topbar-account-dropdown .sidebar-switch-current,
+body.dark-mode .topbar-account-dropdown .sidebar-account-dropdown-loading,
+body.dark-mode .topbar-account-dropdown .form-hint{color:var(--muted);}
+body.dark-mode .topbar-account-dropdown .sidebar-switch-row{color:var(--text);}
+body.dark-mode .topbar-account-dropdown .sidebar-switch-row:hover{background:rgba(255,255,255,0.08);}
+body.dark-mode .topbar-account-dropdown .sidebar-switch-divider{background:rgba(255,255,255,0.1);}
 .theme-segmented{display:flex; gap:4px; background:rgba(0,0,0,0.2); border-radius:7px; padding:3px;}
 .theme-segmented-btn{
   width:26px; height:24px; display:flex; align-items:center; justify-content:center;
@@ -250,6 +270,13 @@ main.main-collapsed{margin-left:76px;}
 .global-topbar{
   display:flex; align-items:center; gap:16px; padding:16px 36px;
   border-bottom:1px solid var(--border); background:var(--card);
+  /* position+z-index explícitos: sem isso, qualquer backdrop-filter (o do próprio topbar no
+     Painel, ou de futuros elementos) cria um novo contexto de empilhamento que prende o
+     dropdown de perfil "dentro" do topbar, e ele passa a pintar por baixo do restante da
+     página (cards de filtro, KPIs etc.) mesmo tendo z-index alto — porque aquele z-index só
+     valia dentro do contexto isolado. Com isso aqui o topbar inteiro (dropdown incluso) fica
+     acima de qualquer conteúdo normal da página, sem precisar tocar no z-index de mais nada. */
+  position:relative; z-index:900; overflow:visible;
 }
 .global-topbar-search{position:relative; flex:1; max-width:520px;}
 .global-topbar-search .gts-icon{position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; display:flex;}
@@ -270,7 +297,7 @@ main.main-collapsed{margin-left:76px;}
   background:#DC2626; color:#fff; font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center;
   border:2px solid var(--card);
 }
-.topbar-account-wrap{position:relative;}
+.topbar-account-wrap{position:relative; z-index:1001;}
 .topbar-account{display:flex; align-items:center; gap:8px; cursor:pointer; padding:5px 10px 5px 5px; border-radius:10px; border:1px solid var(--border-strong); background:var(--paper);}
 .topbar-account:hover{background:var(--card-hover, var(--border));}
 .topbar-account-avatar{
@@ -280,9 +307,20 @@ main.main-collapsed{margin-left:76px;}
 .topbar-account-chevron{color:var(--muted); display:flex; transition:transform 0.15s;}
 .topbar-account-chevron.open{transform:rotate(180deg);}
 .topbar-account-dropdown{
-  position:absolute; top:calc(100% + 8px); right:0; min-width:230px; background:var(--card);
-  border:1px solid var(--border-strong); border-radius:10px; box-shadow:0 12px 30px rgba(15,27,45,0.18);
-  padding:6px; z-index:50;
+  position:absolute; top:calc(100% + 8px); right:0; min-width:230px;
+  background:rgba(255,255,255,0.88);
+  -webkit-backdrop-filter:blur(24px) saturate(135%); backdrop-filter:blur(24px) saturate(135%);
+  border:1px solid rgba(194,207,224,0.85); border-radius:16px;
+  box-shadow:0 18px 45px rgba(29,53,83,0.18), 0 4px 12px rgba(29,53,83,0.08), inset 0 1px 0 rgba(255,255,255,0.95);
+  padding:6px; z-index:1000; color:#0F1B2D;
+  transform-origin:top right; animation:profileMenuEnter 180ms ease-out both;
+}
+body.dark-mode .topbar-account-dropdown{
+  background:rgba(30,38,50,0.92); border-color:rgba(255,255,255,0.1); color:var(--text);
+}
+@keyframes profileMenuEnter{
+  from{opacity:0; transform:translateY(-6px) scale(0.98);}
+  to{opacity:1; transform:translateY(0) scale(1);}
 }
 
 .topbar{
@@ -292,7 +330,7 @@ main.main-collapsed{margin-left:76px;}
 }
 .topbar h1{font-family:'Helvetica', sans-serif; font-size:26px; font-weight:700;}
 .topbar p{color:var(--muted); font-size:13.5px; margin-top:4px;}
-.view-content{padding:28px 36px 60px 36px; flex:1;}
+.view-content{padding:28px 36px 60px 36px; flex:1; position:relative; z-index:1;}
 
 /* KPI */
 .kpi-row{display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:14px; margin-bottom:20px;}
@@ -573,11 +611,12 @@ body.dark-mode .eye-btn:hover{border-color:var(--ink-blue-fg);}
    deste redesign (ficam com o visual padrão, fora do #dashboard-kpis). */
 main.view-dashboard{
   background:
-    radial-gradient(circle at 88% 4%, rgba(119,157,255,0.16) 0%, rgba(119,157,255,0.07) 22%, transparent 42%),
-    radial-gradient(circle at 12% 88%, rgba(111,205,174,0.10) 0%, rgba(111,205,174,0.04) 24%, transparent 43%),
-    linear-gradient(135deg, #f1f5fa 0%, #f6f8fc 48%, #edf3f8 100%);
+    radial-gradient(circle at 88% 4%, rgba(117,155,255,0.24) 0%, rgba(117,155,255,0.12) 24%, transparent 48%),
+    radial-gradient(circle at 12% 88%, rgba(102,204,170,0.17) 0%, rgba(102,204,170,0.08) 27%, transparent 50%),
+    radial-gradient(circle at 48% 30%, rgba(183,158,255,0.10) 0%, transparent 38%),
+    linear-gradient(135deg, #edf3fa 0%, #f7f9fc 48%, #eaf2f8 100%);
 }
-main.view-dashboard .view-content{padding-top:20px;}
+main.view-dashboard .view-content{padding-top:20px; position:relative; z-index:1;}
 
 /* BARRA SUPERIOR — vidro translúcido sobre o fundo com gradientes do main */
 main.view-dashboard .global-topbar{
@@ -587,11 +626,14 @@ main.view-dashboard .global-topbar{
   box-shadow:0 1px 0 rgba(15,27,45,0.03);
 }
 main.view-dashboard .global-topbar-search input{
-  background:rgba(255,255,255,0.72); border:1px solid rgba(255,255,255,0.85); border-radius:12px;
-  box-shadow:0 1px 3px rgba(15,27,45,0.05);
+  background:rgba(255,255,255,0.72); border:1px solid rgba(198,210,225,0.72); border-radius:14px;
+  box-shadow:0 8px 22px rgba(37,62,91,0.07), 0 2px 5px rgba(37,62,91,0.03), inset 0 1px 0 rgba(255,255,255,0.88);
+  -webkit-backdrop-filter:blur(16px) saturate(120%); backdrop-filter:blur(16px) saturate(120%);
+  transition:border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
 }
 main.view-dashboard .global-topbar-search input:focus{
-  outline:none; border-color:rgba(42,92,138,0.35); box-shadow:0 0 0 3px rgba(42,92,138,0.09);
+  outline:none; background:rgba(255,255,255,0.84); border-color:rgba(96,137,180,0.62);
+  box-shadow:0 10px 28px rgba(48,86,127,0.12), 0 0 0 4px rgba(91,143,198,0.10), inset 0 1px 0 rgba(255,255,255,0.94);
 }
 main.view-dashboard .topbar-bell, main.view-dashboard .topbar-account{
   background:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.75);
@@ -2777,6 +2819,31 @@ function svgInfoIcon(size){
    isso seria inseguro — em vez disso, desloga e já deixa o e-mail escolhido pré-preenchido na
    tela de login (reaproveitando o mesmo mecanismo de "Lembrar meus dados"), pra só precisar
    digitar a senha. */
+/* Fecha o menu de perfil (topbar ou sidebar) ao clicar fora ou pressionar Esc — antes só
+   fechava clicando de novo no próprio avatar. */
+document.addEventListener('click', function(e){
+  [['topbar-account-dropdown','topbar-account-trigger','topbar-account-chevron'],
+   ['sidebar-account-dropdown','sidebar-account-trigger','sidebar-account-chevron']].forEach(([dId,tId,cId])=>{
+    const dropdown = document.getElementById(dId);
+    if(!dropdown || dropdown.style.display==='none') return;
+    const trigger = document.getElementById(tId);
+    if(dropdown.contains(e.target) || (trigger && trigger.contains(e.target))) return;
+    dropdown.style.display = 'none';
+    const chevron = document.getElementById(cId);
+    if(chevron) chevron.classList.remove('open');
+  });
+});
+document.addEventListener('keydown', function(e){
+  if(e.key!=='Escape') return;
+  ['topbar-account-dropdown','sidebar-account-dropdown'].forEach(id=>{
+    const dropdown = document.getElementById(id);
+    if(dropdown) dropdown.style.display = 'none';
+  });
+  ['topbar-account-chevron','sidebar-account-chevron'].forEach(id=>{
+    const chevron = document.getElementById(id);
+    if(chevron) chevron.classList.remove('open');
+  });
+});
 async function toggleUserSwitcher(dropdownId, chevronId){
   dropdownId = dropdownId || 'sidebar-account-dropdown';
   chevronId = chevronId || 'sidebar-account-chevron';
@@ -7671,7 +7738,18 @@ function renderDashboardResultsParts(){
     } else if(id==='aguardando_embarque'){
       body += band + `<div class="process-list">${list.map(aguardandoEmbarqueCard).join('')}</div>`;
     } else if(id==='transito'){
-      body += band + `<div class="process-list">${list.map(transitoCard).join('')}</div>`;
+      // Ordena por proximidade da chegada prevista (vencidos/hoje primeiro, ascendente);
+      // em empate, pela data de embarque mais antiga. Datas em branco vão pro final.
+      const sorted = list.slice().sort((a,b)=>{
+        const da = a.chegadaPrevista || '9999-99-99';
+        const db = b.chegadaPrevista || '9999-99-99';
+        if(da!==db) return da<db ? -1 : 1;
+        const ea = a.dataEmbarqueReal || a.embarquePrevisto || '9999-99-99';
+        const eb = b.dataEmbarqueReal || b.embarquePrevisto || '9999-99-99';
+        if(ea!==eb) return ea<eb ? -1 : 1;
+        return 0;
+      });
+      body += band + `<div class="process-list">${sorted.map(transitoCard).join('')}</div>`;
     } else if(id==='desembaraco'){
       body += band + `<div class="process-list">${list.map(desembaracoCard).join('')}</div>`;
     } else {
