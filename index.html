@@ -562,6 +562,187 @@ body.dark-mode .eye-btn:hover{border-color:var(--ink-blue-fg);}
 
 .active-count-label{font-size:12px; color:var(--muted); font-weight:600; margin-bottom:12px; letter-spacing:0.02em;}
 
+/* ===================================================================================
+   REDESIGN DO TOPO DO PAINEL — glassmorphism estilo iOS, pedido explícito do usuário.
+   Tudo aqui é restrito a "main.view-dashboard" (classe aplicada em <main> só quando
+   currentView==='dashboard', ver render()) — Processos, Finalizados e as demais páginas
+   continuam usando exatamente o .global-topbar/.filter-bar/.stage-pill/.kpi-card originais,
+   sem nenhuma mudança visual. Sidebar, estrutura geral (topbar→filtros→saudação→kpis→
+   atenção→lista de processos) e toda a lógica de filtro/contagem permanecem intocadas —
+   só a "pele" visual do topo muda. Área de Atenção e lista de processos NÃO fazem parte
+   deste redesign (ficam com o visual padrão, fora do #dashboard-kpis). */
+main.view-dashboard{
+  background:
+    radial-gradient(circle at 88% 4%, rgba(119,157,255,0.16) 0%, rgba(119,157,255,0.07) 22%, transparent 42%),
+    radial-gradient(circle at 12% 88%, rgba(111,205,174,0.10) 0%, rgba(111,205,174,0.04) 24%, transparent 43%),
+    linear-gradient(135deg, #f1f5fa 0%, #f6f8fc 48%, #edf3f8 100%);
+}
+main.view-dashboard .view-content{padding-top:20px;}
+
+/* BARRA SUPERIOR — vidro translúcido sobre o fundo com gradientes do main */
+main.view-dashboard .global-topbar{
+  background:rgba(255,255,255,0.55);
+  -webkit-backdrop-filter:blur(20px) saturate(160%); backdrop-filter:blur(20px) saturate(160%);
+  border-bottom:1px solid rgba(255,255,255,0.6);
+  box-shadow:0 1px 0 rgba(15,27,45,0.03);
+}
+main.view-dashboard .global-topbar-search input{
+  background:rgba(255,255,255,0.72); border:1px solid rgba(255,255,255,0.85); border-radius:12px;
+  box-shadow:0 1px 3px rgba(15,27,45,0.05);
+}
+main.view-dashboard .global-topbar-search input:focus{
+  outline:none; border-color:rgba(42,92,138,0.35); box-shadow:0 0 0 3px rgba(42,92,138,0.09);
+}
+main.view-dashboard .topbar-bell, main.view-dashboard .topbar-account{
+  background:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.75);
+}
+main.view-dashboard .topbar-bell:hover, main.view-dashboard .topbar-account:hover{
+  background:rgba(255,255,255,0.88);
+}
+
+/* ÁREA DE FILTROS — container de vidro, selects/botão em formato de pill compacto */
+main.view-dashboard .filter-bar{
+  background:rgba(255,255,255,0.55);
+  -webkit-backdrop-filter:blur(16px) saturate(150%); backdrop-filter:blur(16px) saturate(150%);
+  border:1px solid rgba(255,255,255,0.7); border-radius:18px;
+  box-shadow:0 10px 28px rgba(15,27,45,0.05);
+  padding:11px 14px;
+}
+main.view-dashboard .filter-bar select{
+  background-color:rgba(255,255,255,0.8); border:1px solid rgba(255,255,255,0.9);
+  border-radius:999px; padding:7px 30px 7px 14px; font-size:12.5px; color:var(--text);
+  appearance:none; -webkit-appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236B7785' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat:no-repeat; background-position:right 10px center;
+}
+main.view-dashboard .filter-bar .btn{
+  border-radius:999px; background:rgba(255,255,255,0.7); border:1px solid rgba(255,255,255,0.85);
+}
+main.view-dashboard .filter-bar .btn:hover{background:rgba(255,255,255,0.95);}
+
+/* CÁPSULAS DE STATUS — ativa (Todos) continua sólida navy/branco; inativas viram vidro */
+main.view-dashboard .stage-pills{margin-top:12px;}
+main.view-dashboard .stage-pill{
+  background:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.8); color:#4B5768;
+  -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+}
+main.view-dashboard .stage-pill.active{box-shadow:0 6px 16px rgba(15,27,45,0.18);}
+main.view-dashboard .stage-pill:hover:not(.active){background:rgba(255,255,255,0.88);}
+
+/* SAUDAÇÃO — "Olá, {nome}" dinâmico (nomeExibicao já existente), texto auxiliar preservado,
+   "Processos ativos: N" como cápsula secundária discreta logo abaixo */
+main.view-dashboard .dashboard-greeting{margin-top:24px; margin-bottom:26px;}
+main.view-dashboard .dashboard-greeting h1{
+  font-size:30px; font-weight:700; color:#0F1B2D; letter-spacing:-0.01em; margin-bottom:5px;
+}
+main.view-dashboard .dashboard-greeting p{font-size:14px; color:#5B6B80;}
+main.view-dashboard .dashboard-greeting .active-count-label{
+  display:inline-flex; align-items:center; margin-top:12px; margin-bottom:0;
+  background:rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.7);
+  color:#5B6B80; font-size:12.5px; padding:5px 13px; border-radius:999px;
+}
+
+/* CARDS DE INDICADORES — vidro translúcido, ícones em círculo com acento por etapa
+   (mesmas cores --kpi-accent/--kpi-accent-bg já calculadas por DASHBOARD_KPI_ACCENTS,
+   nenhum dado ou cor nova inventada) */
+main.view-dashboard .kpi-row{gap:16px; margin-top:6px;}
+main.view-dashboard .kpi-card{
+  background:rgba(255,255,255,0.80);
+  -webkit-backdrop-filter:blur(16px) saturate(160%); backdrop-filter:blur(16px) saturate(160%);
+  border:1px solid rgba(203,214,228,0.72); border-radius:22px;
+  box-shadow:0 8px 24px rgba(40,65,95,0.08), 0 1px 3px rgba(40,65,95,0.04), inset 0 1px 0 rgba(255,255,255,0.90);
+  padding:18px 20px;
+}
+main.view-dashboard .kpi-card::before{display:none;}
+main.view-dashboard .kpi-icon-circle{width:38px; height:38px; font-size:16px;}
+main.view-dashboard .kpi-value{font-size:30px;}
+main.view-dashboard .kpi-label{color:#5B6B80; font-weight:600;}
+
+/* CARDS DE PROCESSO — mesma ideia de vidro aplicada aos cards individuais da lista
+   (Entregue, Em Desembaraço, Em Trânsito, Em Produção, Aguardando Embarque — todos usam
+   .process-card ou .transit-card como raiz). Nenhuma informação, ordem ou estrutura muda,
+   só a superfície visual do card. */
+main.view-dashboard .process-list{gap:14px;}
+main.view-dashboard .process-card,
+main.view-dashboard .transit-card{
+  background:rgba(255,255,255,0.70);
+  border:1px solid rgba(203,214,228,0.68);
+  border-radius:20px;
+  box-shadow:0 10px 28px rgba(40,65,95,0.07), 0 2px 5px rgba(40,65,95,0.03), inset 0 1px 0 rgba(255,255,255,0.82);
+  -webkit-backdrop-filter:blur(16px) saturate(125%); backdrop-filter:blur(16px) saturate(125%);
+  transition:transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+main.view-dashboard .process-card:hover,
+main.view-dashboard .transit-card:hover{
+  background:rgba(255,255,255,0.78);
+  transform:translateY(-2px);
+  box-shadow:0 16px 34px rgba(40,65,95,0.11), 0 3px 7px rgba(40,65,95,0.04), inset 0 1px 0 rgba(255,255,255,0.90);
+  border-color:rgba(203,214,228,0.68);
+}
+main.view-dashboard .process-card.has-alert,
+main.view-dashboard .transit-card.has-alert{
+  border-color:rgba(220,38,38,0.45); box-shadow:0 0 0 1px rgba(220,38,38,0.14), 0 10px 28px rgba(40,65,95,0.07);
+}
+/* badges internos (fase, admissão temporária) — translúcidos em vez de sólidos */
+main.view-dashboard .phase-mini{background:rgba(255,255,255,0.6); border:1px solid rgba(203,214,228,0.5);}
+main.view-dashboard .process-badge-temp{background:rgba(255,255,255,0.6); border:1px solid rgba(203,214,228,0.5);}
+main.view-dashboard .process-ref-badge{background:rgba(255,255,255,0.45); border-radius:12px;}
+/* valores em US$/R$ — cápsula navy translúcida em vez de sólida */
+main.view-dashboard .stat-chip{background:rgba(15,27,45,0.78);}
+main.view-dashboard .stat-chip-secondary{background:rgba(42,92,138,0.55);}
+/* botão de visualizar — vidro discreto em vez de quadrado navy sólido */
+main.view-dashboard .eye-btn{
+  background:rgba(255,255,255,0.65); border:1px solid rgba(203,214,228,0.6); color:#2A5C8A;
+  -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); box-shadow:0 1px 3px rgba(40,65,95,0.08);
+}
+main.view-dashboard .eye-btn:hover{background:rgba(255,255,255,0.9); border-color:rgba(203,214,228,0.8);}
+/* linha do tempo — concluído verde suave, atual em coral/laranja discreto, futuro cinza-azulado */
+main.view-dashboard .track-dot{background:#B7C2D0;}
+main.view-dashboard .track-line{background:#C7D0DC;}
+main.view-dashboard .track-dot.done, main.view-dashboard .track-line.done{background:#5FB98A;}
+main.view-dashboard .track-dot.current{background:#EA813F; box-shadow:0 0 0 3px rgba(234,129,63,0.20);}
+
+/* Modo escuro — mesma estrutura, vidro sobre o fundo escuro em vez de branco */
+body.dark-mode main.view-dashboard{
+  background:
+    radial-gradient(1000px 620px at 90% -8%, rgba(66,120,220,0.14), transparent 60%),
+    radial-gradient(760px 520px at 28% -10%, rgba(120,100,220,0.11), transparent 55%),
+    radial-gradient(820px 520px at 18% 62%, rgba(60,170,140,0.08), transparent 55%),
+    var(--paper);
+}
+body.dark-mode main.view-dashboard .global-topbar,
+body.dark-mode main.view-dashboard .filter-bar,
+body.dark-mode main.view-dashboard .kpi-card,
+body.dark-mode main.view-dashboard .process-card,
+body.dark-mode main.view-dashboard .transit-card{
+  background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.09);
+}
+body.dark-mode main.view-dashboard .process-card:hover,
+body.dark-mode main.view-dashboard .transit-card:hover{
+  background:rgba(255,255,255,0.08);
+}
+body.dark-mode main.view-dashboard .eye-btn{
+  background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.12); color:var(--text);
+}
+body.dark-mode main.view-dashboard .global-topbar-search input,
+body.dark-mode main.view-dashboard .filter-bar select,
+body.dark-mode main.view-dashboard .filter-bar .btn,
+body.dark-mode main.view-dashboard .topbar-bell,
+body.dark-mode main.view-dashboard .topbar-account{
+  background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.1); color:var(--text);
+}
+body.dark-mode main.view-dashboard .filter-bar select{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238C9BB5' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+}
+body.dark-mode main.view-dashboard .stage-pill{
+  background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1); color:var(--muted);
+}
+body.dark-mode main.view-dashboard .dashboard-greeting h1{color:var(--navy-fg);}
+body.dark-mode main.view-dashboard .dashboard-greeting p{color:var(--muted);}
+body.dark-mode main.view-dashboard .dashboard-greeting .active-count-label{
+  background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1); color:var(--muted);
+}
+
 .month-group{margin-bottom:6px;}
 .month-summary{
   cursor:pointer; font-family:'Helvetica', sans-serif; font-weight:700; font-size:14px; color:var(--navy-fg);
@@ -6588,7 +6769,7 @@ function render(){
       </div>
     </aside>
     <div class="sidebar-mobile-backdrop" id="sidebar-mobile-backdrop" onclick="closeSidebarMobile()"></div>
-    <main class="${sidebarCollapsed?'main-collapsed':''}">
+    <main class="${sidebarCollapsed?'main-collapsed':''} view-${currentView}">
       ${renderGlobalTopbar()}
       ${viewTitle() ? `<div class="topbar" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
         <div>
@@ -7220,10 +7401,13 @@ function renderFilterBar(pageKey, universe, stageOptions){
 
 function applyPageSearchFilter(pageKey){
   pageFilters[pageKey].search = document.getElementById(pageKey+'-filter-search').value;
+  if(pageKey==='dashboard'){
+    refreshDashboardResults();
+    return;
+  }
   const el = document.getElementById(pageKey+'-results');
   if(el){
-    if(pageKey==='dashboard') el.innerHTML = renderDashboardResults();
-    else if(pageKey==='processos') el.innerHTML = renderProcessosResults();
+    if(pageKey==='processos') el.innerHTML = renderProcessosResults();
     else if(pageKey==='finalizados') el.innerHTML = renderFinalizadosResults();
   }
 }
@@ -7251,13 +7435,37 @@ function renderDashboard(){
   const universe = state.processes.filter(p=>getBucket(p)!=='finalizados');
   const filterBar = renderFilterBar('dashboard', universe, stageOptions);
   const nomeExibicao = currentUserNome || currentUserRoleLabel || 'usuário';
+  const totalAtivos = universe.length;
   const greeting = `
     <div class="dashboard-greeting">
       <h1>Olá, ${nomeExibicao}</h1>
       <p>Acompanhe seus embarques e operações de comércio exterior.</p>
+      <div class="active-count-label">Processos ativos: ${totalAtivos}</div>
     </div>
   `;
-  return filterBar + greeting + `<div id="dashboard-results">${renderDashboardResults()}</div>`;
+  const {kpisHtml, restHtml} = renderDashboardResultsParts();
+  return `
+    <div class="dashboard-hero">
+      ${filterBar}
+      ${greeting}
+      <div id="dashboard-kpis">${kpisHtml}</div>
+    </div>
+    <div id="dashboard-results-body">${restHtml}</div>
+  `;
+}
+/* TESTE VISUAL — redesign do topo do Painel: kpis (cards de resumo, dentro do dashboard-hero)
+   e o restante (Atenção + listas de processos, fora do hero) agora vivem em dois containers
+   reativos separados (#dashboard-kpis e #dashboard-results-body) em vez de um só
+   (#dashboard-results), só pra permitir estilizar o hero como um painel visualmente distinto
+   sem tocar no resto. refreshDashboardResults() atualiza os dois juntos sempre que os dados
+   mudam (busca, filtros, expandir/recolher seção) — nenhuma lógica de filtro/contagem mudou,
+   só onde cada pedaço do HTML é inserido no DOM. */
+function refreshDashboardResults(){
+  const {kpisHtml, restHtml} = renderDashboardResultsParts();
+  const kpisEl = document.getElementById('dashboard-kpis');
+  const bodyEl = document.getElementById('dashboard-results-body');
+  if(kpisEl) kpisEl.innerHTML = kpisHtml;
+  if(bodyEl) bodyEl.innerHTML = restHtml;
 }
 
 /* Ordem de exibição do Painel: processos mais adiantados no fluxo aparecem primeiro
@@ -7291,8 +7499,7 @@ window.__dashboardBandState = window.__dashboardBandState || {};
 function toggleDashboardBand(id){
   const cur = window.__dashboardBandState[id];
   window.__dashboardBandState[id] = cur===undefined ? false : !cur; // 1º clique fecha (estava aberto por padrão)
-  const el = document.getElementById('dashboard-results');
-  if(el) el.innerHTML = renderDashboardResults();
+  refreshDashboardResults();
 }
 /* TESTE VISUAL — Painel v2: ícones da área de Atenção como SVG (não emoji), pra reproduzir
    exatamente cor e formato da referência — triângulo de aviso preenchido (ícone principal e
@@ -7310,8 +7517,7 @@ function svgCircleDotIcon(color, size){
 function expandAllDashboardBands(){
   Object.keys(window.__dashboardBandState).forEach(k=>window.__dashboardBandState[k]=true);
   window.__dashboardBandForceExpandAll = true;
-  const el = document.getElementById('dashboard-results');
-  if(el) el.innerHTML = renderDashboardResults();
+  refreshDashboardResults();
 }
 
 /* TESTE VISUAL — Painel v2: lista achatada {process, text, category} de todo alerta de todo
@@ -7382,7 +7588,7 @@ function openAttentionDetailsModal(){
   document.body.appendChild(overlay);
 }
 
-function renderDashboardResults(){
+function renderDashboardResultsParts(){
   const cfg = getDashboardConfig();
   const f = pageFilters.dashboard;
   const bucketOrder = dashboardBucketOrder(cfg);
@@ -7391,15 +7597,13 @@ function renderDashboardResults(){
   const filteredProcesses = state.processes.filter(p=>processMatchesFilter(p,f));
   filteredProcesses.forEach(p=>{ const b=getBucket(p); if(buckets[b]) buckets[b].push(p); });
   const finalizadosCount = state.processes.filter(p=>getBucket(p)==='finalizados').length;
-  const totalAtivos = state.processes.filter(p=>getBucket(p)!=='finalizados').length;
 
   /* TESTE VISUAL — Painel v2: a mesma cor por etapa (DASHBOARD_KPI_ACCENTS) agora também
      alimenta os retângulos-separador de seção abaixo — os cards de resumo (KPI) e os
      separadores das etapas "conversam" na mesma família de cor, como pedido. */
   const kpiAccents = DASHBOARD_KPI_ACCENTS;
   const kpiAccentsBg = DASHBOARD_KPI_ACCENTS_BG;
-  const kpis = `
-  <div class="active-count-label">Processos ativos: ${totalAtivos}</div>
+  const kpisHtml = `
   <div class="kpi-row">
     ${bucketOrder.map(id=>`
       <div class="kpi-card" style="--kpi-accent:${kpiAccents[id]||'var(--ink-teal-fg)'}; --kpi-accent-bg:${kpiAccentsBg[id]||'var(--ink-teal-bg)'}">
@@ -7505,7 +7709,15 @@ function renderDashboardResults(){
     </div>
   `;
 
-  return kpis + attentionHtml + body + finalNote + footerHtml;
+  const restHtml = attentionHtml + body + finalNote + footerHtml;
+  return {kpisHtml, restHtml};
+}
+/* Mantida por compatibilidade com qualquer chamada antiga que ainda espere o HTML todo
+   concatenado num só bloco (renderDashboardResultsParts é a versão "de verdade", usada em
+   toda a lógica nova do hero). */
+function renderDashboardResults(){
+  const {kpisHtml, restHtml} = renderDashboardResultsParts();
+  return kpisHtml + restHtml;
 }
 
 /* TESTE VISUAL — Painel v2: "há X minutos/horas/dias" a partir de um timestamp real
