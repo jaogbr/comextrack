@@ -37,6 +37,23 @@
   --muted:#6B7785;
   --border:#E2E6EA;
   --border-strong:#C7CFD6;
+  /* Variantes "-fg" (foreground/texto) de cada cor ink-X e do navy — em modo claro são
+     idênticas à cor base (nada muda visualmente), mas em modo escuro (ver body.dark-mode
+     mais abaixo) ficam mais claras, pra funcionar como TEXTO sobre fundos escuros. A cor
+     base (--ink-X, --navy) continua igual nos dois temas e segue usada em preenchimentos
+     sólidos com texto branco em cima (botões, badges numéricos, círculos de etapa concluída
+     etc) — só o PAPEL de "texto sobre cartão/página" é que precisa de uma versão mais clara
+     no escuro; o preenchimento sólido já tem contraste garantido com o branco por cima,
+     independente do tema. Ver também --ink-X-bg logo acima, que no escuro vira um tom
+     escuro da mesma cor (em vez do pastel claro), mantendo a mesma identidade de cor. */
+  --navy-fg:var(--navy-fg);
+  --ink-red-fg:var(--ink-red-fg);
+  --ink-green-fg:var(--ink-green-fg);
+  --ink-amber-fg:var(--ink-amber-fg);
+  --ink-blue-fg:var(--ink-blue-fg);
+  --ink-purple-fg:var(--ink-purple-fg);
+  --ink-teal-fg:var(--ink-teal-fg);
+  --ink-gold-fg:var(--ink-gold-fg);
 }
 *{box-sizing:border-box; margin:0; padding:0;}
 body{
@@ -53,14 +70,47 @@ body{
 /* SIDEBAR */
 .sidebar{
   width:278px; flex-shrink:0;
-  background-color:var(--navy);
+  background-color:var(--navy-fg);
   background-size:cover; background-position:center bottom; background-repeat:no-repeat;
   color:#DCE4EC;
   display:flex; flex-direction:column;
   padding:24px 0;
   position:sticky; top:0; height:100vh;
   overflow-y:auto; overflow-x:hidden;
+  transition:width 0.22s ease;
 }
+/* RECOLHER/EXPANDIR — só a largura anima; o conteúdo principal (main{flex:1}) já reaproveita
+   o espaço liberado automaticamente por estar no mesmo flex container (#app), sem precisar
+   de nenhum JS pra redimensionar nada além da própria sidebar. Preserva cores, ícones, ordem
+   e todas as funcionalidades — só oculta texto e centraliza ícone quando recolhida. */
+.sidebar.collapsed{width:76px;}
+.sidebar-collapse-btn{
+  position:absolute; top:22px; right:14px; width:26px; height:26px; border-radius:50%;
+  background:var(--navy-fg); border:1px solid rgba(255,255,255,0.28); color:#fff;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:6;
+  box-shadow:0 2px 8px rgba(0,0,0,0.35); transition:background 0.15s;
+}
+.sidebar-collapse-btn:hover{background:var(--navy-light);}
+.sidebar-collapse-btn svg{transition:transform 0.22s ease; flex-shrink:0;}
+.sidebar.collapsed .sidebar-collapse-btn svg{transform:rotate(180deg);}
+.sidebar.collapsed .brand{padding:0 10px 14px 10px; margin-bottom:14px;}
+/* Sem padding-top extra aqui: agora que o logo continua visível (só menor) quando recolhida,
+   a própria marca já ocupa o espaço necessário abaixo do botão de recolher/expandir — não
+   precisa mais de uma folga artificial só pra isso. */
+.sidebar.collapsed .nav-item{justify-content:center; gap:0; padding:10px 0;}
+.sidebar.collapsed .nav-item .dot{display:none;}
+.sidebar.collapsed .nav-label{display:none;}
+.sidebar.collapsed .nav-reorder-toggle{display:none;}
+.sidebar.collapsed .sidebar-footer{padding:0 14px;}
+.sidebar.collapsed .sidebar-account{justify-content:center; gap:0; padding:8px;}
+.sidebar.collapsed .sidebar-account-text, .sidebar.collapsed .sidebar-account-chevron{display:none;}
+.sidebar.collapsed .sidebar-footer-row{display:none;}
+.sidebar-footer-row{display:flex; align-items:center; justify-content:space-between; margin:10px 0;}
+.sidebar.collapsed .sidebar-account-dropdown{position:absolute; top:0; left:100%; margin-left:10px; width:230px;}
+.sidebar.collapsed .new-process-btn{width:40px; height:40px; padding:0; border-radius:50%; margin:0 auto; display:flex; align-items:center; justify-content:center; font-size:19px; line-height:1;}
+.sidebar.collapsed .save-indicator-text{display:none;}
+#save-indicator{font-size:11px; color:#7C8FA8; margin-bottom:8px; text-align:center;}
+
 .sidebar::before{
   content:''; position:absolute; inset:0; z-index:0; pointer-events:none;
   /* A foto inteira (do topo ao fundo) é o fundo da própria .sidebar agora — não é mais um
@@ -72,6 +122,13 @@ body{
   background:linear-gradient(180deg, rgba(8,15,28,0.62) 0%, rgba(8,15,28,0.42) 45%, rgba(8,15,28,0.18) 75%, rgba(8,15,28,0.05) 100%);
 }
 .sidebar > *{position:relative; z-index:1;}
+/* O botão de recolher/expandir precisa vencer TANTO o position quanto o z-index da regra
+   acima — sem isso, mesmo posicionado corretamente, a caixa (invisível, mas presente) do
+   .brand que vem logo depois dele no DOM empata em z-index e fica por cima na pilha de
+   empilhamento, interceptando o clique mesmo com o botão aparecendo visualmente por baixo
+   (já que .brand não tem fundo opaco ali). Selector com 2 classes garante prioridade sobre
+   o ".sidebar > *" (1 classe), então usamos exatamente essa combinação em vez de !important. */
+.sidebar > .sidebar-collapse-btn{position:absolute; z-index:10;}
 .brand{
   padding:0 20px 20px 20px;
   border-bottom:1px solid rgba(255,255,255,0.1);
@@ -84,6 +141,11 @@ body{
   display:flex; align-items:center; gap:8px;
 }
 .brand-mark svg{flex-shrink:0;}
+/* Logo do topo da sidebar: some no texto grande de sempre quando aberta; quando a sidebar
+   recolhe, em vez de sumir completamente, encolhe e continua visível ali em cima — mesmo
+   pedido explícito de manter alguma marca da plataforma mesmo no modo compacto. */
+.brand-logo-img{height:130px; max-width:100%; display:block; transition:height 0.22s ease;}
+.sidebar.collapsed .brand-logo-img{height:30px;}
 .brand-sub{
   font-family:'Helvetica', sans-serif; font-size:10px; color:#7C8FA8;
   letter-spacing:0.12em; text-transform:uppercase; margin-top:4px;
@@ -232,11 +294,11 @@ main{flex:1; min-width:0; display:flex; flex-direction:column;}
 }
 .kpi-card::before{
   content:''; position:absolute; top:0; left:0; width:3px; height:100%;
-  background:var(--kpi-accent, var(--ink-blue));
+  background:var(--kpi-accent, var(--ink-blue-fg));
 }
 .kpi-icon-circle{
   width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-  font-size:14px; background:var(--kpi-accent-bg, var(--ink-blue-bg)); color:var(--kpi-accent, var(--ink-blue));
+  font-size:14px; background:var(--kpi-accent-bg, var(--ink-blue-bg)); color:var(--kpi-accent, var(--ink-blue-fg));
 }
 .kpi-label{font-family:'Helvetica', sans-serif; font-size:12.5px; text-transform:uppercase; letter-spacing:0.03em; color:var(--text); font-weight:700;}
 .kpi-value{font-family:'Helvetica', sans-serif; font-size:26px; font-weight:700;}
@@ -249,7 +311,7 @@ main{flex:1; min-width:0; display:flex; flex-direction:column;}
   text-transform:uppercase; letter-spacing:0.03em;
 }
 .section-title:first-child{margin-top:0;}
-.section-title .rule{flex:1; height:3px; background:linear-gradient(90deg, var(--navy) 0%, var(--border-strong) 70%, transparent 100%); border-radius:2px;}
+.section-title .rule{flex:1; height:3px; background:linear-gradient(90deg, var(--navy-fg) 0%, var(--border-strong) 70%, transparent 100%); border-radius:2px;}
 
 /* ====================== TESTE VISUAL — Painel v2 ======================
    Aditivo: nada do .section-title acima foi removido. Estas classes novas
@@ -258,7 +320,7 @@ main{flex:1; min-width:0; display:flex; flex-direction:column;}
 .section-band{
   display:flex; align-items:center; gap:10px; flex-wrap:wrap; cursor:pointer; user-select:none;
   padding:13px 20px; border-radius:10px; margin:28px 0 16px 0;
-  background:var(--band-color, var(--ink-blue)); color:#fff;
+  background:var(--band-color, var(--ink-blue-fg)); color:#fff;
 }
 .section-band:first-child{margin-top:0;}
 .section-band .band-icon{font-size:15px;}
@@ -313,7 +375,7 @@ main{flex:1; min-width:0; display:flex; flex-direction:column;}
   border-radius:11px; padding:11px 19px; font-size:12.5px; font-weight:600; color:#1F2937;
   cursor:pointer; white-space:nowrap;
 }
-.attention-details-btn:hover{border-color:var(--navy);}
+.attention-details-btn:hover{border-color:var(--navy-fg);}
 body.dark-mode .attention-area{background:var(--card); border-color:var(--border-strong);}
 body.dark-mode .attention-label{color:#F87171;}
 body.dark-mode .attention-sub{color:var(--muted);}
@@ -333,7 +395,7 @@ body.dark-mode .attention-details-btn{background:var(--paper); border-color:var(
 .dashboard-footer-sync{font-size:12px; color:var(--muted);}
 .dashboard-footer-fob{
   display:flex; align-items:baseline; gap:10px; padding:10px 16px;
-  background:var(--navy); border-radius:8px;
+  background:var(--navy-fg); border-radius:8px;
 }
 .dashboard-footer-fob-label{font-size:11px; font-weight:600; color:rgba(255,255,255,0.75); text-transform:uppercase; letter-spacing:0.03em;}
 body.dark-mode .dashboard-footer-fob{background:var(--card); border:1px solid var(--border-strong);}
@@ -348,7 +410,7 @@ body.dark-mode .dashboard-footer-fob{background:var(--card); border:1px solid va
   display:flex; align-items:center; gap:14px; padding:10px 12px; border-radius:8px;
   border:1px solid var(--border); margin-bottom:6px; cursor:pointer; transition:border-color 0.15s, background 0.15s;
 }
-.attention-detail-row:hover{border-color:var(--navy); background:var(--paper);}
+.attention-detail-row:hover{border-color:var(--navy-fg); background:var(--paper);}
 .attention-detail-ref{
   font-family:'Helvetica', sans-serif; font-size:11px; font-weight:700; color:var(--muted);
   background:var(--paper); border-radius:6px; padding:4px 8px; flex-shrink:0;
@@ -371,8 +433,8 @@ body.dark-mode .dashboard-footer-fob{background:var(--card); border:1px solid va
 .preanalise-stat{display:flex; flex-direction:column; line-height:1.2;}
 .preanalise-stat-num{font-family:'Helvetica', sans-serif; font-weight:700; font-size:20px; color:var(--text);}
 .preanalise-stat-lbl{font-size:11px; color:var(--muted); font-weight:600;}
-.preanalise-stat-ok .preanalise-stat-num{color:var(--ink-green);}
-.preanalise-stat-warn .preanalise-stat-num{color:var(--ink-red);}
+.preanalise-stat-ok .preanalise-stat-num{color:var(--ink-green-fg);}
+.preanalise-stat-warn .preanalise-stat-num{color:var(--ink-red-fg);}
 .preanalise-filters{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;}
 .preanalise-filters input, .preanalise-filters select{
   padding:8px 10px; border:1px solid var(--border-strong); border-radius:6px; font-size:12.5px;
@@ -392,7 +454,7 @@ body.dark-mode .dashboard-footer-fob{background:var(--card); border:1px solid va
 body.dark-mode .preanalise-row-alert{background:rgba(220,38,38,0.1);}
 .preanalise-alert{
   cursor:pointer; display:inline-flex; align-items:center; gap:5px; font-size:13px;
-  color:var(--ink-red); font-weight:600;
+  color:var(--ink-red-fg); font-weight:600;
 }
 .preanalise-alert:hover{text-decoration:underline;}
 /* ==================== fim TESTE VISUAL — Painel v2 ==================== */
@@ -413,15 +475,15 @@ body.dark-mode .preanalise-row-alert{background:rgba(220,38,38,0.1);}
   padding:5px 8px; transform:rotate(-3deg); white-space:nowrap;
   text-align:center; line-height:1.3; max-width:150px;
 }
-.stamp-pedido{color:var(--ink-blue); background:var(--ink-blue-bg);}
-.stamp-producao{color:var(--ink-amber); background:var(--ink-amber-bg);}
-.stamp-embarcado{color:var(--ink-purple); background:var(--ink-purple-bg);}
-.stamp-transito{color:var(--ink-purple); background:var(--ink-purple-bg);}
-.stamp-porto{color:var(--ink-amber); background:var(--ink-amber-bg);}
-.stamp-desembaraco{color:var(--ink-red); background:var(--ink-red-bg);}
-.stamp-remocao{color:var(--ink-teal); background:var(--ink-teal-bg);}
-.stamp-pagamentos{color:var(--ink-gold); background:var(--ink-gold-bg);}
-.stamp-entregue{color:var(--ink-green); background:var(--ink-green-bg);}
+.stamp-pedido{color:var(--ink-blue-fg); background:var(--ink-blue-bg);}
+.stamp-producao{color:var(--ink-amber-fg); background:var(--ink-amber-bg);}
+.stamp-embarcado{color:var(--ink-purple-fg); background:var(--ink-purple-bg);}
+.stamp-transito{color:var(--ink-purple-fg); background:var(--ink-purple-bg);}
+.stamp-porto{color:var(--ink-amber-fg); background:var(--ink-amber-bg);}
+.stamp-desembaraco{color:var(--ink-red-fg); background:var(--ink-red-bg);}
+.stamp-remocao{color:var(--ink-teal-fg); background:var(--ink-teal-bg);}
+.stamp-pagamentos{color:var(--ink-gold-fg); background:var(--ink-gold-bg);}
+.stamp-entregue{color:var(--ink-green-fg); background:var(--ink-green-bg);}
 
 .process-main h3{font-size:15px; font-weight:600;}
 .process-meta{font-size:12.5px; color:var(--muted); margin-top:2px;}
@@ -433,25 +495,25 @@ body.dark-mode .preanalise-row-alert{background:rgba(220,38,38,0.1);}
 .track-dot.current{background:var(--ink-red); box-shadow:0 0 0 3px var(--ink-red-bg);}
 .track-line{flex:1; height:2px; background:var(--border-strong);}
 .track-line.done{background:var(--ink-green);}
-.step-note{font-size:12px; color:var(--ink-red); margin-top:5px; font-style:italic;}
+.step-note{font-size:12px; color:var(--ink-red-fg); margin-top:5px; font-style:italic;}
 .progress-pct{font-size:10.5px; color:var(--muted); margin-top:4px; font-family:'Helvetica', sans-serif;}
 .alert-banner{
-  background:var(--ink-red-bg); color:var(--ink-red); border:1px solid #F0BBA5; border-radius:6px;
+  background:var(--ink-red-bg); color:var(--ink-red-fg); border:1px solid #F0BBA5; border-radius:6px;
   padding:6px 10px; font-size:11.5px; font-weight:600; margin-top:7px; line-height:1.5;
 }
-.process-card.has-alert, .transit-card.has-alert{border-color:var(--ink-red); box-shadow:0 0 0 1px var(--ink-red-bg);}
+.process-card.has-alert, .transit-card.has-alert{border-color:var(--ink-red-fg); box-shadow:0 0 0 1px var(--ink-red-bg);}
 
 .eye-btn{
-  position:absolute; top:10px; right:10px; background:var(--navy); border:1px solid var(--navy);
+  position:absolute; top:10px; right:10px; background:var(--navy-fg); border:1px solid var(--navy-fg);
   border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center;
-  cursor:pointer; font-size:14px; z-index:2; box-shadow:0 1px 3px rgba(15,27,45,0.25);
+  cursor:pointer; font-size:14px; z-index:2; box-shadow:0 1px 3px rgba(15,27,45,0.25); color:#fff;
 }
 .eye-btn:hover{background:var(--navy-light); border-color:var(--navy-light);}
 body.dark-mode .eye-btn{background:var(--card); border-color:var(--border-strong);}
-body.dark-mode .eye-btn:hover{border-color:var(--ink-blue);}
+body.dark-mode .eye-btn:hover{border-color:var(--ink-blue-fg);}
 .process-card, .transit-card{position:relative;}
 
-.view-section-title{font-family:'Helvetica', sans-serif; font-weight:700; font-size:14.5px; margin:18px 0 10px 0; color:var(--navy); text-transform:uppercase; letter-spacing:0.03em;}
+.view-section-title{font-family:'Helvetica', sans-serif; font-weight:700; font-size:14.5px; margin:18px 0 10px 0; color:var(--navy-fg); text-transform:uppercase; letter-spacing:0.03em;}
 .view-section-title:first-child{margin-top:0;}
 .view-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px;}
 .view-field{background:var(--paper); border:1px solid var(--border); border-radius:6px; padding:8px 10px;}
@@ -459,24 +521,24 @@ body.dark-mode .eye-btn:hover{border-color:var(--ink-blue);}
 .view-field .view-label-icon{display:inline-flex; margin-right:4px; color:var(--muted); vertical-align:-2px;}
 .view-field .view-value{font-size:13px; font-weight:500; display:inline-block; border-radius:4px; padding:1px 3px; margin:-1px -3px;}
 .view-value.copyable{cursor:pointer; transition:background 0.12s ease, color 0.12s ease;}
-.view-value.copyable:hover{background:var(--ink-blue-bg); color:var(--ink-blue);}
-.copy-toast{position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(8px); background:var(--navy); color:#fff; padding:8px 18px; border-radius:20px; font-size:12.5px; font-weight:600; opacity:0; transition:opacity 0.25s ease, transform 0.25s ease; z-index:9999; box-shadow:0 6px 18px rgba(0,0,0,0.2);}
+.view-value.copyable:hover{background:var(--ink-blue-bg); color:var(--ink-blue-fg);}
+.copy-toast{position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(8px); background:var(--navy-fg); color:#fff; padding:8px 18px; border-radius:20px; font-size:12.5px; font-weight:600; opacity:0; transition:opacity 0.25s ease, transform 0.25s ease; z-index:9999; box-shadow:0 6px 18px rgba(0,0,0,0.2);}
 .copy-toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
 .view-check-list{display:flex; flex-direction:column; gap:5px;}
 .view-check-item{display:flex; align-items:center; gap:8px; font-size:12.5px; padding:5px 8px; border-radius:5px;}
-.view-check-item.done{color:var(--ink-green);}
+.view-check-item.done{color:var(--ink-green-fg);}
 .view-check-item .vc{width:14px; height:14px; border-radius:4px; border:2px solid var(--border-strong); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff;}
 .view-check-item.done .vc{background:var(--ink-green); border-color:var(--ink-green);}
-.pending-since{font-size:11px; color:var(--ink-red); margin-top:4px; font-weight:600;}
+.pending-since{font-size:11px; color:var(--ink-red-fg); margin-top:4px; font-weight:600;}
 
 .process-ref-badge{min-width:64px; text-align:center; padding:6px 4px;}
 .process-ref-badge .ref-label{display:block; font-family:'Helvetica', sans-serif; font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:3px;}
-.process-ref-badge .ref-value{font-family:'Helvetica', sans-serif; font-weight:700; font-size:17px; color:var(--navy); line-height:1.2; word-break:break-word; text-transform:uppercase; letter-spacing:0.02em;}
+.process-ref-badge .ref-value{font-family:'Helvetica', sans-serif; font-weight:700; font-size:17px; color:var(--navy-fg); line-height:1.2; word-break:break-word; text-transform:uppercase; letter-spacing:0.02em;}
 .phase-mini{font-family:'Helvetica', sans-serif; font-size:9.5px; font-weight:600; color:var(--muted); background:var(--paper); padding:2px 7px; border-radius:10px; text-transform:uppercase; letter-spacing:0.03em; margin-left:6px; vertical-align:middle;}
 
 .filter-bar{display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:20px;}
 .dashboard-greeting{margin-bottom:22px;}
-.dashboard-greeting h1{font-family:'Helvetica', sans-serif; font-weight:800; font-size:26px; color:var(--navy); margin-bottom:4px;}
+.dashboard-greeting h1{font-family:'Helvetica', sans-serif; font-weight:800; font-size:26px; color:var(--navy-fg); margin-bottom:4px;}
 .dashboard-greeting p{font-size:13.5px; color:var(--muted);}
 .filter-bar input, .filter-bar select{padding:8px 10px; border:1px solid var(--border-strong); border-radius:6px; font-size:13px; font-family:'Helvetica', sans-serif;}
 .filter-bar input[type="text"]{flex:1; min-width:180px;}
@@ -488,13 +550,13 @@ body.dark-mode .eye-btn:hover{border-color:var(--ink-blue);}
   font-size:12px; font-weight:600; color:var(--muted); cursor:pointer; font-family:'Helvetica', sans-serif;
 }
 .stage-pill.active{background:var(--navy); color:#fff; border-color:var(--navy);}
-.stage-pill:hover:not(.active){border-color:var(--ink-blue);}
+.stage-pill:hover:not(.active){border-color:var(--ink-blue-fg);}
 
 .active-count-label{font-size:12px; color:var(--muted); font-weight:600; margin-bottom:12px; letter-spacing:0.02em;}
 
 .month-group{margin-bottom:6px;}
 .month-summary{
-  cursor:pointer; font-family:'Helvetica', sans-serif; font-weight:700; font-size:14px; color:var(--navy);
+  cursor:pointer; font-family:'Helvetica', sans-serif; font-weight:700; font-size:14px; color:var(--navy-fg);
   padding:9px 4px; list-style:none; display:flex; align-items:center; gap:10px; letter-spacing:0.03em;
 }
 .month-summary::-webkit-details-marker{display:none;}
@@ -502,7 +564,7 @@ body.dark-mode .eye-btn:hover{border-color:var(--ink-blue);}
 .month-group[open] .month-summary::before{content:'▾';}
 .month-count{font-family:'Helvetica', sans-serif; font-size:11px; font-weight:600; color:var(--muted); background:var(--paper); padding:2px 8px; border-radius:10px;}
 
-.history-item{border-left:3px solid var(--ink-blue); background:var(--paper); border-radius:0 6px 6px 0; padding:10px 14px; margin-bottom:10px;}
+.history-item{border-left:3px solid var(--ink-blue-fg); background:var(--paper); border-radius:0 6px 6px 0; padding:10px 14px; margin-bottom:10px;}
 .history-date{font-family:'Helvetica', sans-serif; font-size:11px; color:var(--muted); font-weight:600;}
 .history-title{font-size:13.5px; font-weight:600; margin-top:3px;}
 .history-detail{font-size:12.5px; color:var(--muted); margin-top:4px; white-space:pre-line; line-height:1.5;}
@@ -517,7 +579,7 @@ body.dark-mode .eye-btn:hover{border-color:var(--ink-blue);}
 
 .followup-card{background:var(--card); border:1px solid var(--border); border-radius:8px; padding:16px 18px; margin-bottom:14px;}
 .followup-card-header{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:12px; flex-wrap:wrap;}
-.followup-ref{font-family:'Helvetica', sans-serif; font-weight:700; font-size:15px; color:var(--navy); margin-right:10px; text-transform:uppercase;}
+.followup-ref{font-family:'Helvetica', sans-serif; font-weight:700; font-size:15px; color:var(--navy-fg); margin-right:10px; text-transform:uppercase;}
 .followup-produto{font-weight:600; font-size:14px; margin-right:8px;}
 .followup-fornecedor{font-size:12.5px; color:var(--muted);}
 .followup-meta-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:8px; margin-bottom:12px;}
@@ -532,7 +594,7 @@ body.dark-mode .eye-btn:hover{border-color:var(--ink-blue);}
 .product-search-bar select{padding:9px 10px; border:1px solid var(--border-strong); border-radius:6px; font-size:13px;}
 .product-row{display:grid; grid-template-columns:110px 1fr 110px 130px 100px auto; gap:10px; align-items:center; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:11px 14px; margin-bottom:8px; cursor:pointer;}
 .product-row:hover{border-color:var(--border-strong);}
-.product-row .pn{font-family:'Helvetica', sans-serif; font-weight:700; font-size:13px; color:var(--navy);}
+.product-row .pn{font-family:'Helvetica', sans-serif; font-weight:700; font-size:13px; color:var(--navy-fg);}
 .product-row .desc{font-size:13px;}
 .product-row .ncm{font-family:'Helvetica', sans-serif; font-size:11.5px; color:var(--muted);}
 .product-row .fab{font-size:12px; color:var(--muted);}
@@ -540,6 +602,7 @@ body.dark-mode .eye-btn:hover{border-color:var(--ink-blue);}
 .product-inactive-badge{font-size:9.5px; font-weight:700; text-transform:uppercase; background:var(--paper); color:var(--muted); padding:2px 7px; border-radius:10px; border:1px solid var(--border-strong);}
 .nav-alert-badge{display:inline-block; min-width:16px; padding:1px 5px; font-size:10px; font-weight:700; background:var(--ink-red); color:#fff; border-radius:9px; margin-left:6px; vertical-align:middle;}
 .ex-badge{font-size:9.5px; font-weight:700; text-transform:uppercase; background:rgba(217,119,6,.12); color:#b45309; padding:2px 7px; border-radius:10px; border:1px solid rgba(217,119,6,.35);}
+.ex-badge-vencido{background:rgba(220,38,38,.12); color:var(--ink-red-fg); border-color:rgba(220,38,38,.35);}
 
 .import-drop{border:2px dashed var(--border-strong); border-radius:10px; padding:30px; text-align:center; color:var(--muted); margin-bottom:16px;}
 .import-mapping-row{display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:center; padding:8px 0; border-bottom:1px solid var(--border);}
@@ -547,8 +610,8 @@ body.dark-mode .eye-btn:hover{border-color:var(--ink-blue);}
 .import-preview-table th{background:var(--paper); padding:7px 9px; text-align:left; border-bottom:1px solid var(--border); font-size:11px; text-transform:uppercase; color:var(--muted);}
 .import-preview-table td{padding:7px 9px; border-bottom:1px solid var(--border);}
 .import-status-badge{font-size:10px; font-weight:700; padding:2px 7px; border-radius:10px;}
-.import-status-badge.novo{background:var(--ink-green-bg); color:var(--ink-green);}
-.import-status-badge.alterado{background:var(--ink-amber-bg); color:var(--ink-amber);}
+.import-status-badge.novo{background:var(--ink-green-bg); color:var(--ink-green-fg);}
+.import-status-badge.alterado{background:var(--ink-amber-bg); color:var(--ink-amber-fg);}
 .import-status-badge.inalterado{background:var(--paper); color:var(--muted);}
 
 .item-row{display:grid; grid-template-columns:20px 78px 1fr 60px 100px 42px 112px 68px; gap:6px; align-items:center; background:var(--paper); border:1px solid var(--border); border-radius:6px; padding:9px 9px; margin-bottom:6px;}
@@ -559,7 +622,7 @@ body.dark-mode .eye-btn:hover{border-color:var(--ink-blue);}
 .item-drag-handle:hover{color:var(--text); background:var(--border);}
 .item-drag-handle:active{cursor:grabbing;}
 .item-row.item-row-dragging{opacity:0.4;}
-.item-row.item-row-drop-target{border-top:2px solid var(--ink-blue);}
+.item-row.item-row-drop-target{border-top:2px solid var(--ink-blue-fg);}
 .item-row > *{min-width:0; overflow:hidden; text-overflow:ellipsis;}
 .item-row input{min-width:0; width:100%; box-sizing:border-box;}
 .item-col-copy{
@@ -570,7 +633,7 @@ body.dark-mode .eye-btn:hover{border-color:var(--ink-blue);}
 .item-row input{padding:6px 8px; border:1px solid var(--border-strong); border-radius:5px; font-size:12.5px;}
 .item-row .item-pn{font-family:'Helvetica', sans-serif; font-weight:700; font-size:12px;}
 .item-row .item-pn-link{cursor:pointer; text-decoration:none; border-bottom:1px dotted transparent;}
-.item-row .item-pn-link:hover{border-bottom-color:var(--muted); color:var(--navy);}
+.item-row .item-pn-link:hover{border-bottom-color:var(--muted); color:var(--navy-fg);}
 .item-row .item-desc{font-size:12px;}
 .item-autocomplete-wrap{position:relative;}
 .item-autocomplete-list{position:absolute; top:100%; left:0; right:0; background:var(--card); border:1px solid var(--border-strong); border-radius:6px; box-shadow:0 8px 20px rgba(0,0,0,0.15); max-height:220px; overflow-y:auto; z-index:20;}
@@ -578,7 +641,7 @@ body.dark-mode .eye-btn:hover{border-color:var(--ink-blue);}
 .item-autocomplete-option:hover{background:var(--paper);}
 .item-autocomplete-option:last-child{border-bottom:none;}
 .item-totals-row{display:flex; gap:20px; flex-wrap:wrap; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-top:12px;}
-.item-total-box{text-align:center; background:var(--navy); border-radius:8px; padding:8px 16px;}
+.item-total-box{text-align:center; background:var(--navy-fg); border-radius:8px; padding:8px 16px;}
 .item-total-box .num{font-family:'Helvetica', sans-serif; font-weight:700; font-size:18px; color:#fff;}
 .item-total-box .lbl{font-size:10.5px; color:rgba(255,255,255,0.7); text-transform:uppercase; letter-spacing:0.03em;}
 body.dark-mode .item-total-box{background:var(--card); border:1px solid var(--border-strong);}
@@ -590,6 +653,21 @@ body.dark-mode .item-total-box .lbl{color:var(--muted);}
 body.dark-mode{
   --paper:#10161F; --card:#1A222E; --text:#E4E9F0; --muted:#8C9BB5;
   --border:#2A3646; --border-strong:#3A4A5F;
+  /* Mesma cor, tom adaptado pro fundo escuro: cada "-fg" fica mais claro (legível como texto
+     sobre --card/--paper escuros) e cada "-bg" (o pastel claro do modo claro) vira um tom
+     escuro e saturado da mesma cor, em vez de um retalho claro destoando do resto da tela.
+     A cor "base" (--ink-X, --navy) NÃO muda aqui de propósito — continua a mesma nos dois
+     temas porque ainda é usada em preenchimentos sólidos com texto branco por cima (botões,
+     círculos de etapa concluída, badge numérico da sidebar etc), que já têm contraste
+     garantido independente do tema de fundo. */
+  --navy-fg:#F2F5FA;
+  --ink-red-fg:#E8896A; --ink-red-bg:#3A2013;
+  --ink-green-fg:#5FCBA3; --ink-green-bg:#14291F;
+  --ink-amber-fg:#E0AC4F; --ink-amber-bg:#332812;
+  --ink-blue-fg:#7FB8E8; --ink-blue-bg:#16293A;
+  --ink-purple-fg:#B29AE8; --ink-purple-bg:#241C38;
+  --ink-teal-fg:#4FC3CE; --ink-teal-bg:#102A2D;
+  --ink-gold-fg:#E0A73D; --ink-gold-bg:#302408;
 }
 body.dark-mode .modal-overlay{background:rgba(0,0,0,0.7);}
 body.dark-mode .form-group input, body.dark-mode .form-group select, body.dark-mode .form-group textarea,
@@ -599,12 +677,12 @@ body.dark-mode .stage-extra input, body.dark-mode .payment-row input,
 body.dark-mode .config-icon, body.dark-mode .config-label, body.dark-mode .config-row select{
   background:#232E3D; color:var(--text); border-color:var(--border-strong);
 }
-body.dark-mode .doc-item, body.dark-mode .stage-header, body.dark-mode .stage-body{background:#1A222E;}
+body.dark-mode .doc-item, body.dark-mode .stage-body{background:#1A222E;}
+body.dark-mode .stage-block.stage-empty .stage-header{background:#1A222E;}
 body.dark-mode .theme-toggle-btn{background:#232E3D; color:#fff; border-color:#3A4A5F;}
 body.dark-mode .process-ref-badge .ref-value{color:#E8A25C;}
 body.dark-mode .kpi-card, body.dark-mode .process-card, body.dark-mode .transit-card, body.dark-mode .supplier-card, body.dark-mode .contact-card{background:var(--card);}
-body.dark-mode .stage-block.done .stage-header, body.dark-mode .stage-block.current .stage-header{color:#152A3D;}
-body.dark-mode .stage-block.done .stage-title, body.dark-mode .stage-block.current .stage-title{color:#152A3D;}
+body.dark-mode .stage-block.stage-empty .stage-title{color:#8C9BB5;}
 body.dark-mode .contact-role, body.dark-mode .supplier-flag{color:#9AA9C2;}
 body.dark-mode .contact-phone{color:#7FB3E8;}
 body.dark-mode .stage-progress{color:#8C9BB5;}
@@ -614,7 +692,7 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .process-eta{font-size:11.5px; color:var(--muted); margin-top:3px;}
 .process-badge-temp{
   display:inline-block; font-size:9.5px; font-weight:700; text-transform:uppercase;
-  letter-spacing:0.05em; color:var(--ink-purple); background:var(--ink-purple-bg);
+  letter-spacing:0.05em; color:var(--ink-purple-fg); background:var(--ink-purple-bg);
   padding:2px 6px; border-radius:4px; margin-top:4px;
 }
 
@@ -631,7 +709,7 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .transit-days{text-align:right; white-space:nowrap;}
 .transit-days .big{font-family:'Helvetica', sans-serif; font-size:17px; font-weight:700; letter-spacing:0.01em;}
 .transit-days .small{font-size:11px; color:var(--muted);}
-.transit-days.late .big{color:var(--ink-red);}
+.transit-days.late .big{color:var(--ink-red-fg);}
 
 .empty-state{
   text-align:center; padding:60px 20px; color:var(--muted);
@@ -652,10 +730,10 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .supplier-meta{font-size:12.5px; color:var(--muted); margin-top:10px; line-height:1.6;}
 .supplier-count{
   display:inline-block; margin-top:10px; font-size:11px; font-weight:600;
-  background:var(--ink-blue-bg); color:var(--ink-blue); padding:3px 8px; border-radius:20px;
+  background:var(--ink-blue-bg); color:var(--ink-blue-fg); padding:3px 8px; border-radius:20px;
 }
 .supplier-tags{display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;}
-.supplier-tag{font-size:10.5px; background:var(--ink-blue-bg); color:var(--ink-blue); padding:2px 7px; border-radius:10px; font-weight:600;}
+.supplier-tag{font-size:10.5px; background:var(--ink-blue-bg); color:var(--ink-blue-fg); padding:2px 7px; border-radius:10px; font-weight:600;}
 
 /* COUNTRY CHIPS */
 .country-checks{display:flex; flex-wrap:wrap; gap:8px;}
@@ -679,7 +757,7 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .contact-group{margin-bottom:26px;}
 .contact-group-title{
   font-family:'Helvetica', sans-serif; font-weight:700; font-size:15px; margin-bottom:10px;
-  display:flex; align-items:center; gap:8px; color:var(--navy);
+  display:flex; align-items:center; gap:8px; color:var(--navy-fg);
 }
 .contact-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:10px;}
 .contact-card{
@@ -688,7 +766,7 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .contact-card:hover{border-color:var(--border-strong);}
 .contact-name{font-size:13.5px; font-weight:600;}
 .contact-role{font-size:12px; color:var(--muted); margin-top:1px;}
-.contact-phone{font-size:12.5px; color:var(--ink-blue); margin-top:6px; font-family:'Helvetica', sans-serif;}
+.contact-phone{font-size:12.5px; color:var(--ink-blue-fg); margin-top:6px; font-family:'Helvetica', sans-serif;}
 
 /* INDICATORS */
 .indicators-table{width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:8px; overflow:hidden;}
@@ -698,7 +776,7 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 }
 .indicators-table td{padding:11px 14px; font-size:13px; border-bottom:1px solid var(--border);}
 .indicators-table tr:last-child td{border-bottom:none;}
-.indicators-table td.meta-col{font-family:'Helvetica', sans-serif; color:var(--ink-green); font-weight:600;}
+.indicators-table td.meta-col{font-family:'Helvetica', sans-serif; color:var(--ink-green-fg); font-weight:600;}
 
 /* MODAL */
 .modal-overlay{
@@ -748,7 +826,7 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 }
 .process-modal-banner{
   position:relative; padding:20px 24px; display:flex; align-items:center; gap:14px;
-  background-size:cover; background-position:center 42%; background-color:var(--navy);
+  background-size:cover; background-position:center 42%; background-color:var(--navy-fg);
   color:#fff;
 }
 .process-modal-banner::before{
@@ -786,13 +864,13 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .process-summary-progress-fill{height:100%; border-radius:999px; background:var(--ink-green);}
 .process-summary-progress-pct{font-size:11px; color:var(--muted); margin-top:6px;}
 .process-summary-sub{font-size:11.5px; color:var(--muted); margin-top:5px;}
-.process-summary-chip{display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:700; padding:3px 8px; border-radius:5px; background:var(--ink-blue-bg); color:var(--ink-blue); margin-top:8px;}
+.process-summary-chip{display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:700; padding:3px 8px; border-radius:5px; background:var(--ink-blue-bg); color:var(--ink-blue-fg); margin-top:8px;}
 
 .process-phase-hint{
   padding:10px 14px; border-radius:9px; background:var(--ink-blue-bg); color:var(--text);
   font-size:12.5px; display:flex; align-items:center; gap:9px; margin-bottom:20px;
 }
-.process-phase-hint svg{flex-shrink:0; color:var(--ink-blue);}
+.process-phase-hint svg{flex-shrink:0; color:var(--ink-blue-fg);}
 
 .process-section{padding:18px 0; border-top:1px solid var(--border);}
 .process-section:first-of-type{border-top:none; padding-top:0;}
@@ -801,8 +879,10 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .process-grid-4 .form-group, .process-grid-2 .form-group{margin-bottom:12px;}
 .process-grid-2{display:grid; grid-template-columns:repeat(2,1fr); gap:6px 16px;}
 .process-span-2{grid-column:span 2;}
+.process-span-4{grid-column:span 4;}
+.process-section-title-icon{display:inline-flex; vertical-align:-3px; margin-right:6px;}
 @media (max-width:980px){.process-grid-4{grid-template-columns:repeat(2,1fr);} .process-summary-row{grid-template-columns:1fr;}}
-@media (max-width:620px){.process-grid-4, .process-grid-2{grid-template-columns:1fr;} .process-span-2{grid-column:span 1;}}
+@media (max-width:620px){.process-grid-4, .process-grid-2{grid-template-columns:1fr;} .process-span-2, .process-span-4{grid-column:span 1;}}
 
 
 .form-row{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;}
@@ -812,16 +892,23 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
   width:100%; padding:9px 11px; border:1px solid var(--border-strong); border-radius:6px;
   font-family:'Helvetica', sans-serif; font-size:13.5px; background:#fff; color:var(--text);
 }
-.form-group input:focus, .form-group select:focus, .form-group textarea:focus{outline:2px solid var(--ink-blue); outline-offset:1px; border-color:var(--ink-blue);}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus{outline:2px solid var(--ink-blue-fg); outline-offset:1px; border-color:var(--ink-blue-fg);}
 .form-group textarea{resize:vertical; min-height:60px;}
 .form-hint{font-size:11px; color:var(--muted); margin-top:4px; font-style:italic; font-weight:300;}
+/* "Modo fixo" do cadastro de Produto (Banco de Itens): campo já preenchido mostra como um
+   valor travado (não parece um input) até a pessoa clicar em "Editar Produto". */
+.fixed-field-value{
+  padding:8px 10px; background:var(--paper); border:1px solid var(--border); border-radius:6px;
+  font-size:13px; color:var(--text); min-height:19px; line-height:1.4;
+}
+body.dark-mode .fixed-field-value{background:var(--card); border-color:var(--border-strong);}
 
 .tabs{display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:18px; flex-wrap:wrap;}
 .tab-btn{
   background:none; border:none; padding:9px 4px; margin-right:18px; font-size:13px; font-weight:600;
   color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; font-family:'Helvetica', sans-serif;
 }
-.tab-btn.active{color:var(--text); border-bottom-color:var(--ink-red);}
+.tab-btn.active{color:var(--text); border-bottom-color:var(--ink-red-fg);}
 .tab-pane{display:none;}
 .tab-pane.active{display:block;}
 
@@ -845,12 +932,22 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .prov-line-total{border-top:1px solid var(--border-strong); margin-top:4px; padding-top:12px;}
 .prov-line-total .prov-line-value{font-size:16px;}
 .prov-line-grand-total .prov-line-label{font-size:13px; font-weight:800; letter-spacing:.4px;}
-.prov-line-grand-total .prov-line-value{font-size:20px; font-weight:800; color:var(--navy);}
+.prov-line-grand-total .prov-line-value{font-size:20px; font-weight:800; color:var(--navy-fg);}
+/* Grupo "Despachante" no resumo do Provisionamento (Honorários + Impostos + Taxa SISCOMEX
+   somados num valor só, com cada parcela ainda visível quebrada por baixo — pedido
+   explícito). O total do grupo fica em negrito como um subtotal normal; as parcelas ficam
+   recuadas, menores e mais claras, deixando óbvio que já estão somadas ali em cima e não
+   devem ser contadas de novo no Total Provisionado geral. */
+.prov-line-group-total{font-weight:700;}
+.prov-line-group-total .prov-line-value{font-size:15px;}
+.prov-line-sub{padding:7px 0 7px 18px; opacity:0.75;}
+.prov-line-sub .prov-line-label{font-size:12px;}
+.prov-line-sub .prov-line-value{font-size:12.5px; font-weight:500;}
 .prov-edit-btn{background:none; border:none; cursor:pointer; font-size:11.5px; color:var(--muted); padding:2px 4px;}
 .prov-edit-btn:hover{color:var(--text);}
 .prov-details{margin:4px 0 10px; font-size:12px;}
 .prov-details summary{cursor:pointer; color:var(--muted); font-size:11.5px; padding:2px 0;}
-.prov-warning{font-size:12px; color:var(--ink-red); background:rgba(220,38,38,.08); border:1px solid rgba(220,38,38,.25); border-radius:6px; padding:8px 10px; margin:6px 0;}
+.prov-warning{font-size:12px; color:var(--ink-red-fg); background:rgba(220,38,38,.08); border:1px solid rgba(220,38,38,.25); border-radius:6px; padding:8px 10px; margin:6px 0;}
 .prov-mini-table{width:100%; border-collapse:collapse; font-size:11.5px; margin-top:6px;}
 .prov-mini-table th{text-align:right; font-size:10px; text-transform:uppercase; color:var(--muted); padding:4px 6px; border-bottom:2px solid var(--text);}
 .prov-mini-table th:first-child, .prov-mini-table th:nth-child(2){text-align:left;}
@@ -859,7 +956,7 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .prov-mini-table tr.total td{font-weight:700; border-top:2px solid var(--text); border-bottom:none;}
 .prov-conf-badge{display:inline-block; font-size:9px; text-transform:uppercase; font-weight:700; padding:1px 6px; border-radius:8px; background:rgba(217,119,6,.12); color:#b45309; border:1px solid rgba(217,119,6,.35); cursor:help; margin-left:4px; vertical-align:1px;}
 .prov-conf-badge.prov-conf-ok{background:rgba(22,163,74,.12); color:#15803d; border-color:rgba(22,163,74,.35);}
-.prov-multiplier-badge{display:inline-block; font-size:10.5px; font-weight:700; color:var(--navy); background:rgba(30,58,138,.08); border:1px solid rgba(30,58,138,.25); padding:2px 8px; border-radius:10px; margin-left:6px; vertical-align:1px; font-family:'Helvetica', sans-serif;}
+.prov-multiplier-badge{display:inline-block; font-size:10.5px; font-weight:700; color:var(--navy-fg); background:rgba(30,58,138,.08); border:1px solid rgba(30,58,138,.25); padding:2px 8px; border-radius:10px; margin-left:6px; vertical-align:1px; font-family:'Helvetica', sans-serif;}
 
 .doc-checklist{display:flex; flex-direction:column; gap:8px;}
 .doc-item-block{border:1px solid var(--border); border-radius:6px; overflow:hidden;}
@@ -880,7 +977,7 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .doc-item span{font-size:13px; line-height:1.4;}
 .finalize-confirm-box{
   display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
-  padding:11px 13px; margin:6px 0 10px 0; background:var(--ink-amber-bg); border:1px solid var(--ink-amber);
+  padding:11px 13px; margin:6px 0 10px 0; background:var(--ink-amber-bg); border:1px solid var(--ink-amber-fg);
   border-radius:8px; font-size:12.5px; font-weight:700; color:var(--text);
 }
 @keyframes pendencyPulse{
@@ -890,12 +987,13 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 }
 .pendency-highlight{
   animation:pendencyPulse 1.3s ease-out 2;
-  border-color:var(--ink-red) !important;
+  border-color:var(--ink-red-fg) !important;
 }
-.doc-item.checked span{color:var(--ink-green); text-decoration:line-through; text-decoration-color:#B7DBC9;}
+.doc-item.checked span{color:var(--ink-green-fg); text-decoration:line-through; text-decoration-color:#B7DBC9;}
 
 .item-fields{margin:-2px 0 6px 30px; padding:9px 11px; background:var(--paper); border-left:2px solid var(--border-strong); display:flex; flex-wrap:wrap; gap:8px; border-radius:0 6px 6px 0;}
 .item-fields .mini-field{display:flex; flex-direction:column; gap:3px; min-width:130px; flex:1;}
+.mini-field-readonly{padding:6px 8px; font-size:12px; background:#fff; border:1px solid var(--border-strong); border-radius:5px;}
 .item-fields label{font-size:10px; text-transform:uppercase; color:var(--muted); font-weight:600;}
 .item-fields input, .item-fields select{padding:6px 8px; border:1px solid var(--border-strong); border-radius:5px; font-size:12px; font-family:'Helvetica', sans-serif;}
 
@@ -921,9 +1019,9 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .btn:hover{background:var(--paper);}
 .btn-primary{background:var(--navy); color:#fff; border-color:var(--navy);}
 .btn-primary:hover{background:var(--navy-light);}
-.btn-danger{color:var(--ink-red); border-color:var(--ink-red-bg);}
+.btn-danger{color:var(--ink-red-fg); border-color:var(--ink-red-bg);}
 .btn-danger:hover{background:var(--ink-red-bg);}
-.btn-pdf{color:var(--ink-teal); border-color:var(--ink-teal-bg); background:var(--ink-teal-bg);}
+.btn-pdf{color:var(--ink-teal-fg); border-color:var(--ink-teal-bg); background:var(--ink-teal-bg);}
 .btn-pdf:hover{background:#c9e6e9;}
 
 .status-badge-row{
@@ -935,7 +1033,7 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 
 .fob-usd-hero{
   display:flex; align-items:baseline; gap:10px; padding:14px 16px;
-  background:var(--navy); border-radius:8px; margin-bottom:16px;
+  background:var(--navy-fg); border-radius:8px; margin-bottom:16px;
 }
 .fob-usd-hero-label{font-size:12px; font-weight:600; color:rgba(255,255,255,0.75); text-transform:uppercase; letter-spacing:0.03em;}
 .fob-usd-hero-value{font-family:'Helvetica', sans-serif; font-size:24px; font-weight:700; color:#fff;}
@@ -948,7 +1046,7 @@ body.dark-mode .fob-usd-hero-label{color:var(--muted);}
    contextos compactos, como dentro de um card de lista, onde um bloco grande destoaria. */
 .stat-box{
   display:flex; align-items:baseline; gap:10px; padding:14px 16px;
-  background:var(--navy); border-radius:8px;
+  background:var(--navy-fg); border-radius:8px;
 }
 .stat-box-label{font-size:12px; font-weight:600; color:rgba(255,255,255,0.75); text-transform:uppercase; letter-spacing:0.03em;}
 .stat-box-value{font-family:'Helvetica', sans-serif; font-size:24px; font-weight:700; color:#fff;}
@@ -958,7 +1056,7 @@ body.dark-mode .stat-box-label{color:var(--muted);}
 
 .stat-chip{
   display:inline-flex; flex-direction:column; align-items:flex-end; gap:1px;
-  padding:6px 12px; background:var(--navy); border-radius:10px;
+  padding:6px 12px; background:var(--navy-fg); border-radius:10px;
 }
 .stat-chip-label{font-size:9px; font-weight:600; color:rgba(255,255,255,0.65); text-transform:uppercase; letter-spacing:0.03em;}
 .stat-chip-value{font-family:'Helvetica', sans-serif; font-weight:700; font-size:13.5px; color:#fff;}
@@ -968,6 +1066,48 @@ body.dark-mode .stat-chip{background:var(--card); border:1px solid var(--border-
 body.dark-mode .stat-chip-value{color:var(--text);}
 body.dark-mode .stat-chip-label{color:var(--muted);}
 body.dark-mode .stat-chip-secondary{background:var(--paper);}
+/* ===================== REVISÃO GERAL DE DARK MODE ===================== */
+/* Fundos que ficaram "presos" no branco do modo claro (nenhum destes tinha override antes) —
+   sem isso, cada um deles aparecia como uma caixa branca destoando de tudo ao redor, e com
+   texto claro (var(--text) no escuro) por cima ficava praticamente ilegível. */
+body.dark-mode .btn{background:#232E3D; color:var(--text); border-color:var(--border-strong);}
+body.dark-mode .btn:hover{background:#2C3A4C;}
+body.dark-mode .btn-primary{background:var(--navy-light); border-color:var(--navy-light);}
+body.dark-mode .btn-primary:hover{background:var(--navy-lighter);}
+body.dark-mode .type-toggle button{background:#232E3D; color:var(--muted); border-color:var(--border-strong);}
+body.dark-mode .payment-value-wrap{background:#232E3D; border-color:var(--border-strong);}
+body.dark-mode .mini-field-readonly{background:#232E3D; border-color:var(--border-strong); color:var(--text);}
+/* Tela de login: o miolo (inputs, botão Google) já usava var(--card)/var(--text) e por isso
+   já se adaptava sozinho — só faltava a moldura de fora (fundo cinza-claro da página e o
+   "cartão" branco do formulário), que ficava clara e destoando de todo o resto do app quando
+   a pessoa já estava em modo escuro antes de sair/voltar a logar. */
+body.dark-mode #login-screen{background:var(--paper);}
+body.dark-mode .login-shell{background:var(--card); box-shadow:0 30px 80px rgba(0,0,0,0.55);}
+/* Badges e avisos com cor fixa em hexadecimal (fora do sistema ink-X) e fundos translúcidos
+   de baixa opacidade pensados pra ficarem "sobre branco" — no escuro, a mesma opacidade baixa
+   quase some contra o fundo já escuro do card, e o texto escuro original perde contraste.
+   Mantém a mesma identidade de cor (âmbar/verde/vermelho), só ajusta o par claro-sobre-escuro. */
+body.dark-mode .ex-badge{background:rgba(224,172,79,.18); color:#E0AC4F; border-color:rgba(224,172,79,.4);}
+body.dark-mode .ex-badge-vencido{background:rgba(232,137,106,.18); color:#E8896A; border-color:rgba(232,137,106,.4);}
+body.dark-mode .prov-conf-badge{background:rgba(224,172,79,.18); color:#E0AC4F; border-color:rgba(224,172,79,.4);}
+body.dark-mode .prov-conf-badge.prov-conf-ok{background:rgba(95,203,163,.18); color:#5FCBA3; border-color:rgba(95,203,163,.4);}
+body.dark-mode .prov-warning{background:rgba(232,137,106,.12); border-color:rgba(232,137,106,.35);}
+body.dark-mode .alert-banner{background:rgba(232,137,106,.12);}
+body.dark-mode .prov-multiplier-badge{background:rgba(127,184,232,.14); border-color:rgba(127,184,232,.35);}
+body.dark-mode .doc-item.checked, body.dark-mode .payment-row.checked{border-color:#1F4A3A;}
+body.dark-mode .doc-item.checked span{text-decoration-color:#3A6B54;}
+body.dark-mode .product-search-bar input, body.dark-mode .product-search-bar select,
+body.dark-mode .team-role-select, body.dark-mode .preanalise-filters input, body.dark-mode .preanalise-filters select{
+  background:#232E3D; color:var(--text); border-color:var(--border-strong);
+}
+body.dark-mode .chegada-prevista-tag{background:rgba(224,172,79,.18); color:#E0AC4F;}
+body.dark-mode .supplier-name-morita{color:#7FB8E8;}
+body.dark-mode .supplier-name-carestream{color:#E89A5F;}
+body.dark-mode .btn-pdf:hover{background:rgba(79,195,206,.18);}
+/* Borda do botão "danger" (outline) ficaria escura-sobre-escuro se usasse a mesma variável de
+   fundo do badge (que agora é um tom escuro no dark mode) — troca pra cor de texto (mais
+   clara) só na borda, pra o contorno do botão continuar visível. */
+body.dark-mode .btn-danger{border-color:var(--ink-red-fg);}
 
 .type-toggle{display:flex; gap:8px; margin-bottom:16px;}
 .type-toggle button{
@@ -979,23 +1119,31 @@ body.dark-mode .stat-chip-secondary{background:var(--paper);}
 .stage-block{
   border:1px solid var(--border); border-radius:8px; margin-bottom:8px; overflow:hidden;
 }
-.stage-block.current{border-color:var(--ink-red); box-shadow:0 0 0 1px var(--ink-red-bg);}
-.stage-block.done{border-color:#B7DBC9;}
+/* Estado de preenchimento da etapa (independe da cor de identidade da fase, que continua vindo
+   inline via getStageVisual — isto aqui só controla o quão "forte" essa cor aparece, pra dar
+   pra ver de relance quais fases já têm coisa marcada e quais estão zeradas). */
+.stage-block.stage-empty{border-color:var(--border);}
+.stage-block.stage-empty .stage-header{background:#fff;}
+.stage-block.stage-empty .stage-num{background:var(--border-strong) !important;}
+.stage-block.stage-empty .stage-title{color:var(--muted);}
+.stage-block.current{box-shadow:0 0 0 1px rgba(0,0,0,0.04);}
+.stage-block.done{border-width:1.5px;}
+.stage-block.done .stage-title{color:#fff;}
+.stage-block.done .stage-progress{color:rgba(255,255,255,0.85);}
 .stage-header{
   display:flex; align-items:center; gap:12px; padding:11px 14px; cursor:pointer;
-  background:#fff; user-select:none;
+  background:#fff; user-select:none; position:relative;
 }
-.stage-block.done .stage-header{background:var(--ink-green-bg);}
-.stage-block.current .stage-header{background:var(--ink-red-bg);}
 .stage-num{
   width:22px; height:22px; border-radius:50%; background:var(--border-strong); color:#fff;
   font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;
   font-family:'Helvetica', sans-serif;
 }
-.stage-block.done .stage-num{background:var(--ink-green);}
-.stage-block.current .stage-num{background:var(--ink-red);}
 .stage-title{flex:1; font-size:13.5px; font-weight:600;}
-.stage-progress{font-family:'Helvetica', sans-serif; font-size:11.5px; color:var(--muted);}
+.stage-progress{font-family:'Helvetica', sans-serif; font-size:11.5px; color:var(--muted); font-weight:600;}
+.stage-fill-track{position:absolute; left:0; bottom:0; width:100%; height:3px; background:rgba(0,0,0,0.06);}
+.stage-fill-bar{height:100%; transition:width 0.2s;}
+.stage-block.stage-empty .stage-fill-track{display:none;}
 .stage-body{padding:12px 14px 14px 14px; display:flex; flex-direction:column; gap:8px; background:#fff;}
 .stage-hint{font-size:11.5px; color:var(--muted); margin-top:2px; font-style:italic;}
 
@@ -1061,7 +1209,7 @@ body.dark-mode .stat-chip-secondary{background:var(--paper);}
   margin-top:auto; padding-top:24px; position:relative; z-index:1; height:170px;
 }
 .login-right{flex:1 1 54%; padding:56px 64px; display:flex; flex-direction:column; justify-content:center;}
-.login-right-title{font-family:'Helvetica',Arial,sans-serif; font-weight:700; font-size:27px; color:var(--navy);}
+.login-right-title{font-family:'Helvetica',Arial,sans-serif; font-weight:700; font-size:27px; color:var(--navy-fg);}
 .login-right-sub{font-size:13.5px; color:var(--muted); margin-top:6px; margin-bottom:30px;}
 .login-field-group{margin-bottom:18px;}
 .login-field-group label{display:block; font-size:12.5px; font-weight:700; color:var(--text); margin-bottom:7px;}
@@ -1080,7 +1228,7 @@ body.dark-mode .stat-chip-secondary{background:var(--paper);}
 }
 .login-row-between{display:flex; align-items:center; justify-content:space-between; margin:2px 0 20px 0; font-size:12.5px;}
 .login-remember{display:flex; align-items:center; gap:7px; color:var(--text);}
-.login-forgot{color:var(--ink-blue); text-decoration:none; font-weight:600;}
+.login-forgot{color:var(--ink-blue-fg); text-decoration:none; font-weight:600;}
 .login-forgot:hover{text-decoration:underline;}
 .login-btn{width:100%; margin-top:0; padding:12px; font-size:14px; font-weight:700; border-radius:9px; font-family:'Helvetica',Arial,sans-serif;}
 .login-divider{display:flex; align-items:center; gap:12px; margin:22px 0; color:var(--muted); font-size:11.5px;}
@@ -1090,7 +1238,7 @@ body.dark-mode .stat-chip-secondary{background:var(--paper);}
   border:1px solid var(--border-strong); border-radius:9px; background:var(--card); color:var(--text);
   font-size:13.5px; font-weight:600; cursor:pointer; font-family:'Helvetica',Arial,sans-serif;
 }
-.login-google-btn:hover{border-color:var(--navy);}
+.login-google-btn:hover{border-color:var(--navy-fg);}
 .login-row-between select, .login-remember{font-family:'Helvetica',Arial,sans-serif;}
 .login-secure-box{
   display:flex; gap:12px; align-items:flex-start; margin-top:24px; padding:14px 16px;
@@ -1103,7 +1251,7 @@ body.dark-mode .stat-chip-secondary{background:var(--paper);}
 .login-secure-title{font-weight:700; font-size:12.5px; color:var(--text);}
 .login-secure-desc{font-size:11.5px; color:var(--muted); margin-top:2px; line-height:1.4;}
 .login-footer{text-align:center; font-size:11.5px; color:var(--muted); margin-top:18px; font-family:'Helvetica',Arial,sans-serif;}
-.login-error{font-size:12.5px; color:var(--ink-red); margin-top:2px; min-height:16px;}
+.login-error{font-size:12.5px; color:var(--ink-red-fg); margin-top:2px; min-height:16px;}
 @media (max-width:880px){
   .login-shell{flex-direction:column; min-height:0;}
   .login-left{padding:32px 28px;}
@@ -1111,8 +1259,8 @@ body.dark-mode .stat-chip-secondary{background:var(--paper);}
 }
 .team-role-select{padding:6px 9px; border:1px solid var(--border-strong); border-radius:5px; font-size:12.5px;}
 .role-badge{font-size:10.5px; font-weight:700; text-transform:uppercase; padding:2px 8px; border-radius:10px; letter-spacing:.04em;}
-.role-badge.admin{background:var(--ink-red-bg); color:var(--ink-red);}
-.role-badge.editor{background:var(--ink-blue-bg); color:var(--ink-blue);}
+.role-badge.admin{background:var(--ink-red-bg); color:var(--ink-red-fg);}
+.role-badge.editor{background:var(--ink-blue-bg); color:var(--ink-blue-fg);}
 .role-badge.viewer{background:var(--paper); color:var(--muted); border:1px solid var(--border-strong);}
 
 .config-list{display:flex; flex-direction:column; gap:8px;}
@@ -2021,6 +2169,16 @@ function seedCodigosImpostoParaNcmsConhecidas(){
 let state = { processes: [], suppliers: [], partners: [], ncms: [] };
 let currentView = 'dashboard';
 let saveTimer = null;
+/* Preferência de sidebar recolhida/expandida — persistida em localStorage, igual ao padrão já
+   usado pro tema (claro/escuro) e pra ordem das abas. Lida de forma síncrona na declaração
+   pra já vir com o estado certo no primeiro render(), sem "pulo" visual. */
+let sidebarCollapsed = false;
+try{ sidebarCollapsed = localStorage.getItem('comextrack_sidebar_collapsed') === '1'; }catch(e){}
+function toggleSidebarCollapse(){
+  sidebarCollapsed = !sidebarCollapsed;
+  try{ localStorage.setItem('comextrack_sidebar_collapsed', sidebarCollapsed ? '1' : '0'); }catch(e){}
+  render();
+}
 
 /* Ponto único de verdade pra travar uma ação de salvar/editar/excluir de verdade (não só
    esconder botão). Sem argumento, infere a aba a partir de currentView (cobre a esmagadora
@@ -2055,6 +2213,13 @@ function applyStoredTheme(){
    troca de tema. Mesmo estilo dos ícones já usados na tela de login. */
 function svgChevronDown(){
   return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+}
+/* Ícone único do botão de recolher/expandir a sidebar — chevron apontando pra esquerda
+   ("recolher") por padrão; quando a sidebar está recolhida, o CSS (.sidebar.collapsed
+   .sidebar-collapse-btn svg) gira ele 180° e ele passa a apontar pra direita ("expandir"),
+   sem precisar trocar de ícone via JS. */
+function svgSidebarCollapseIcon(){
+  return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>';
 }
 function svgSunIcon(){
   return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8L6 18M18 6l1.8-1.8"/></svg>';
@@ -2603,30 +2768,46 @@ function renderProvisionamentoCongeladoHtml(p){
   const c = p.provisionamentoCongelado;
   const s = c.snapshot;
   const impostosTotal = s.impostosTotalEfetivo!==undefined ? s.impostosTotalEfetivo : (s.impostosII + s.impostosIPI + s.impostosPIS + s.impostosCOFINS);
-  const linhas = [
-    ['Honorários do Despachante', s.honorarios],
-    ['Impostos (II+IPI+PIS+COFINS)', impostosTotal],
-    ['ICMS', s.icms],
+  const isAereo = p.modal === 'aereo';
+
+  /* Grupo "Despachante" — Honorários + Impostos + Taxa SISCOMEX somados num valor só (é o
+     despachante quem recolhe/repassa os três), mas com cada parcela ainda visível quebrada
+     logo abaixo, pedido explícito. Depois vem Frete Internacional e Armazenagem — no aéreo
+     como uma linha só; no marítimo, Zona Primária e Zona Secundária separadas, mais
+     Transporte DTA. ICMS e Lavagem de Container (quando existirem) continuam aparecendo
+     como linhas próprias, fora do grupo Despachante — não fazem parte do que o despachante
+     de fato cobra por fora. */
+  const despachanteTotal = (s.honorarios||0) + impostosTotal + (s.taxaSiscomex||0);
+  const despachanteHtml = `
+    <div class="prov-line prov-line-group-total"><div class="prov-line-label">Despachante</div><div class="prov-line-value">${fmtBRL(despachanteTotal)}</div></div>
+    <div class="prov-line prov-line-sub"><div class="prov-line-label">Honorários do Despachante</div><div class="prov-line-value">${fmtBRL(s.honorarios||0)}</div></div>
+    <div class="prov-line prov-line-sub"><div class="prov-line-label">Impostos (II+IPI+PIS+COFINS)</div><div class="prov-line-value">${fmtBRL(impostosTotal)}</div></div>
+    <div class="prov-line prov-line-sub"><div class="prov-line-label">Taxa SISCOMEX</div><div class="prov-line-value">${fmtBRL(s.taxaSiscomex||0)}</div></div>
+  `;
+
+  const restoLinhas = [
     ['Frete Internacional', s.freteInternacional],
-    ['Armazenagem — Zona Primária', s.armazenagemZP],
-    ['Armazenagem — Zona Secundária', s.armazenagemZS],
-    ['Taxa SISCOMEX', s.taxaSiscomex],
-    ['Transporte DTA', s.transporteDTA],
-    ['Lavagem de Container', s.lavagemContainer],
-  ].filter(([,v])=>v>0);
+    ...(isAereo
+      ? [['Armazenagem', s.armazenagemZS]]
+      : [['Armazenagem Zona Primária', s.armazenagemZP], ['Armazenagem Zona Secundária', s.armazenagemZS], ['Transporte DTA', s.transporteDTA]]),
+  ];
+  const extraLinhas = [['ICMS', s.icms], ['Lavagem de Container', s.lavagemContainer]].filter(([,v])=>v>0);
+  const restoHtml = restoLinhas.map(([label,valor])=>`<div class="prov-line"><div class="prov-line-label">${label}</div><div class="prov-line-value">${fmtBRL(valor||0)}</div></div>`).join('')
+    + extraLinhas.map(([label,valor])=>`<div class="prov-line"><div class="prov-line-label">${label}</div><div class="prov-line-value">${fmtBRL(valor)}</div></div>`).join('');
 
   return `
-    <div class="prov-section" style="background:var(--ink-blue-bg); border-color:var(--ink-blue);">
+    <div class="prov-section" style="background:var(--ink-blue-bg); border-color:var(--ink-blue-fg);">
       <div style="display:flex; align-items:center; gap:10px;">
         <span style="font-size:20px;">${svgSendIcon(20)}</span>
         <div>
-          <div style="font-weight:700; color:var(--ink-blue);">Provisionamento enviado ao Financeiro</div>
+          <div style="font-weight:700; color:var(--ink-blue-fg);">Provisionamento enviado ao Financeiro</div>
           <div class="form-hint">Em ${formatHistoryDate(c.ts)}${c.userEmail?' por '+c.userEmail:''} — valores congelados, não recalculam mais automaticamente.</div>
         </div>
       </div>
     </div>
     <div class="prov-section" style="margin-top:16px;">
-      ${linhas.map(([label,valor])=>`<div class="prov-line"><div class="prov-line-label">${label}</div><div class="prov-line-value">${fmtBRL(valor)}</div></div>`).join('')}
+      ${despachanteHtml}
+      ${restoHtml}
       <div class="stat-box" style="margin-top:14px;"><span class="stat-box-label">Total Provisionado</span><span class="stat-box-value">${fmtBRL(s.total)}</span></div>
     </div>
     ${canEdit('processos') ? `
@@ -2646,8 +2827,8 @@ function renderPrazoZonaSecundariaHtml(p){
   const recebido = !!fase7checked[2];
   let statusHtml = '';
   if(!recebido){
-    if(dias<0) statusHtml = `<span style="color:var(--ink-red); font-weight:700;">${svgWarnInline()} Venceu há ${Math.abs(dias)} dia(s) — recebimento em estoque ainda não marcado</span>`;
-    else if(dias<=3) statusHtml = `<span style="color:var(--ink-red); font-weight:700;">${svgWarnInline()} Faltam ${dias} dia(s) — recebimento em estoque ainda não marcado</span>`;
+    if(dias<0) statusHtml = `<span style="color:var(--ink-red-fg); font-weight:700;">${svgWarnInline()} Venceu há ${Math.abs(dias)} dia(s) — recebimento em estoque ainda não marcado</span>`;
+    else if(dias<=3) statusHtml = `<span style="color:var(--ink-red-fg); font-weight:700;">${svgWarnInline()} Faltam ${dias} dia(s) — recebimento em estoque ainda não marcado</span>`;
     else statusHtml = `<span style="color:var(--muted);">Faltam ${dias} dia(s)</span>`;
   } else {
     statusHtml = `<span style="color:var(--ink-green,#15803d);">${svgCheckInline()} Recebimento em estoque já marcado</span>`;
@@ -2720,7 +2901,7 @@ function updateProvPreview(){
 function renderImpostosDetalheHtml(impostos){
   const rows = impostos.detalhe.map(d=>`
     <tr>
-      <td>${d.pn}${d.faltando.length?` <span style="color:var(--ink-red); font-size:10px;">${svgWarnInline()} ${d.faltando.join(', ')}</span>`:''}</td>
+      <td>${d.pn}${d.faltando.length?` <span style="color:var(--ink-red-fg); font-size:10px;">${svgWarnInline()} ${d.faltando.join(', ')}</span>`:''}</td>
       <td>${d.ncm||'—'}</td>
       <td>${fmtBRL(d.vaItemBrl)}</td>
       <td>${fmtBRL(d.iiItem)}</td>
@@ -2865,7 +3046,7 @@ function renderProvOverridableLine(label, computedValue, overrideKey){
         <button type="button" class="prov-edit-btn" onclick="toggleProvOverrideEdit('${overrideKey}', true)" title="Editar">${svgEditIcon()} Editar</button>
       </div>
     </div>
-    ${overrideVal!==null ? `<div class="form-hint" style="margin-top:-6px; margin-bottom:8px; color:var(--ink-amber);">${svgWarnInline()} Alterado manualmente — o valor calculado seria ${fmtBRL(computedValue)}. <a href="#" onclick="event.preventDefault(); clearProvOverride('${overrideKey}');">Voltar a usar o valor calculado</a></div>` : ''}
+    ${overrideVal!==null ? `<div class="form-hint" style="margin-top:-6px; margin-bottom:8px; color:var(--ink-amber-fg);">${svgWarnInline()} Alterado manualmente — o valor calculado seria ${fmtBRL(computedValue)}. <a href="#" onclick="event.preventDefault(); clearProvOverride('${overrideKey}');">Voltar a usar o valor calculado</a></div>` : ''}
     <div class="prov-line" id="prov-ov-${overrideKey}-edit" style="display:none;">
       <div class="prov-line-label">Novo valor (R$)</div>
       <div style="display:flex; gap:8px; align-items:center;">
@@ -2969,22 +3150,35 @@ function getProcessAlerts(p){
 
   const stages = getStagesForProcess(p);
   const statusIdx = stages.findIndex(s=>s.key===p.status);
-  for(let i=0;i<statusIdx;i++){
-    const s = stages[i];
-    if(stageComplete(p, s.key)) continue;
-    let pendentes;
-    if(s.type==='payments'){
-      pendentes = s.items.filter(it=>!(p.payments[it.key]||{}).checked).map(it=>it.label);
-    } else {
-      const checked = p.checklist[s.key]||[];
-      pendentes = s.items.filter((_,idx)=>!checked[idx]);
-    }
-    if(pendentes.length){
-      const faseLabel = s.label.replace(/^Fase \d+ · /,'');
-      pendentes.forEach(label=>{
-        alerts.push(`Pendente da fase anterior (${faseLabel}): ${label}`);
-      });
-    }
+
+  /* Vários itens de checklist abaixo já ganham um alerta específico e datado (com janela de
+     dias/urgência própria) — pra esses, o mecanismo genérico de "Pendente da fase anterior"
+     (que roda por ÚLTIMO nesta função, depois de todo alerta específico já calculado) não deve
+     gerar um SEGUNDO alerta pro mesmo item: mostrar a mesma pendência ao mesmo tempo em "Prazos
+     próximos"/"Atrasados" (o alerta específico) E em "Pendências documentais" (o genérico) é
+     repetição, não duas informações diferentes. `handledPendencies` guarda a chave
+     "stageKey:índice" de cada item já coberto.
+     A maioria só entra aqui quando o alerta específico de fato dispara (se a condição de data
+     dele não se aplica — ex: sem Data de Embarque preenchida — o item continua elegível pro
+     genérico normalmente, pra não sumir pendência nenhuma). "Embarque confirmado" (Fase 4) e
+     "Pagamento" (Fase 3) são exceção, marcadas incondicionalmente logo abaixo: por pedido
+     explícito, a primeira só pode ser cobrada quando existe Data de Embarque preenchida E ela
+     já passou, e a segunda só quando a Modalidade de Pagamento é "Adiantado" — nenhum outro
+     caminho, incluindo o genérico, pode cobrá-las fora dessas condições. */
+  const handledPendencies = new Set();
+  const fase4StageForFlag = stages.find(s=>s.key==='fase4');
+  if(fase4StageForFlag && fase4StageForFlag.embarqueConfirmadoItemIndex!=null){
+    handledPendencies.add('fase4:'+fase4StageForFlag.embarqueConfirmadoItemIndex);
+  }
+  /* "Pagamento" (Fase 3, índice 0): só é cobrado — por qualquer caminho, específico OU
+     genérico — quando a Modalidade de Pagamento (definida na Visão Geral) estiver marcada
+     como "Adiantado". Qualquer outra coisa (A prazo, Factoring, ou ainda sem definir) exclui
+     esse item de QUALQUER alerta incondicionalmente, pedido explícito — mesmo tratamento já
+     dado a "Embarque confirmado" acima. */
+  const modalidadePagamento = extra.modalidadePagamento || '';
+  const pagamentoAdiantado = /^adiantado/i.test(modalidadePagamento);
+  if(!pagamentoAdiantado){
+    handledPendencies.add('fase3:0');
   }
 
   /* Novo alerta pedido: agente de cargas precisa estar definido com folga antes da prontidão
@@ -3001,21 +3195,16 @@ function getProcessAlerts(p){
       } else {
         alerts.push(`Prontidão da carga foi há ${Math.abs(diasParaProntidao)} dias e o agente de cargas ainda não foi definido`);
       }
+      handledPendencies.add('fase4:1');
     }
 
     /* Alerta de Pagamento (Fase 3, item "Pagamento"):
        - só passa a existir dentro da janela de 5 dias antes da prontidão (antes disso, nada
-         de alerta — pedido explícito, mais apertado que a janela de 20 dias do agente de
-         cargas acima);
-       - continua mudando de tom depois que a prontidão passa (pendência de verdade, "Já se
-         passaram X dias..."), igual antes;
-       - não dispara quando a Modalidade de Pagamento estiver marcada como "A prazo" ou
-         "Factoring" — nesses casos o pagamento acontece depois da entrega, não faz sentido
-         cobrar antes da prontidão. */
-    const modalidadePagamento = extra.modalidadePagamento || '';
-    const pagamentoAPrazoOuFactoring = /^(a prazo|factoring)/i.test(modalidadePagamento);
+         de alerta), e continua mudando de tom depois que a prontidão passa (pendência de
+         verdade, "Já se passaram X dias...");
+       - só dispara quando pagamentoAdiantado é true (ver exclusão incondicional acima). */
     const pagamentoRealizado = (p.checklist['fase3']||[])[0];
-    if(!pagamentoRealizado && !pagamentoAPrazoOuFactoring && diasParaProntidao<=5){
+    if(!pagamentoRealizado && pagamentoAdiantado && diasParaProntidao<=5){
       if(diasParaProntidao>0){
         alerts.push(`Faltam ${diasParaProntidao} dia${diasParaProntidao===1?'':'s'} para a prontidão da carga — pagamento ainda não realizado`);
       } else if(diasParaProntidao===0){
@@ -3023,6 +3212,7 @@ function getProcessAlerts(p){
       } else {
         alerts.push(`Prontidão da carga foi há ${Math.abs(diasParaProntidao)} dias e o pagamento ainda não foi realizado`);
       }
+      handledPendencies.add('fase3:0');
     }
   }
 
@@ -3033,29 +3223,32 @@ function getProcessAlerts(p){
        da Visão Geral está preenchido — mesmo já sabendo quem vai ser o despachante desde o
        início, ainda é preciso lembrar de notificar, e é isso que o alerta cobra. */
     const despachanteNotificado = (p.checklist['fase5']||[])[0];
-    if(diasDesdeEmbarque>=3 && !despachanteNotificado){
-      alerts.push(`Já se passaram ${diasDesdeEmbarque} dias do embarque sem notificar o despachante`);
-    }
-    if(diasParaEmbarque<=3 && diasParaEmbarque>0 && !despachanteNotificado){
-      alerts.push(`Faltam ${diasParaEmbarque} dia${diasParaEmbarque===1?'':'s'} para o embarque sem notificar o despachante`);
-    }
-    if(diasParaEmbarque===0 && !despachanteNotificado){
-      alerts.push('Embarca hoje e o despachante ainda não foi notificado');
+    if(!despachanteNotificado){
+      if(diasDesdeEmbarque>=3){
+        alerts.push(`Já se passaram ${diasDesdeEmbarque} dias do embarque sem notificar o despachante`);
+        handledPendencies.add('fase5:0');
+      } else if(diasParaEmbarque<=3 && diasParaEmbarque>0){
+        alerts.push(`Faltam ${diasParaEmbarque} dia${diasParaEmbarque===1?'':'s'} para o embarque sem notificar o despachante`);
+        handledPendencies.add('fase5:0');
+      } else if(diasParaEmbarque===0){
+        alerts.push('Embarca hoje e o despachante ainda não foi notificado');
+        handledPendencies.add('fase5:0');
+      }
     }
     /* Alerta de Provisionamento Financeiro: cobra assim que existir uma Data de Embarque
-       preenchida (não só depois que o embarque já aconteceu) — antes verificava só depois do
-       embarque passado (diasDesdeEmbarque>=0) e, por um engano de índice, checava o item
-       "Pagamento" (índice 0) em vez de "Provisionamento Financeiro" (índice 1) da Fase 3.
-       Corrigido pros dois: índice certo, e dispara com a data preenchida independente de já
-       ter passado ou não. */
+       preenchida (não só depois que o embarque já aconteceu). */
     const fase3checked = p.checklist['fase3']||[];
     if(!fase3checked[1]){
       if(diasDesdeEmbarque>0) alerts.push(`Já se passaram ${diasDesdeEmbarque} dia${diasDesdeEmbarque===1?'':'s'} do embarque sem enviar o provisionamento financeiro`);
       else if(diasDesdeEmbarque===0) alerts.push('Embarca hoje e o provisionamento financeiro ainda não foi enviado');
       else alerts.push(`Faltam ${diasParaEmbarque} dia${diasParaEmbarque===1?'':'s'} para o embarque e o provisionamento financeiro ainda não foi enviado`);
+      handledPendencies.add('fase3:1');
     }
-    /* Passou a data de embarque colocada e ninguém marcou "Embarque confirmado" (Fase 4) —
-       o processo fica "preso" em Aguardando Embarque até isso ser confirmado de verdade. */
+    /* "Embarque confirmado" (Fase 4): SÓ cobra quando a Data de Embarque existe (garantido
+       pelo `if(p.dataEmbarqueReal)` acima) E ela já passou (diasDesdeEmbarque>=0) — pedido
+       explícito. Sem data, ou com data ainda no futuro, nenhum alerta sobre essa etapa deve
+       aparecer, nem por aqui nem pelo mecanismo genérico (por isso ela é excluída dele
+       incondicionalmente lá em cima, e não só quando este bloco dispara). */
     const fase4Stage = stages.find(s=>s.key==='fase4');
     const embarqueConfirmadoIdx = fase4Stage ? fase4Stage.embarqueConfirmadoItemIndex : null;
     const embarqueConfirmado = embarqueConfirmadoIdx!=null ? !!(p.checklist['fase4']||[])[embarqueConfirmadoIdx] : false;
@@ -3067,25 +3260,36 @@ function getProcessAlerts(p){
   if(p.chegadaPrevista){
     const diasParaChegada = daysBetween(today, p.chegadaPrevista);
     /* Mesma lógica: acompanha o TICK "Solicitar DTA" (Fase 6), não se a Transportadora (DTA)
-       já foi escolhida na Visão Geral. */
-    const dtaSolicitada = (p.checklist['fase6']||[])[0];
+       já foi escolhida na Visão Geral. Só existe pro marítimo — no aéreo o item 0 da Fase 6 é
+       outra coisa ("Chegada e presença"), sem relação com DTA. */
     if(p.modal!=='aereo'){
-      if(diasParaChegada<=5 && diasParaChegada>0 && !dtaSolicitada){
-        alerts.push(`Faltam ${diasParaChegada} dia${diasParaChegada===1?'':'s'} para a chegada sem solicitar a DTA`);
-      }
-      if(diasParaChegada<=0 && !dtaSolicitada){
-        alerts.push(diasParaChegada===0 ? 'Chegada é hoje e a DTA ainda não foi solicitada' : `Chegada atrasada há ${Math.abs(diasParaChegada)} dias sem solicitar a DTA`);
+      const dtaSolicitada = (p.checklist['fase6']||[])[0];
+      if(!dtaSolicitada){
+        if(diasParaChegada<=5 && diasParaChegada>0){
+          alerts.push(`Faltam ${diasParaChegada} dia${diasParaChegada===1?'':'s'} para a chegada sem solicitar a DTA`);
+          handledPendencies.add('fase6:0');
+        } else if(diasParaChegada<=0){
+          alerts.push(diasParaChegada===0 ? 'Chegada é hoje e a DTA ainda não foi solicitada' : `Chegada atrasada há ${Math.abs(diasParaChegada)} dias sem solicitar a DTA`);
+          handledPendencies.add('fase6:0');
+        }
       }
     }
     const fase5checked = p.checklist['fase5']||[];
-    if(diasParaChegada<=5 && diasParaChegada>0 && !fase5checked[3]){
-      alerts.push(`Faltam ${diasParaChegada} dia${diasParaChegada===1?'':'s'} para a chegada sem rascunho da DUIMP`);
-    }
-    if(diasParaChegada<=0 && !fase5checked[3]){
-      alerts.push(diasParaChegada===0 ? 'Chegada é hoje sem rascunho da DUIMP' : `Chegada atrasada há ${Math.abs(diasParaChegada)} dias sem rascunho da DUIMP`);
+    if(!fase5checked[3]){
+      if(diasParaChegada<=5 && diasParaChegada>0){
+        alerts.push(`Faltam ${diasParaChegada} dia${diasParaChegada===1?'':'s'} para a chegada sem rascunho da DUIMP`);
+        handledPendencies.add('fase5:3');
+      } else if(diasParaChegada<=0){
+        alerts.push(diasParaChegada===0 ? 'Chegada é hoje sem rascunho da DUIMP' : `Chegada atrasada há ${Math.abs(diasParaChegada)} dias sem rascunho da DUIMP`);
+        handledPendencies.add('fase5:3');
+      }
     }
   }
 
+  /* Fatura e/ou Packing List: cobra assim que a data de Prontidão passar (hoje ou antes) e
+     esses dois documentos ainda não tiverem sido marcados — pedido explícito. Não é item de
+     checklist (é controlado por p.docs), então não tem equivalente no mecanismo genérico de
+     "Pendente da fase anterior" e não precisa de handledPendencies. */
   if(p.prontidao && daysBetween(p.prontidao, today) >= 0){
     const diasDesdeProntidao = daysBetween(p.prontidao, today);
     const hasFatura = p.docs && p.docs['Comercial Invoice (Fatura)'];
@@ -3112,11 +3316,14 @@ function getProcessAlerts(p){
   if(devolucao){
     const diasParaDevolucao = daysBetween(today, devolucao.date);
     const fase7checked = p.checklist['fase7']||[];
-    if(diasParaDevolucao<=5 && diasParaDevolucao>0 && !fase7checked[4]){
-      alerts.push(`Faltam ${diasParaDevolucao} dia${diasParaDevolucao===1?'':'s'} para a devolução do container e a etapa ainda não foi marcada`);
-    }
-    if(diasParaDevolucao<=0 && !fase7checked[4]){
-      alerts.push(diasParaDevolucao===0 ? 'Devolução do container é hoje e a etapa ainda não foi marcada' : `Devolução do container atrasada há ${Math.abs(diasParaDevolucao)} dias`);
+    if(!fase7checked[4]){
+      if(diasParaDevolucao<=5 && diasParaDevolucao>0){
+        alerts.push(`Faltam ${diasParaDevolucao} dia${diasParaDevolucao===1?'':'s'} para a devolução do container e a etapa ainda não foi marcada`);
+        handledPendencies.add('fase7:4');
+      } else if(diasParaDevolucao<=0){
+        alerts.push(diasParaDevolucao===0 ? 'Devolução do container é hoje e a etapa ainda não foi marcada' : `Devolução do container atrasada há ${Math.abs(diasParaDevolucao)} dias`);
+        handledPendencies.add('fase7:4');
+      }
     }
   }
 
@@ -3126,6 +3333,7 @@ function getProcessAlerts(p){
     const fase7checked = p.checklist['fase7']||[];
     if(fase7checked[2] && !fase7checked[3]){
       alerts.push('Recebimento em estoque marcado, mas a Nota Fiscal ainda não foi emitida');
+      handledPendencies.add('fase7:3');
     }
   }
 
@@ -3150,6 +3358,32 @@ function getProcessAlerts(p){
         : diasParaPrazoZS===0
           ? 'Prazo do 1º período de armazenagem na Zona Secundária vence hoje e o recebimento em estoque ainda não foi marcado'
           : `Faltam ${diasParaPrazoZS} dia${diasParaPrazoZS===1?'':'s'} para o fim do 1º período de armazenagem na Zona Secundária e o recebimento em estoque ainda não foi marcado`);
+      handledPendencies.add('fase7:2');
+    }
+  }
+
+  /* Pendências genéricas de fases anteriores — roda por ÚLTIMO, depois de todo alerta
+     específico já ter sido calculado acima, pra poder consultar handledPendencies e não
+     duplicar um item que já apareceu com um alerta específico e datado (ver comentário no
+     topo da função). */
+  for(let i=0;i<statusIdx;i++){
+    const s = stages[i];
+    if(stageComplete(p, s.key)) continue;
+    let pendentes;
+    if(s.type==='payments'){
+      pendentes = s.items.filter(it=>!(p.payments[it.key]||{}).checked).map(it=>it.label);
+    } else {
+      const checked = p.checklist[s.key]||[];
+      pendentes = s.items
+        .map((label,idx)=>({label,idx}))
+        .filter(({idx})=>!checked[idx] && !handledPendencies.has(s.key+':'+idx))
+        .map(({label})=>label);
+    }
+    if(pendentes.length){
+      const faseLabel = s.label.replace(/^Fase \d+ · /,'');
+      pendentes.forEach(label=>{
+        alerts.push(`Pendente da fase anterior (${faseLabel}): ${label}`);
+      });
     }
   }
 
@@ -3534,10 +3768,17 @@ function finishEditingItem(id){ editingItemIds.delete(id); renderItensTab(); }
    Como todo modal do app reaproveita o mesmo id="modal-overlay" (um modal por vez), não dá
    pra empilhar o modal do produto em cima do modal do processo sem quebrar o fechamento —
    por isso salva o processo primeiro (mesma função usada ao adicionar/remover item) e só
-   depois troca de modal, pra não perder nada que estava sendo editado. */
+   depois troca de modal, pra não perder nada que estava sendo editado.
+   Registra em setModalReturnTo que, ao fechar o modal do produto, o processo deve reabrir
+   direto na aba Itens — em vez de simplesmente cair na tela de fundo (que pode ser qualquer
+   página, dependendo de onde o processo foi aberto originalmente). */
 async function openItemMasterProduct(pn){
+  const processId = window.__editingProcess ? window.__editingProcess.id : null;
   await autoPersistCurrentProcess();
   closeModal();
+  if(processId){
+    setModalReturnTo(()=>{ openProcessModal(processId); switchTab('itens'); });
+  }
   openProductModal(pn);
 }
 
@@ -3549,7 +3790,7 @@ function renderItensTab(){
   const canEditHere = canEdit('processos');
   el.innerHTML = p.itens.length ? p.itens.map((it,idx)=>{
     const valorAlterado = it.valorUnitarioMestre!==undefined && it.valorUnitarioMestre!=='' && String(it.valorUnitarioMestre)!==String(it.valorUnitarioUsado);
-    const alteradoHtml = valorAlterado ? `<br><span class="form-hint" style="color:var(--ink-amber);">${svgEditIcon()} Valor alterado manualmente — cadastrado: ${fmtUSD(parseFloat(it.valorUnitarioMestre)||0)}</span>` : '';
+    const alteradoHtml = valorAlterado ? `<br><span class="form-hint" style="color:var(--ink-amber-fg);">${svgEditIcon()} Valor alterado manualmente — cadastrado: ${fmtUSD(parseFloat(it.valorUnitarioMestre)||0)}</span>` : '';
 
     if(canEditHere && editingItemIds.has(it.id)){
       return `
@@ -3673,9 +3914,12 @@ async function copyItemColumn(field){
   const p = window.__editingProcess;
   const itens = p.itens || [];
   if(!itens.length) return;
+  /* Vl. Unit. e Vl. Total copiam só o número, no mesmo formato brasileiro (vírgula, 2 casas)
+     que já aparece na tela — sem o símbolo de moeda (US$) e sem o ponto decimal "cru" do
+     JavaScript, que não bate com o que a pessoa vê e cola em outro lugar (planilha, etc). */
   const valores = itens.map(it=>{
-    if(field==='valorTotal') return String((parseFloat(it.valorUnitarioUsado)||0)*(parseFloat(it.quantidade)||0));
-    if(field==='valorUnitarioUsado') return it.valorUnitarioUsado!=null ? String(it.valorUnitarioUsado) : '';
+    if(field==='valorTotal') return fmtNumberBR((parseFloat(it.valorUnitarioUsado)||0)*(parseFloat(it.quantidade)||0));
+    if(field==='valorUnitarioUsado') return it.valorUnitarioUsado!=null ? fmtNumberBR(it.valorUnitarioUsado) : '';
     return it[field]!=null ? String(it[field]) : '';
   });
   const texto = valores.join('\n');
@@ -3707,7 +3951,7 @@ function onItemPNInput(val){
     const results = await searchProducts('pn', val, 8);
     __itemAutocompleteResults = results;
     if(!results.length){
-      listEl.innerHTML = `<div class="item-autocomplete-option" style="color:var(--ink-red); cursor:pointer;" onclick="promptNewProductFromItem('${val.replace(/'/g,"\\'")}')">${svgWarnInline()} Produto não encontrado — clique para cadastrar o PN "${val}"</div>`;
+      listEl.innerHTML = `<div class="item-autocomplete-option" style="color:var(--ink-red-fg); cursor:pointer;" onclick="promptNewProductFromItem('${val.replace(/'/g,"\\'")}')">${svgWarnInline()} Produto não encontrado — clique para cadastrar o PN "${val}"</div>`;
     } else {
       listEl.innerHTML = results.map((r,i)=>`
         <div class="item-autocomplete-option" onclick="selectItemProduct(${i})">
@@ -5367,46 +5611,71 @@ function currentPendingKey(p){
 }
 
 /* ===================== LÓGICA DE ETAPAS ===================== */
+/* Opções de Modalidade de Pagamento de um processo — vem da configuração do fornecedor
+   (Adiantado/A prazo/Factoring, com os dias de cada uma) quando ela existe; cai pro conjunto
+   padrão só quando o processo ainda não tem fornecedor selecionado ou o fornecedor não tem
+   nenhuma modalidade configurada. Extraído como função própria pra ser usado tanto na Fase 3
+   (rótulo do item "Pagamento") quanto no campo de seleção da Visão Geral, sem duplicar a
+   lógica em dois lugares. */
+function getModalidadePagamentoOptions(p){
+  const supplier = state.suppliers.find(x=>x.id===p.supplierId);
+  let options = [];
+  if(supplier && supplier.modalidades){
+    if(supplier.modalidades.adiantado) options.push('Adiantado');
+    if(supplier.modalidades.aPrazo && supplier.modalidades.aPrazo.checked) options.push(`A prazo (${supplier.modalidades.aPrazo.dias||'?'} dias)`);
+    if(supplier.modalidades.factoring && supplier.modalidades.factoring.checked) options.push(`Factoring (${supplier.modalidades.factoring.dias||'?'} dias)`);
+  }
+  if(options.length===0) options = ['Adiantado','A prazo','Factoring'];
+  return options;
+}
 function getStagesForProcess(p){
   if(p && p.tipo==='temporaria') return TEMP_STAGES;
   const isAereo = p && p.modal==='aereo';
   return STAGE_DEFS.map(s=>{
     if(s.key==='fase3'){
-      const supplier = state.suppliers.find(x=>x.id===p.supplierId);
-      let options = [];
-      if(supplier && supplier.modalidades){
-        if(supplier.modalidades.adiantado) options.push('Adiantado');
-        if(supplier.modalidades.aPrazo && supplier.modalidades.aPrazo.checked) options.push(`A prazo (${supplier.modalidades.aPrazo.dias||'?'} dias)`);
-        if(supplier.modalidades.factoring && supplier.modalidades.factoring.checked) options.push(`Factoring (${supplier.modalidades.factoring.dias||'?'} dias)`);
-      }
-      if(options.length===0) options = ['Adiantado','A prazo','Factoring'];
       const mp = p.extra && p.extra.modalidadePagamento;
       const label = mp ? `Pagamento (${mp})` : 'Pagamento';
       /* "Provisionamento Financeiro" fica no índice 1 (depois de "Pagamento", que permanece
          no índice 0) — assim nenhum processo já em andamento tem sua marcação de Pagamento
-         deslocada de posição no checklist. */
-      return {...s, items:[label, 'Provisionamento Financeiro'], extraFields:[{key:'modalidadePagamento', label:'Modalidade de Pagamento', type:'select', options}]};
+         deslocada de posição no checklist.
+         A Modalidade de Pagamento NÃO tem mais um campo editável aqui na Etapas — ela é
+         preenchida na aba Visão Geral (Informações Principais) e só é EXIBIDA aqui, refletida
+         automaticamente no rótulo do item acima ("Pagamento (Adiantado)", etc). Pedido
+         explícito: preencher uma vez na Visão Geral e deixar isso "puxar" pro resto do
+         processo (rótulo da etapa e alerta de cobrança de pagamento), em vez de ter o mesmo
+         dado editável em dois lugares diferentes. */
+      return {...s, items:[label, 'Provisionamento Financeiro']};
     }
 
     if(s.key==='fase4' && isAereo){
-      return {...s, containersItemIndex: undefined, itemFields:{
+      /* "Aprovar Draft de BL" (índice 3) vira "Aprovar Draft de AWB" no aéreo — mesma etapa,
+         mesmo campo de número (chave `numeroBL` mantida por baixo dos panos, só o rótulo muda
+         pra "Número do AWB"), sem criar campo/chave novo, mesmo padrão já usado em outros
+         pontos do app pra diferenças aéreo/marítimo (ex: Armazenagem Zona Secundária).
+         IMPORTANTE: este bloco só existe pra Fase 4; a Fase 5 (Despachante notificado, etc.)
+         não tem NENHUMA diferença de conteúdo entre aéreo e marítimo — ver aviso logo abaixo. */
+      const items = s.items.slice();
+      items[3] = 'Aprovar Draft de AWB';
+      return {...s, items, containersItemIndex: undefined, itemFields:{
         1: s.itemFields[1],
         2: [
           {key:'numeroBooking', label:'Número do Booking', type:'text'},
           {key:'numeroAWB', label:'AWB', type:'text'},
           {key:'ciaAerea', label:'Companhia Aérea', type:'text'},
         ],
+        3: [{key:'numeroBL', label:'Número do AWB', type:'text'}],
       }};
     }
 
-    if(s.key==='fase5' && isAereo){
-      const items = s.items.slice();
-      items[0] = 'Aprovar Draft de AWB';
-      return {...s, items, itemFields:{
-        0: [{key:'numeroBL', label:'Número do AWB', type:'text'}],
-        4: s.itemFields[4],
-      }};
-    }
+    /* ATENÇÃO: NÃO reintroduzir um override pra `s.key==='fase5' && isAereo` sem ler o
+       comentário acima. Já existiu aqui uma renomeação de "Aprovar Draft de AWB" pensada pra
+       quando esse item ainda morava na Fase 5 (antes da migração de ordem do BL Draft — ver
+       migrateBLDraftOrder() e o comentário em STAGE_DEFS/fase4). Depois que o item passou pra
+       Fase 4 (índice 3), esse override ficou órfão e sobrescrevia por engano o item 0 da Fase 5
+       real, que é "Despachante notificado" — fazendo essa etapa sumir/virar "Aprovar Draft de
+       AWB" pra qualquer processo aéreo, e também derrubando o campo de data do "Rascunho da
+       DUIMP" (índice 3) no processo. A Fase 5 é idêntica pros dois modais; a renomeação AWB
+       fica só na Fase 4, acima. */
 
     if(s.key==='fase6' && isAereo){
       const items = ['Chegada e presença'];
@@ -5538,19 +5807,40 @@ function isProcessDone(p){
 }
 
 /* Ícones de status do Painel — mesmo sistema visual dos ícones de navegação (linha, cor
-   herdada via currentColor). Cada estado usa um ícone semanticamente relacionado: produção
-   (caixa fechada), aguardando embarque (ampulheta), trânsito (caminhão), desembaraço
+   herdada via currentColor, pinta sozinho na cor da etapa porque o círculo que envolve o
+   ícone já define `color` — ver .kpi-icon-circle). Cada estado usa um ícone semanticamente
+   relacionado: produção (caixa fechada), aguardando embarque (ampulheta), trânsito (navio —
+   a maioria das cargas viaja por mar/ar nesse estágio, não de caminhão), desembaraço
    (prancheta em andamento), entregue (caixa com check). */
 function svgStatusIcon(key){
+  /* "Em Trânsito" usa o mesmo desenho preenchido do ícone de Marítimo (silhueta de navio) —
+     não dá pra encaixar no wrapper genérico "fill:none, stroke:currentColor" dos outros 4
+     porque esse ícone é preenchido, não traçado; por isso monta o próprio <svg> aqui. */
+  if(key==='transito'){
+    return '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="11" y="1" width="2" height="3"/><path d="M5 5h14l-2 5H7z"/><path d="M3.5 11h17l-3 9h-11z"/><path d="M1.5 22.5c1.3-1.3 3.3-1.3 4.6 0 1.3 1.3 3.3 1.3 4.6 0 1.3-1.3 3.3-1.3 4.6 0 1.3 1.3 3.3 1.3 4.6 0v1.7c-1.3 1.3-3.3 1.3-4.6 0-1.3-1.3-3.3-1.3-4.6 0-1.3 1.3-3.3 1.3-4.6 0-1.3-1.3-3.3-1.3-4.6 0z"/></svg>';
+  }
   const icons = {
     producao: '<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
     aguardando_embarque: '<path d="M6 2h12M6 22h12"/><path d="M6 2c0 5 4 6 6 8-2 2-6 3-6 8M18 2c0 5-4 6-6 8 2 2 6 3 6 8"/>',
-    transito: '<rect x="1" y="7" width="13" height="10" rx="1"/><path d="M14 10h4l4 4v3h-2"/><circle cx="6" cy="19" r="1.6"/><circle cx="17.5" cy="19" r="1.6"/>',
     desembaraco: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3V2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M8 11l2 2 4-4"/><path d="M8 17h6"/>',
     entregue: '<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M9 12.5l2 2 4-4"/>',
   };
   return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${icons[key]||icons.producao}</svg>`;
 }
+/* Os 5 estágios fixos do Painel (producao/aguardando_embarque/transito/desembaraco/entregue)
+   usam SEMPRE o ícone SVG acima, na cor da própria etapa — não são mais customizáveis por
+   emoji (a Personalização do Painel permitia digitar um emoji livre aqui, que sobrescrevia
+   esse ícone; foi isso que fez emoji aparecer nos cards de cima). O NOME de cada estágio
+   continua totalmente personalizável — só o ícone dos 5 fixos que ficou travado no padrão
+   visual da plataforma. Regras personalizadas (buckets extras criados pelo usuário) não são
+   afetadas por essa trava — continuam com o próprio campo de ícone de sempre. */
+function fixedBucketIcon(key){ return svgStatusIcon(key); }
+const FIXED_BUCKET_IDS = ['producao','aguardando_embarque','transito','desembaraco','entregue'];
+/* Cor de cada estágio fixo do Painel — fonte única de verdade, usada tanto nos cards de KPI
+   quanto nos separadores de seção abaixo deles quanto na tela de Personalização (pro círculo
+   de ícone ali já aparecer na cor certa também, sem duplicar esse mapeamento em 3 lugares). */
+const DASHBOARD_KPI_ACCENTS = {producao:'var(--ink-blue-fg)', aguardando_embarque:'var(--ink-amber-fg)', transito:'var(--ink-purple-fg)', desembaraco:'var(--ink-red-fg)', entregue:'var(--ink-green-fg)'};
+const DASHBOARD_KPI_ACCENTS_BG = {producao:'var(--ink-blue-bg)', aguardando_embarque:'var(--ink-amber-bg)', transito:'var(--ink-purple-bg)', desembaraco:'var(--ink-red-bg)', entregue:'var(--ink-green-bg)'};
 function getDashboardConfig(){
   const dflt = {
     labels: {
@@ -6055,36 +6345,38 @@ function render(){
   const app = document.getElementById('app');
   const userInitials = (currentUserRoleLabel||'US').slice(0,2).toUpperCase();
   app.innerHTML = `
-    <aside class="sidebar" id="app-sidebar" style="background-image:url('${SIDEBAR_SHIP_IMG}');">
+    <aside class="sidebar ${sidebarCollapsed?'collapsed':''}" id="app-sidebar" style="background-image:url('${SIDEBAR_SHIP_IMG}');">
+      <button type="button" class="sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="${sidebarCollapsed?'Expandir menu':'Recolher menu'}">${svgSidebarCollapseIcon()}</button>
       <div class="brand">
         <div class="brand-mark" style="justify-content:center;">
-          <img src="${LOGO_BRANCO}" alt="ComexTrack" style="height:130px; display:block;">
+          <img src="${LOGO_BRANCO}" alt="ComexTrack" class="brand-logo-img">
         </div>
       </div>
       <nav class="nav">
         ${renderNavHtml()}
       </nav>
       <div class="sidebar-footer">
-        <div class="sidebar-account" id="sidebar-account-trigger" onclick="toggleUserSwitcher()">
+        <div class="sidebar-account" id="sidebar-account-trigger" onclick="toggleUserSwitcher()" title="${sidebarCollapsed?(currentUserRoleLabel||'Usuário'):''}">
           <div class="sidebar-account-avatar">${userInitials}</div>
+          ${sidebarCollapsed ? '' : `
           <div class="sidebar-account-text">
             <div class="sidebar-account-name">${currentUserRoleLabel||'Usuário'}</div>
             <div class="sidebar-account-email">${currentUser?currentUser.email:''}</div>
           </div>
-          <span class="sidebar-account-chevron" id="sidebar-account-chevron">${svgChevronDown()}</span>
+          <span class="sidebar-account-chevron" id="sidebar-account-chevron">${svgChevronDown()}</span>`}
         </div>
         <div class="sidebar-account-dropdown" id="sidebar-account-dropdown" style="display:none;">
           <div class="sidebar-account-dropdown-loading">Carregando usuários...</div>
         </div>
-        <div style="display:flex; align-items:center; justify-content:space-between; margin:10px 0;">
+        <div class="sidebar-footer-row">
           <span class="role-badge ${currentRole}">${currentRole}</span>
           <div class="theme-segmented">
             <button class="theme-segmented-btn ${!document.body.classList.contains('dark-mode')?'active':''}" onclick="setTheme('light')" title="Modo claro">${svgSunIcon()}</button>
             <button class="theme-segmented-btn ${document.body.classList.contains('dark-mode')?'active':''}" onclick="setTheme('dark')" title="Modo escuro">${svgMoonIcon()}</button>
           </div>
         </div>
-        <div id="save-indicator" style="font-size:11px; color:#7C8FA8; margin-bottom:8px; text-align:center;">Dados salvos ${svgCheckInline()}</div>
-        ${hasAnyEditAccess() ? `<button class="new-process-btn" onclick="openProcessModal()">+ Novo Processo</button>` : `<div class="form-hint" style="color:#7C8FA8;">Modo somente leitura</div>`}
+        <div id="save-indicator"><span class="save-indicator-text">Dados salvos </span>${svgCheckInline()}</div>
+        ${hasAnyEditAccess() ? `<button class="new-process-btn" onclick="openProcessModal()" title="Novo Processo">${sidebarCollapsed?'+':'+ Novo Processo'}</button>` : (sidebarCollapsed ? '' : `<div class="form-hint" style="color:#7C8FA8;">Modo somente leitura</div>`)}
       </div>
     </aside>
     <main>
@@ -6210,22 +6502,28 @@ function renderNavHtml(){
   const items = getNavOrder().filter(i=> canView(i.key));
   const ncmAlertCount = getAllPendingNCMAlerts().length;
   const labelFor = (i)=> (i.key==='ncm' && ncmAlertCount) ? `${i.label} <span class="nav-alert-badge">${ncmAlertCount}</span>` : i.label;
+  /* Modo de reordenar abas não faz sentido com a sidebar recolhida (não cabe rótulo nem
+     setas de mover) — com ela recolhida, os itens sempre renderizam no formato normal
+     (clicável, navegando normalmente), sem alterar `navReorderMode` de verdade: ao
+     expandir de novo, o modo de reordenação continua exatamente como estava. */
+  const reorderActive = navReorderMode && !sidebarCollapsed;
   const body = items.map((i,idx)=>{
-    if(navReorderMode){
+    if(reorderActive){
       return `<div class="nav-item-reorder-row">
-        <button class="nav-item ${currentView===i.key?'active':''}" style="flex:1;" onclick="setView('${i.key}')"><span class="dot"></span><span class="nav-icon">${svgNavIcon(i.key)}</span>${labelFor(i)}</button>
+        <button class="nav-item ${currentView===i.key?'active':''}" style="flex:1;" onclick="setView('${i.key}')" title="${i.label}"><span class="dot"></span><span class="nav-icon">${svgNavIcon(i.key)}</span><span class="nav-label">${labelFor(i)}</span></button>
         <button class="nav-reorder-btn" onclick="moveNavItem('${i.key}',-1)" ${idx===0?'disabled':''}>↑</button>
         <button class="nav-reorder-btn" onclick="moveNavItem('${i.key}',1)" ${idx===items.length-1?'disabled':''}>↓</button>
       </div>`;
     }
-    return navItem(i.key, labelFor(i));
+    return navItem(i.key, labelFor(i), i.label);
   }).join('');
-  const toggleBtn = `<button class="nav-reorder-toggle" onclick="toggleNavReorderMode()">${navReorderMode?svgCheckInline()+' Concluir reordenação':svgReorderInline()+' Reordenar abas'}</button>`;
+  const toggleBtn = sidebarCollapsed ? '' : `<button class="nav-reorder-toggle" onclick="toggleNavReorderMode()">${navReorderMode?svgCheckInline()+' Concluir reordenação':svgReorderInline()+' Reordenar abas'}</button>`;
   return body + toggleBtn;
 }
 
-function navItem(key,label){
-  return `<button class="nav-item ${currentView===key?'active':''}" onclick="setView('${key}')"><span class="dot"></span><span class="nav-icon">${svgNavIcon(key)}</span>${label}</button>`;
+function navItem(key,label,titleText){
+  const tip = String(titleText||label).replace(/"/g,'&quot;');
+  return `<button class="nav-item ${currentView===key?'active':''}" onclick="setView('${key}')" title="${tip}"><span class="dot"></span><span class="nav-icon">${svgNavIcon(key)}</span><span class="nav-label">${label}</span></button>`;
 }
 function setView(v){
   if(!canView(v)){ alert('Você não tem permissão para visualizar esta área.'); return; }
@@ -6561,7 +6859,7 @@ function renderPersonalizacao(){
   const bucketRows = Object.keys(cfg.labels).map(id=>{
     const l = cfg.labels[id];
     return `<div class="config-row">
-      <input type="text" class="config-icon" id="cfg-icon-${id}" value="${l.icon||''}" maxlength="4">
+      <span class="kpi-icon-circle" style="width:26px; height:26px; flex-shrink:0; --kpi-accent:${DASHBOARD_KPI_ACCENTS[id]||'var(--ink-teal-fg)'}; --kpi-accent-bg:${DASHBOARD_KPI_ACCENTS_BG[id]||'var(--ink-teal-bg)'};">${fixedBucketIcon(id)}</span>
       <input type="text" class="config-label" id="cfg-label-${id}" value="${l.label||''}">
       <span class="config-id-tag">${id}</span>
     </div>`;
@@ -6569,7 +6867,7 @@ function renderPersonalizacao(){
 
   return `
     <div class="section-title">Estágios Fixos do Painel<div class="rule"></div></div>
-    <div class="form-hint" style="margin-bottom:12px;">Personalize o nome e o ícone (emoji) de cada estágio padrão que aparece no Painel Geral.</div>
+    <div class="form-hint" style="margin-bottom:12px;">Personalize o nome de cada estágio padrão que aparece no Painel Geral. O ícone segue fixo no padrão visual da plataforma, colorido de acordo com a etapa.</div>
     <div class="config-list">${bucketRows}</div>
 
     <div class="section-title">Regras Personalizadas<div class="rule"></div></div>
@@ -6612,7 +6910,6 @@ async function saveDashboardConfig(){
   const labels = {};
   Object.keys(cfg.labels).forEach(id=>{
     labels[id] = {
-      icon: document.getElementById('cfg-icon-'+id).value.trim(),
       label: document.getElementById('cfg-label-'+id).value.trim() || id,
     };
   });
@@ -6767,6 +7064,11 @@ function bucketIconOnly(id, cfg){
     const r = (cfg.rules||[]).find(x=>x.id===rid);
     return (r && r.icon) ? r.icon : svgPinIcon();
   }
+  /* Os 5 estágios fixos SEMPRE usam o ícone SVG padrão (fixedBucketIcon), não o que estiver
+     salvo em cfg.labels[id].icon — é essa trava que impede um emoji digitado na Personalização
+     (ou herdado de uma configuração antiga) de voltar a aparecer aqui. O nome (label) continua
+     vindo normalmente da configuração salva, só o ícone que ficou fixo. */
+  if(FIXED_BUCKET_IDS.includes(id)) return fixedBucketIcon(id);
   const l = cfg.labels[id];
   return (l && l.icon) ? l.icon : svgPinIcon();
 }
@@ -6880,16 +7182,16 @@ function renderDashboardResults(){
   const finalizadosCount = state.processes.filter(p=>getBucket(p)==='finalizados').length;
   const totalAtivos = state.processes.filter(p=>getBucket(p)!=='finalizados').length;
 
-  /* TESTE VISUAL — Painel v2: a mesma cor por etapa (kpiAccents) agora também alimenta os
-     retângulos-separador de seção abaixo — os cards de resumo (KPI) e os separadores das
-     etapas "conversam" na mesma família de cor, como pedido. */
-  const kpiAccents = {producao:'var(--ink-blue)', aguardando_embarque:'var(--ink-amber)', transito:'var(--ink-purple)', desembaraco:'var(--ink-red)', entregue:'var(--ink-green)'};
-  const kpiAccentsBg = {producao:'var(--ink-blue-bg)', aguardando_embarque:'var(--ink-amber-bg)', transito:'var(--ink-purple-bg)', desembaraco:'var(--ink-red-bg)', entregue:'var(--ink-green-bg)'};
+  /* TESTE VISUAL — Painel v2: a mesma cor por etapa (DASHBOARD_KPI_ACCENTS) agora também
+     alimenta os retângulos-separador de seção abaixo — os cards de resumo (KPI) e os
+     separadores das etapas "conversam" na mesma família de cor, como pedido. */
+  const kpiAccents = DASHBOARD_KPI_ACCENTS;
+  const kpiAccentsBg = DASHBOARD_KPI_ACCENTS_BG;
   const kpis = `
   <div class="active-count-label">Processos ativos: ${totalAtivos}</div>
   <div class="kpi-row">
     ${bucketOrder.map(id=>`
-      <div class="kpi-card" style="--kpi-accent:${kpiAccents[id]||'var(--ink-teal)'}; --kpi-accent-bg:${kpiAccentsBg[id]||'var(--ink-teal-bg)'}">
+      <div class="kpi-card" style="--kpi-accent:${kpiAccents[id]||'var(--ink-teal-fg)'}; --kpi-accent-bg:${kpiAccentsBg[id]||'var(--ink-teal-bg)'}">
         <div class="kpi-icon-circle">${bucketIconOnly(id,cfg)}</div>
         <div class="kpi-label">${bucketLabel(id, cfg)}</div>
         <div class="kpi-value">${buckets[id].length}</div>
@@ -6932,7 +7234,7 @@ function renderDashboardResults(){
     if(!list.length) return;
     anyContent = true;
     const title = bucketLabel(id, cfg);
-    const bandColor = kpiAccents[id] || 'var(--ink-teal)';
+    const bandColor = kpiAccents[id] || 'var(--ink-teal-fg)';
     // Por padrão TODAS as seções vêm abertas — só fecha se a pessoa clicar pra recolher
     // (fica lembrado nesta sessão via window.__dashboardBandState).
     const stored = window.__dashboardBandState[id];
@@ -7169,9 +7471,8 @@ async function renderBancoItensPage(){
 function renderExBadge(p){
   if(!p.exTarifario) return '';
   const vencido = p.exTarifarioVencimento && p.exTarifarioVencimento < todayStr();
-  const style = vencido ? 'background:rgba(220,38,38,.12); color:var(--ink-red); border-color:rgba(220,38,38,.35);' : '';
   const label = (vencido?svgWarnInline()+' EX VENCIDO':'EX') + (p.exTarifarioNumero?' '+p.exTarifarioNumero:'');
-  return `<span class="ex-badge" style="${style}" title="EX Tarifário — II considerado zerado${vencido?' — venceu em '+fmtDate(p.exTarifarioVencimento):''}">${label}</span>`;
+  return `<span class="ex-badge${vencido?' ex-badge-vencido':''}" title="EX Tarifário — II considerado zerado${vencido?' — venceu em '+fmtDate(p.exTarifarioVencimento):''}">${label}</span>`;
 }
 
 async function runProductSearch(){
@@ -7203,18 +7504,93 @@ async function runProductSearch(){
   `).join('');
 }
 
+/* Catálogo leve de "Modelos de Produto" — cadastrado na aba Produtos, separado do Produto
+   Mestre (que é usado pra template de PROCESSO inteiro, sem relação com isso). Existe só pra
+   alimentar o campo "Produto (modelo)" do cadastro de Item no Banco de Itens: nome, Registro
+   Anvisa e Fabricante, pra selecionar um modelo já cadastrado e preencher essas três caixas
+   de uma vez, em vez de digitar tudo de novo item por item. */
+async function ensureModelosProdutoLoaded(){
+  if(window.__modelosProduto) return;
+  window.__modelosProduto = [];
+  try{
+    const snap = await db.collection('modelosProduto').get();
+    snap.forEach(d=>window.__modelosProduto.push({id:d.id, ...d.data()}));
+  }catch(e){ console.error(e); }
+}
+
 async function openProductModal(pn){
+  await ensureModelosProdutoLoaded();
   const existing = pn ? await getProductByPN(pn) : null;
   const p = existing || { pn: pn||'', ativo:true, history:[] };
   window.__editingProduct = JSON.parse(JSON.stringify(p));
+  window.__productModalIsExisting = !!existing;
+  /* Produto já cadastrado abre "travado" — campos com aparência fixa, só leitura — até clicar
+     em "Editar Produto". Produto novo não tem nada pra travar, então já abre editável.
+     Depois de destravado nesta sessão do modal, fica editável até fechar (não trava de novo
+     sozinho no meio da edição). */
+  window.__productModalEditMode = !existing;
+  renderProductModalOverlay();
+}
 
-  const fieldsHtml = PRODUCT_FIELDS.map(f=>{
-    if(f.key==='pn' && existing) return `<div class="form-group"><label>${f.label}</label><input id="pf-${f.key}" value="${p[f.key]||''}"><div class="form-hint">Alterar o PN migra todo o histórico e os vínculos deste produto para o novo número.</div></div>`;
+function enableProductEditMode(){
+  window.__productModalEditMode = true;
+  renderProductModalOverlay();
+}
+
+/* Preenche Registro Anvisa e Fabricante automaticamente a partir do Modelo de Produto
+   selecionado (cadastrado na aba Produtos) — pedido explícito: uma vez selecionado, essas
+   caixas já vêm preenchidas sozinhas, sem precisar digitar de novo. Sobrescreve o que já
+   estava nesses dois campos (mesmo padrão já usado em "Aplicar Produto Mestre"). */
+function applyModeloProdutoToProduct(modeloId){
+  const modelo = (window.__modelosProduto||[]).find(m=>m.id===modeloId);
+  if(!modelo) return;
+  const fProduto = document.getElementById('pf-produto');
+  const fAnvisa = document.getElementById('pf-registroAnvisa');
+  const fFabricante = document.getElementById('pf-fabricante');
+  if(fProduto) fProduto.value = modelo.nome || '';
+  if(fAnvisa) fAnvisa.value = modelo.registroAnvisa || '';
+  if(fFabricante){
+    // Garante que o valor do modelo apareça como opção mesmo se não estiver na lista de
+    // fabricantes vinda dos Fornecedores (mesmo tratamento de "não vinculado" já usado abaixo).
+    if(modelo.fabricante && ![...fFabricante.options].some(o=>o.value===modelo.fabricante)){
+      const opt = document.createElement('option');
+      opt.value = modelo.fabricante; opt.textContent = modelo.fabricante+' (do modelo selecionado)';
+      fFabricante.appendChild(opt);
+    }
+    fFabricante.value = modelo.fabricante || '';
+  }
+}
+
+function productFieldDisplayValue(f, p){
+  const v = p[f.key];
+  if(f.key==='valorUnitario') return (v!==undefined && v!=='' && v!=null) ? fmtUSD(parseFloat(v)||0) : '—';
+  if(f.key==='peso') return (v!==undefined && v!=='' && v!=null) ? fmtNumberBR(v)+' kg' : '—';
+  if(f.key==='codigoII') return v ? formatCodigoII(v) : '—';
+  return (v!==undefined && v!==null && v!=='') ? v : '—';
+}
+
+function renderProductModalOverlay(){
+  const p = window.__editingProduct;
+  const existing = window.__productModalIsExisting;
+  const editMode = window.__productModalEditMode && canEdit('bancoitens');
+
+  /* Cada campo devolve seu próprio bloco .form-group (com a classe de largura já embutida —
+     process-span-2/4 pra campos que precisam de mais espaço), pra depois serem agrupados em
+     seções com título+ícone. O grid de 4 colunas (bem mais largo que antes) é o que evita
+     precisar rolar pra baixo pra ver o produto inteiro: a maioria dos campos cabe lado a lado
+     em vez de empilhados um embaixo do outro. */
+  function fieldBlock(f, spanCls){
+    const cls = `form-group${spanCls?' '+spanCls:''}`;
+    if(!editMode){
+      const extra = f.key==='ncm' ? `<div id="ncm-aliquotas-ref">${renderNcmAliquotasRef(p.ncm)}</div>` : '';
+      return `<div class="${cls}"><label>${f.label}</label><div class="fixed-field-value">${productFieldDisplayValue(f,p)}</div>${extra}</div>`;
+    }
+    if(f.key==='pn' && existing) return `<div class="${cls}"><label>${f.label}</label><input id="pf-${f.key}" value="${p[f.key]||''}"><div class="form-hint">Alterar o PN migra todo o histórico e os vínculos deste produto para o novo número.</div></div>`;
     if(f.key==='valorUnitario' || f.key==='peso'){
-      return `<div class="form-group"><label>${f.label}</label><input id="pf-${f.key}" type="text" inputmode="decimal" value="${p[f.key]?fmtNumberBR(p[f.key]):''}" oninput="maskCurrencyInput(this)"></div>`;
+      return `<div class="${cls}"><label>${f.label}</label><input id="pf-${f.key}" type="text" inputmode="decimal" value="${p[f.key]?fmtNumberBR(p[f.key]):''}" oninput="maskCurrencyInput(this)"></div>`;
     }
     if(f.key==='ncm'){
-      return `<div class="form-group">
+      return `<div class="${cls}">
         <label>${f.label}</label>
         <input id="pf-${f.key}" value="${p[f.key]||''}" placeholder="0000.00.00" oninput="onProductNcmInput(this.value)">
         <div id="ncm-aliquotas-ref">${renderNcmAliquotasRef(p.ncm)}</div>
@@ -7224,21 +7600,21 @@ async function openProductModal(pn){
       const fabricantes = getAllFabricantesFromSuppliers();
       const atual = p.fabricante || '';
       const naoListado = atual && !fabricantes.includes(atual);
-      return `<div class="form-group">
+      return `<div class="${cls}">
         <label>Fabricante</label>
         <select id="pf-fabricante">
           <option value="">Selecione...</option>
           ${fabricantes.map(fb=>`<option value="${fb}" ${atual===fb?'selected':''}>${fb}</option>`).join('')}
           ${naoListado ? `<option value="${atual}" selected>${atual} (não vinculado a nenhum fornecedor)</option>` : ''}
         </select>
-        <div class="form-hint">Vem dos fabricantes cadastrados em cada Fornecedor. Não encontrou? Adicione em Fornecedores → editar → Fabricantes.</div>
+        <div class="form-hint">Vem dos fabricantes cadastrados em cada Fornecedor, ou é preenchido sozinho ao selecionar um Modelo de Produto acima. Não encontrou? Adicione em Fornecedores → editar → Fabricantes.</div>
       </div>`;
     }
     if(f.key==='tipo'){
       const tipos = (state.tiposItem||[]).filter(t=>t.ativo!==false);
       const atual = p.tipo || '';
       const naoListado = atual && !tipos.some(t=>t.nome===atual);
-      return `<div class="form-group">
+      return `<div class="${cls}">
         <label>Tipo</label>
         <select id="pf-tipo">
           <option value="">Selecione...</option>
@@ -7249,13 +7625,35 @@ async function openProductModal(pn){
       </div>`;
     }
     if(f.key==='codigoII'){
-      return `<div class="form-group"><label>${f.label}</label><input id="pf-${f.key}" value="${formatCodigoII(p[f.key])}" placeholder="II000000" onblur="this.value=formatCodigoII(this.value)"><div class="form-hint">Formato fixo: "II" + 6 dígitos (ex: II000640). Ajustado automaticamente ao sair do campo.</div></div>`;
+      return `<div class="${cls}"><label>${f.label}</label><input id="pf-${f.key}" value="${formatCodigoII(p[f.key])}" placeholder="II000000" onblur="this.value=formatCodigoII(this.value)"><div class="form-hint">Formato fixo: "II" + 6 dígitos (ex: II000640). Ajustado automaticamente ao sair do campo.</div></div>`;
     }
-    return `<div class="form-group"><label>${f.label}</label><input id="pf-${f.key}" type="${f.type||'text'}" ${f.type==='number'?'step="0.01"':''} value="${p[f.key]!==undefined?p[f.key]:''}"></div>`;
-  }).join('');
+    if(f.key==='produto'){
+      const modelos = (window.__modelosProduto||[]).filter(m=>m.ativo!==false);
+      const atual = p.produto || '';
+      return `<div class="${cls}">
+        <label>${f.label}</label>
+        ${modelos.length ? `<select id="pf-produto-picker" onchange="applyModeloProdutoToProduct(this.value)">
+          <option value="">Selecionar de um modelo cadastrado...</option>
+          ${modelos.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('')}
+        </select>` : ''}
+        <input id="pf-produto" value="${atual}" placeholder="Nome do modelo do produto" style="${modelos.length?'margin-top:6px;':''}">
+        <div class="form-hint">${modelos.length ? 'Selecionar um modelo cadastrado em Produtos preenche este campo, Registro Anvisa e Fabricante sozinho. Também pode digitar direto aqui.' : 'Cadastre modelos em Produtos (aba Produtos) para poder selecioná-los aqui rapidamente.'}</div>
+      </div>`;
+    }
+    return `<div class="${cls}"><label>${f.label}</label><input id="pf-${f.key}" type="${f.type||'text'}" ${f.type==='number'?'step="0.01"':''} value="${p[f.key]!==undefined?p[f.key]:''}"></div>`;
+  }
 
-  const exTarifarioHtml = `
-    <div class="form-group">
+  const fieldByKey = {};
+  PRODUCT_FIELDS.forEach(f=>{ fieldByKey[f.key] = f; });
+  /* Largura de cada campo dentro do grid de 4 colunas — campos com select+dica ou texto mais
+     longo ganham mais espaço (span 2 ou a linha inteira), o resto fica 1 coluna. */
+  const SPAN = { descricao:'process-span-2', produto:'process-span-2', ncm:'process-span-2', fabricante:'process-span-2', descDetalhada:'process-span-4', obs:'process-span-4' };
+  const f = key => fieldByKey[key] ? fieldBlock(fieldByKey[key], SPAN[key]||'') : '';
+
+  const exTarifarioHtml = !editMode
+    ? `<div class="form-group process-span-2"><label>EX Tarifário</label><div class="fixed-field-value">${p.exTarifario ? `Sim — nº ${p.exTarifarioNumero||'—'}, vencimento ${p.exTarifarioVencimento?fmtDate(p.exTarifarioVencimento):'—'}` : 'Não'}</div></div>`
+    : `
+    <div class="form-group process-span-4">
       <label>EX Tarifário</label>
       <div class="type-toggle">
         <button type="button" class="ex-toggle-btn" data-val="nao" onclick="toggleProductExTarifario(false)">Não</button>
@@ -7263,7 +7661,7 @@ async function openProductModal(pn){
       </div>
       <div class="form-hint">Quando marcado, o Imposto de Importação (II) deste item é considerado zerado nos cálculos de referência, independentemente da alíquota cadastrada para o NCM.</div>
     </div>
-    <div class="form-group" id="ex-tarifario-wrap" style="display:${p.exTarifario?'block':'none'};">
+    <div class="form-group process-span-4" id="ex-tarifario-wrap" style="display:${p.exTarifario?'block':'none'};">
       <div class="form-row">
         <div class="form-group"><label>Número do EX</label><input id="pf-exTarifarioNumero" value="${p.exTarifarioNumero||''}" placeholder="Ex: 000.123"></div>
         <div class="form-group"><label>Vencimento do EX</label><input type="date" id="pf-exTarifarioVencimento" value="${p.exTarifarioVencimento||''}"></div>
@@ -7271,8 +7669,10 @@ async function openProductModal(pn){
     </div>
   `;
 
-  const extracaoLotesHtml = `
-    <div class="form-group">
+  const extracaoLotesHtml = !editMode
+    ? `<div class="form-group process-span-2"><label>Extração de Lotes da Fatura</label><div class="fixed-field-value">${p.tipoExtracaoLotes ? (LOTE_EXTRACTION_RULES[p.tipoExtracaoLotes]?LOTE_EXTRACTION_RULES[p.tipoExtracaoLotes].label:p.tipoExtracaoLotes) : 'Nenhuma (não extrai automaticamente)'}</div></div>`
+    : `
+    <div class="form-group process-span-2">
       <label>Extração de Lotes da Fatura</label>
       <select id="pf-tipo-extracao">
         <option value="" ${!p.tipoExtracaoLotes?'selected':''}>Nenhuma (não extrai automaticamente)</option>
@@ -7282,8 +7682,10 @@ async function openProductModal(pn){
     </div>
   `;
 
-  const validadeHtml = `
-    <div class="form-group">
+  const validadeHtml = !editMode
+    ? `<div class="form-group process-span-2"><label>Validade do Produto</label><div class="fixed-field-value">${p.validadeUnidade==='indeterminado' ? 'Indeterminado (sem validade)' : (p.validadeQtd ? p.validadeQtd+' '+(p.validadeUnidade==='anos'?'ano(s)':'mes(es)') : '—')}</div></div>`
+    : `
+    <div class="form-group process-span-2">
       <label>Validade do Produto</label>
       <select id="pf-validade-unidade" onchange="onProductValidadeUnidadeChange(this.value)">
         <option value="meses" ${(!p.validadeUnidade || p.validadeUnidade==='meses')?'selected':''}>Meses</option>
@@ -7297,6 +7699,35 @@ async function openProductModal(pn){
     </div>
   `;
 
+  /* Hierarquia em seções com ícone — a mesma ideia visual já usada na Visão Geral do
+     processo (título pequeno em caixa alta + linha divisória), só que aqui com um ícone na
+     frente de cada título pra ficar mais fácil identificar de relance qual bloco é qual,
+     como pedido. Nenhum campo novo foi criado — só reorganizados em grupos lógicos. */
+  const sectionIcon = (svg) => `<span class="process-section-title-icon">${svg}</span>`;
+  const gridCls = editMode ? 'process-grid-4' : 'process-grid-4';
+  const sectionsHtml = `
+    <div class="process-section">
+      <div class="process-section-title">${sectionIcon(svgTagIcon(13))}Identificação</div>
+      <div class="${gridCls}">${f('pn')}${f('descricao')}${f('produto')}${f('tipo')}</div>
+    </div>
+    <div class="process-section">
+      <div class="process-section-title">${sectionIcon(svgMoneyIcon(13))}Comercial</div>
+      <div class="${gridCls}">${f('valorUnitario')}${f('peso')}</div>
+    </div>
+    <div class="process-section">
+      <div class="process-section-title">${sectionIcon(svgBarcodeIcon(13))}Fiscal / Tributário</div>
+      <div class="${gridCls}">${f('ncm')}${f('fabricante')}${f('codigo')}${f('codigoII')}${f('codCatalogo')}${exTarifarioHtml}</div>
+    </div>
+    <div class="process-section">
+      <div class="process-section-title">${sectionIcon(svgDocumentIcon(13))}Regulatório</div>
+      <div class="${gridCls}">${f('registroAnvisa')}${f('descDetalhada')}${f('obs')}</div>
+    </div>
+    <div class="process-section">
+      <div class="process-section-title">${sectionIcon(svgClockIcon(13))}Operacional</div>
+      <div class="${gridCls}">${extracaoLotesHtml}${validadeHtml}</div>
+    </div>
+  `;
+
   const historyHtml = (p.history||[]).length ? (p.history||[]).slice().sort((a,b)=>b.ts-a.ts).map(h=>`
     <div class="history-item">
       <div class="history-date">${formatHistoryDate(h.ts)}${h.userEmail?' · '+h.userEmail:''}</div>
@@ -7307,12 +7738,17 @@ async function openProductModal(pn){
 
   const usageHtml = existing ? renderProductUsageHistory(p.pn) : '';
 
+  /* Modal bem mais largo nos dois modos agora (edição ganha ainda mais espaço) — combinado
+     com o grid de 4 colunas por seção, é isso que evita ter que rolar pra baixo pra ver o
+     produto inteiro: a maior parte dos campos fica lado a lado em vez de empilhada. */
+  const editModeBtnHtml = (!editMode && existing && canEdit('bancoitens')) ? `<div style="margin-bottom:16px;"><button class="btn btn-primary" onclick="enableProductEditMode()">${svgEditIcon()} Editar Produto</button></div>` : '';
+
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
   attachOverlayOutsideClose(overlay, closeModal);
   overlay.innerHTML = `
-    <div class="modal">
+    <div class="modal" style="max-width:${editMode?'1320px':'980px'};">
       <div class="modal-header">
         <h2>${existing?'Editar Produto':'Novo Produto'}</h2>
         <button class="modal-close" onclick="closeModal()">×</button>
@@ -7330,19 +7766,17 @@ async function openProductModal(pn){
               <div class="status-badge-hint">Produtos não são excluídos — apenas marcados como inativos, pra preservar o histórico.</div>
             </div>
           ` : ''}
-          ${fieldsHtml}
-          ${exTarifarioHtml}
-          ${extracaoLotesHtml}
-          ${validadeHtml}
+          ${editModeBtnHtml}
+          ${sectionsHtml}
         </div>
         ${existing?`<div class="tab-pane" id="tab-usoprocessos">${usageHtml}</div>`:''}
         ${existing?`<div class="tab-pane" id="tab-histprod">${historyHtml}</div>`:''}
       </div>
       <div class="modal-footer">
-        <div>${existing?`<button class="btn ${p.ativo===false?'':'btn-danger'}" onclick="toggleProductActive('${sanitizePN(p.pn)}', ${p.ativo===false})">${p.ativo===false?'Reativar':'Marcar como Inativo'}</button>`:'<span></span>'}</div>
+        <div>${existing&&editMode?`<button class="btn ${p.ativo===false?'':'btn-danger'}" onclick="toggleProductActive('${sanitizePN(p.pn)}', ${p.ativo===false})">${p.ativo===false?'Reativar':'Marcar como Inativo'}</button>`:'<span></span>'}</div>
         <div style="display:flex; gap:8px;">
-          <button class="btn" onclick="closeModal()">${!canEdit('bancoitens')?'Fechar':'Cancelar'}</button>
-          ${canEdit('bancoitens') ? `<button class="btn btn-primary" onclick="saveProduct(${!!existing})">Salvar Produto</button>` : ''}
+          <button class="btn" onclick="closeModal()">${!editMode?'Fechar':'Cancelar'}</button>
+          ${editMode ? `<button class="btn btn-primary" onclick="saveProduct(${!!existing})">Salvar Produto</button>` : ''}
         </div>
       </div>
     </div>
@@ -7378,6 +7812,15 @@ function getProductUsageHistory(pn){
   return rows;
 }
 
+/* Abre um processo a partir da lista "Usado em Processos" dentro do cadastro de um produto
+   (Banco de Itens) — espelho de openItemMasterProduct: ao fechar o processo, volta pro
+   cadastro do produto, direto na aba "Usado em Processos", em vez de cair na tela de fundo. */
+function openProcessFromProductUsage(pn, processId){
+  closeModal();
+  setModalReturnTo(()=>{ openProductModal(pn); switchTab('usoprocessos'); });
+  openProcessModal(processId);
+}
+
 function renderProductUsageHistory(pn){
   const rows = getProductUsageHistory(pn);
   if(!rows.length){
@@ -7385,7 +7828,7 @@ function renderProductUsageHistory(pn){
   }
   const totalQtd = rows.reduce((s,r)=>s+r.quantidade, 0);
   const rowsHtml = rows.map(r=>`
-    <div class="history-item" style="cursor:pointer;" onclick="closeModal(); openProcessModal('${r.processId}');" title="Abrir processo">
+    <div class="history-item" style="cursor:pointer;" onclick="openProcessFromProductUsage('${sanitizePN(pn).replace(/'/g,"\\'")}', '${r.processId}');" title="Abrir processo">
       <div class="history-date">${r.dataPedido?fmtDate(r.dataPedido):'Data não informada'} · ${r.fornecedor}${r.isDone?' · Finalizado':''}</div>
       <div class="history-title">${r.ref}</div>
       <div class="history-detail">Quantidade trazida: <strong>${r.quantidade}</strong> · Status: ${r.statusLabel}</div>
@@ -7401,6 +7844,19 @@ function renderProductUsageHistory(pn){
    mas zera o II quando o item tem EX Tarifário marcado (mesmo com o EX vencido — o alerta
    de vencimento é só visual, quem decide se o EX ainda vale é o usuário). Ponto único pra
    quem for usar isso em cálculos futuros (ex: Custos automático por item). */
+/* Atalhos de dentro do cadastro de Produto (Banco de Itens) pra NCM: cadastrar uma NCM nova
+   ou vincular um Código de Imposto a ela. Espelha o mesmo padrão de retorno usado entre
+   Processo ↔ Item — ao fechar o modal da NCM, volta pro cadastro do produto de onde veio
+   (se for um produto já existente; um produto novo ainda não salvo não tem PN pra reabrir,
+   então nesse caso só volta pra página de NCM mesmo, igual já era antes). */
+function openNCMFromProduct(ncmId){
+  const pn = window.__editingProduct ? window.__editingProduct.pn : '';
+  closeModal();
+  setView('ncm');
+  if(pn){ setModalReturnTo(()=>{ openProductModal(pn); }); }
+  if(ncmId){ switchNcmSubTab('ncm'); openNCMModal(ncmId); }
+  else { openNCMModal(); }
+}
 function getEffectiveAliquotas(product){
   const entry = findNCMEntry(product && product.ncm);
   const base = {
@@ -7418,7 +7874,7 @@ function renderNcmAliquotasRef(ncmValue){
   if(!ncmValue) return `<div class="form-hint">Digite o NCM para ver a alíquota cadastrada na aba NCM.</div>`;
   const entry = findNCMEntry(ncmValue);
   if(!entry){
-    return `<div class="form-hint">${svgWarnInline()} Este NCM ainda não está cadastrado na aba NCM. <a href="#" onclick="event.preventDefault(); closeModal(); setView('ncm'); openNCMModal();">Cadastrar agora</a>.</div>`;
+    return `<div class="form-hint">${svgWarnInline()} Este NCM ainda não está cadastrado na aba NCM. <a href="#" onclick="event.preventDefault(); openNCMFromProduct();">Cadastrar agora</a>.</div>`;
   }
   const has = v => v!==''&&v!=null;
   const parts = [
@@ -7427,7 +7883,7 @@ function renderNcmAliquotasRef(ncmValue){
     `PIS ${has(entry.pis)?entry.pis+'%':'—'}`,
     `COFINS ${has(entry.cofins)?entry.cofins+'%':'—'}`,
   ];
-  const alertaHtml = (entry.pendingAlerts||[]).length ? ` <span style="color:var(--ink-red); font-weight:700;">${svgWarnInline()} alíquota alterada recentemente</span>` : '';
+  const alertaHtml = (entry.pendingAlerts||[]).length ? ` <span style="color:var(--ink-red-fg); font-weight:700;">${svgWarnInline()} alíquota alterada recentemente</span>` : '';
   const aliquotasLine = `<div class="form-hint">Alíquotas cadastradas para este NCM (atualizadas automaticamente conforme a aba NCM): <strong>${parts.join(' · ')}</strong>${entry.ativo===false?' <span class="product-inactive-badge">NCM Inativo</span>':''}${alertaHtml}</div>`;
 
   /* Código de Imposto herdado da NCM — nunca digitado no produto (pedido explícito de não
@@ -7442,7 +7898,7 @@ function renderNcmAliquotasRef(ncmValue){
         const fin = getFinalidadeById(c.finalidadeId);
         return `${c.codigo}${fin?' ('+fin.nome+')':''} — ICMS ${c.icms==='DIFERIMENTO'?'DIFERIMENTO':c.icms+'%'}`;
       }).join(' · ')}</strong></div>`
-    : `<div class="form-hint" style="margin-top:4px; color:var(--ink-red);">${svgWarnInline()} Não existe Código de Imposto cadastrado para esta NCM. <a href="#" onclick="event.preventDefault(); closeModal(); setView('ncm'); switchNcmSubTab('ncm'); openNCMModal('${entry.id}');">Vincular agora</a>.</div>`;
+    : `<div class="form-hint" style="margin-top:4px; color:var(--ink-red-fg);">${svgWarnInline()} Não existe Código de Imposto cadastrado para esta NCM. <a href="#" onclick="event.preventDefault(); openNCMFromProduct('${entry.id}');">Vincular agora</a>.</div>`;
 
   return aliquotasLine + codigoLine;
 }
@@ -7520,8 +7976,8 @@ function renderNCMAlertsBanner(){
   const alerts = getAllPendingNCMAlerts();
   if(!alerts.length) return '';
   return `
-    <div class="alert-banner" style="margin-bottom:18px; border:1px solid var(--ink-red); background:rgba(220,38,38,.08); border-radius:8px; padding:12px 14px;">
-      <div style="font-weight:700; color:var(--ink-red); margin-bottom:8px;">${svgWarnInline()} ${alerts.length} alteração(ões) de alíquota pendente(s) de ciência</div>
+    <div class="alert-banner" style="margin-bottom:18px; border:1px solid var(--ink-red-fg); background:rgba(220,38,38,.08); border-radius:8px; padding:12px 14px;">
+      <div style="font-weight:700; color:var(--ink-red-fg); margin-bottom:8px;">${svgWarnInline()} ${alerts.length} alteração(ões) de alíquota pendente(s) de ciência</div>
       ${alerts.map(a=>`
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:6px 0; border-top:1px solid rgba(220,38,38,.2);">
           <div style="font-size:12.5px;">
@@ -7783,7 +8239,7 @@ function openCodigoImpostoModal(id){
         </div>
         <div class="form-group">
           <label>Código Final</label>
-          <div id="ci-preview" class="stat-chip" style="background:var(--navy);"><span class="stat-chip-value" id="ci-preview-value">${composeCodigoImposto(getFinalidadeById(c.finalidadeId)?.prefixo, c.suffix) || '—'}</span></div>
+          <div id="ci-preview" class="stat-chip" style="background:var(--navy-fg);"><span class="stat-chip-value" id="ci-preview-value">${composeCodigoImposto(getFinalidadeById(c.finalidadeId)?.prefixo, c.suffix) || '—'}</span></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>II (%)</label><input id="ci-ii" type="number" step="0.01" value="${c.ii||''}" placeholder="Ex: 14"></div>
@@ -8085,7 +8541,7 @@ function renderNCMResults(){
   const rows = list.map(n=>`
     <div class="product-row" onclick="openNCMModal('${n.id}')">
       <span class="pn">${n.ncm}</span>
-      <span class="desc">${n.descricao||'—'} ${n.ativo===false?'<span class="product-inactive-badge">Inativo</span>':''}${(n.pendingAlerts||[]).length?' <span style="color:var(--ink-red); font-weight:700;">${svgWarnInline()} alíquota alterada</span>':''}</span>
+      <span class="desc">${n.descricao||'—'} ${n.ativo===false?'<span class="product-inactive-badge">Inativo</span>':''}${(n.pendingAlerts||[]).length?' <span style="color:var(--ink-red-fg); font-weight:700;">${svgWarnInline()} alíquota alterada</span>':''}</span>
       <span class="ncm">II ${n.ii!==''&&n.ii!=null?n.ii+'%':'—'}</span>
       <span class="fab">IPI ${n.ipi!==''&&n.ipi!=null?n.ipi+'%':'—'}</span>
       <span class="val">PIS ${n.pis!==''&&n.pis!=null?n.pis+'%':'—'} · COFINS ${n.cofins!==''&&n.cofins!=null?n.cofins+'%':'—'}</span>
@@ -8645,18 +9101,138 @@ async function toggleRotaActive(id, makeActive){
 }
 
 /* ===================== PRODUTOS MESTRE (informações gerais da carga) =====================
-   Importante: isto é independente dos Itens (PN) do processo — não há nenhuma integração
-   entre este cadastro e a aba Itens, por enquanto. */
+   Importante: isto é independente dos Itens (PN) do processo — Produto Mestre é usado como
+   template pra características de PROCESSO inteiro (fornecedor, portos, temperatura, genset),
+   sem relação com o Banco de Itens.
+   "Modelos de Produto" (logo abaixo) é outro cadastro, mais simples e separado, que existe só
+   pra alimentar o campo "Produto (modelo)" do Banco de Itens — nome, Registro Anvisa e
+   Fabricante de cada modelo, pra selecionar e preencher essas caixas de uma vez no item. */
 
 async function renderProdutosMestrePage(){
   const el = document.getElementById('view-content');
   el.innerHTML = `<div class="form-hint">Carregando produtos...</div>`;
   let produtos = [];
+  let modelos = [];
   try{
-    const snap = await db.collection('produtosMestre').get();
-    snap.forEach(doc=>produtos.push({id:doc.id, ...doc.data()}));
+    const [snapMestre, snapModelos] = await Promise.all([
+      db.collection('produtosMestre').get(),
+      db.collection('modelosProduto').get(),
+    ]);
+    snapMestre.forEach(doc=>produtos.push({id:doc.id, ...doc.data()}));
+    snapModelos.forEach(doc=>modelos.push({id:doc.id, ...doc.data()}));
   }catch(e){ console.error(e); }
   window.__produtosMestre = produtos;
+  window.__modelosProduto = modelos;
+  renderProdutosMestreList();
+}
+
+/* ---------- Modelos de Produto (Nome / Registro Anvisa / Fabricante — pro Banco de Itens) ---------- */
+function renderModeloProdutoCard(m){
+  return `
+    <div class="supplier-card" onclick="openModeloProdutoModal('${m.id}')">
+      <h3>${m.nome} ${m.ativo===false?'<span class="product-inactive-badge">Inativo</span>':''}</h3>
+      <div class="supplier-meta">Fabricante: ${m.fabricante||'—'}</div>
+      <div class="supplier-meta">Registro Anvisa: ${m.registroAnvisa||'—'}</div>
+    </div>
+  `;
+}
+
+function renderModelosProdutoSection(){
+  const canEditHere = canEdit('produtosmestre');
+  const modelos = (window.__modelosProduto||[]).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+  const header = `
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+      <div>
+        <h3 style="margin:0;">Modelos de Produto</h3>
+        <div class="form-hint" style="margin-top:2px;">Aparecem como opção selecionável no campo "Produto (modelo)" ao cadastrar um item no Banco de Itens — selecionar um já preenche Registro Anvisa e Fabricante sozinho.</div>
+      </div>
+      ${canEditHere ? `<button class="btn btn-primary" onclick="openModeloProdutoModal()" style="flex-shrink:0;">+ Novo Modelo</button>` : ''}
+    </div>
+  `;
+  const body = modelos.length
+    ? `<div class="supplier-grid">${modelos.map(renderModeloProdutoCard).join('')}</div>`
+    : `<div class="empty-state" style="padding:24px;"><p>Nenhum modelo cadastrado ainda.</p></div>`;
+  return `<div class="process-section" style="margin-bottom:24px;">${header}${body}</div>`;
+}
+
+function openModeloProdutoModal(id){
+  const existing = id ? (window.__modelosProduto||[]).find(m=>m.id===id) : null;
+  const m = existing || {id:uid(), nome:'', ativo:true};
+  window.__editingModeloProduto = JSON.parse(JSON.stringify(m));
+  const canEditHere = canEdit('produtosmestre');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modal-overlay';
+  attachOverlayOutsideClose(overlay, closeModal);
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:520px;">
+      <div class="modal-header">
+        <h2>${existing?'Editar Modelo de Produto':'Novo Modelo de Produto'}</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        ${existing ? `
+          <div class="status-badge-row">
+            <span class="role-badge ${m.ativo===false?'viewer':'admin'}">${m.ativo===false?'Inativo':'Ativo'}</span>
+            <div class="status-badge-hint">Modelos não são excluídos — apenas marcados como inativos (deixam de aparecer como opção nos itens novos, mas os já vinculados continuam intactos).</div>
+          </div>
+        ` : ''}
+        <div class="form-group"><label>Nome do Produto</label><input id="mp-nome" value="${m.nome||''}" placeholder="Ex: Veraview X800" ${!canEditHere?'disabled':''}></div>
+        <div class="form-group"><label>Registro Anvisa</label><input id="mp-registroAnvisa" value="${m.registroAnvisa||''}" placeholder="Ex: 80146590123" ${!canEditHere?'disabled':''}></div>
+        <div class="form-group"><label>Fabricante</label><input id="mp-fabricante" value="${m.fabricante||''}" placeholder="Ex: J. Morita Mfg. Corp." ${!canEditHere?'disabled':''}></div>
+      </div>
+      <div class="modal-footer">
+        <div>${existing&&canEditHere?`<button class="btn ${m.ativo===false?'':'btn-danger'}" onclick="toggleModeloProdutoActive('${m.id}', ${m.ativo===false})">${m.ativo===false?'Reativar':'Marcar como Inativo'}</button>`:'<span></span>'}</div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" onclick="closeModal()">${canEditHere?'Cancelar':'Fechar'}</button>
+          ${canEditHere ? `<button class="btn btn-primary" onclick="saveModeloProduto(${!!existing})">Salvar Modelo</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+async function saveModeloProduto(isEdit){
+  if(!requireEditPermission('produtosmestre')) return;
+  const nome = (document.getElementById('mp-nome').value||'').trim();
+  if(!nome){ alert('Informe o nome do produto.'); return; }
+  const prev = window.__editingModeloProduto || {};
+  const data = {
+    id: prev.id || uid(),
+    nome,
+    registroAnvisa: document.getElementById('mp-registroAnvisa').value||'',
+    fabricante: document.getElementById('mp-fabricante').value||'',
+    ativo: prev.ativo===false ? false : true,
+    createdAt: prev.createdAt || Date.now(),
+    updatedAt: Date.now(),
+  };
+  try{
+    await db.collection('modelosProduto').doc(data.id).set(data);
+  }catch(e){
+    console.error(e);
+    alert('Não foi possível salvar o modelo de produto.');
+    return;
+  }
+  const idx = (window.__modelosProduto||[]).findIndex(x=>x.id===data.id);
+  if(idx>=0) window.__modelosProduto[idx]=data; else (window.__modelosProduto=window.__modelosProduto||[]).push(data);
+  closeModal();
+  renderProdutosMestreList();
+}
+
+async function toggleModeloProdutoActive(id, makeActive){
+  if(!requireEditPermission('produtosmestre')) return;
+  try{
+    await db.collection('modelosProduto').doc(id).set({ativo:makeActive, updatedAt:Date.now()}, {merge:true});
+    const idx = (window.__modelosProduto||[]).findIndex(x=>x.id===id);
+    if(idx>=0) window.__modelosProduto[idx].ativo = makeActive;
+  }catch(e){
+    console.error(e);
+    alert('Não foi possível atualizar o modelo de produto.');
+    return;
+  }
+  closeModal();
   renderProdutosMestreList();
 }
 
@@ -8674,10 +9250,11 @@ function renderProdutoMestreCard(pr){
 function renderProdutosMestreList(){
   const el = document.getElementById('view-content');
   const canEditHere = canEdit('produtosmestre');
+  const modelosSectionHtml = renderModelosProdutoSection();
   const produtos = (window.__produtosMestre||[]).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
   const header = canEditHere ? `<div style="margin-bottom:18px;"><button class="btn btn-primary" onclick="openProdutoMestreModal()">+ Novo Produto</button></div>` : '';
   if(!produtos.length){
-    el.innerHTML = header + `<div class="empty-state"><h3>Nenhum produto cadastrado</h3><p>Cadastre as características recorrentes de um tipo de carga (fornecedor, país, portos, temperatura, genset) pra reaproveitar rapidamente na criação de processos.</p></div>`;
+    el.innerHTML = modelosSectionHtml + header + `<div class="empty-state"><h3>Nenhum produto cadastrado</h3><p>Cadastre as características recorrentes de um tipo de carga (fornecedor, país, portos, temperatura, genset) pra reaproveitar rapidamente na criação de processos.</p></div>`;
     return;
   }
 
@@ -8710,7 +9287,7 @@ function renderProdutosMestreList(){
     `;
   }).join('');
 
-  el.innerHTML = header + sectionsHtml;
+  el.innerHTML = modelosSectionHtml + header + sectionsHtml;
 }
 
 function renderPMDesempenhoHtml(pr){
@@ -9179,8 +9756,8 @@ async function buildImportPreview(){
 
   body.innerHTML = `
     <div class="kpi-row" style="grid-template-columns:repeat(3,1fr);">
-      <div class="kpi-card" style="--kpi-accent:var(--ink-green)"><div class="kpi-label">Novos</div><div class="kpi-value">${novos}</div></div>
-      <div class="kpi-card" style="--kpi-accent:var(--ink-amber)"><div class="kpi-label">Alterados</div><div class="kpi-value">${alterados}</div></div>
+      <div class="kpi-card" style="--kpi-accent:var(--ink-green-fg)"><div class="kpi-label">Novos</div><div class="kpi-value">${novos}</div></div>
+      <div class="kpi-card" style="--kpi-accent:var(--ink-amber-fg)"><div class="kpi-label">Alterados</div><div class="kpi-value">${alterados}</div></div>
       <div class="kpi-card" style="--kpi-accent:var(--muted)"><div class="kpi-label">Sem Alteração</div><div class="kpi-value">${inalterados}</div></div>
     </div>
     <div style="overflow-x:auto; max-height:300px; border:1px solid var(--border); border-radius:6px;">
@@ -9805,7 +10382,7 @@ function renderExtraFieldInput(f, p){
   const val = (p.extra && p.extra[f.key]) || '';
   if(f.type==='readonly'){
     const v = (p[f.sourceKey]!==undefined && p[f.sourceKey]!=='') ? p[f.sourceKey] : '—';
-    return `<div class="mini-field"><label>${f.label}</label><div style="padding:6px 8px;font-size:12px;background:#fff;border:1px solid var(--border-strong);border-radius:5px;">${v}</div></div>`;
+    return `<div class="mini-field"><label>${f.label}</label><div class="mini-field-readonly">${v}</div></div>`;
   }
   if(f.type==='select'){
     const preview = f.key==='canalDesembaraco' && val ? `<div style="margin-top:5px;">${canalBadgeHtml(val)}</div>` : '';
@@ -10268,6 +10845,12 @@ function openProcessModal(id){
                   ${state.partners.filter(pt=>pt.tipo==='Despachante').map(pt=>`<option value="${pt.empresa}" ${((p.extra||{}).despachante===pt.empresa)?'selected':''}>${pt.empresa}</option>`).join('')}
                 </select>
               </div>
+              <div class="form-group"><label>Modalidade de Pagamento</label>
+                <select onchange="updateExtraField('modalidadePagamento', this.value)">
+                  <option value="">Selecione...</option>
+                  ${getModalidadePagamentoOptions(p).map(o=>`<option value="${o}" ${(p.extra||{}).modalidadePagamento===o?'selected':''}>${o}</option>`).join('')}
+                </select>
+              </div>
               <div class="form-group" id="dta-field-wrap" style="display:${p.modal==='aereo'?'none':'block'};"><label>Transportadora (DTA)</label>
                 <select onchange="updateExtraField('transportadoraDTA', this.value)">
                   <option value="">Selecione...</option>
@@ -10280,7 +10863,7 @@ function openProcessModal(id){
                 </select>
               </div>
             </div>
-            <div class="form-hint">Definir Despachante/Transportadora aqui só registra quem vai atuar no processo — não substitui marcar "Despachante notificado" e "Solicitar DTA" na aba Etapas, que é o que os alertas de pendência acompanham. Cada Referência do Fornecedor vira automaticamente um espaço de documento na aba Documentos ("Invoice - referência").</div>
+            <div class="form-hint">Definir Despachante/Transportadora aqui só registra quem vai atuar no processo — não substitui marcar "Despachante notificado" e "Solicitar DTA" na aba Etapas, que é o que os alertas de pendência acompanham. A Modalidade de Pagamento definida aqui já reflete sozinha no rótulo do item "Pagamento" da aba Etapas e no alerta de cobrança de pagamento — só é cobrado quando estiver marcada como "Adiantado". Cada Referência do Fornecedor vira automaticamente um espaço de documento na aba Documentos ("Invoice - referência").</div>
           </div>
 
           <div class="process-section">
@@ -10597,7 +11180,7 @@ function produtoMestreOverrideHint(p, field, currentVal){
   const snap = p.produtoMestreSnapshot[field];
   if(snap===undefined || snap==='') return '';
   if(String(snap||'') !== String(currentVal||'')){
-    return `<div class="form-hint" style="color:var(--ink-amber);">${svgEditIcon()} Alterado do modelo "${p.produtoMestreNome||''}" — padrão: ${snap}</div>`;
+    return `<div class="form-hint" style="color:var(--ink-amber-fg);">${svgEditIcon()} Alterado do modelo "${p.produtoMestreNome||''}" — padrão: ${snap}</div>`;
   }
   return '';
 }
@@ -10853,10 +11436,23 @@ function renderEtapasTab(){
       ? itemsAplicaveis.filter(it=>(p.payments[it.key]||{}).checked).length + (p.customPayments||[]).filter(cp=>(p.payments['custom:'+cp.id]||{}).checked).length
       : (p.checklist[s.key]||[]).filter(Boolean).length;
     const total = (isPayments ? itemsAplicaveis.length : s.items.length) + customPayCount;
-    const isDone = doneCount===total;
+    const isDone = total>0 && doneCount===total;
     const isCurrent = s.key===currentKey;
-    const stateCls = isDone ? 'done' : (isCurrent ? 'current' : '');
+    const hasProgress = doneCount>0;
+    /* stage-empty / (implícito) parcial / done controlam o quanto a cor de identidade da fase
+       aparece (ver CSS) — é isso que deixa visível de relance quais fases já têm algo marcado
+       e quais estão zeradas, sem perder a cor por fase que já existia. */
+    const stateCls = [isDone?'done':'', isCurrent?'current':'', !hasProgress?'stage-empty':''].filter(Boolean).join(' ');
     const isOpen = window.__openStage === s.key;
+    const visual = getStageVisual(s.key,p);
+    const pct = total>0 ? Math.round(doneCount/total*100) : 0;
+    /* Header: cor sólida da fase quando concluída (inconfundível), tom claro quando tem
+       progresso ou é a etapa atual, e sem cor (fica branco/neutro, ver CSS .stage-empty) quando
+       zerada — pra fases vazias não competirem visualmente com as que já têm coisa marcada. */
+    const headerBg = isDone ? `var(${visual.colorVar})` : ((hasProgress || isCurrent) ? `var(${visual.bgVar})` : null);
+    const numBg = (hasProgress || isCurrent) ? `var(${visual.colorVar})` : null;
+    const borderColor = isCurrent ? `var(${visual.colorVar})` : (isDone ? `var(${visual.colorVar})` : null);
+    const boxShadow = isCurrent ? `0 0 0 1px var(${visual.bgVar})` : null;
 
     let bodyHtml = '';
     if(isPayments){
@@ -10938,12 +11534,19 @@ function renderEtapasTab(){
       }
     }
 
+    const blockStyle = [
+      borderColor ? `border-color:${borderColor};` : '',
+      boxShadow ? `box-shadow:${boxShadow};` : ''
+    ].join('');
+    const headerStyle = headerBg ? `background:${headerBg};` : '';
+    const numStyle = numBg ? `background:${numBg};` : '';
     return `
-    <div class="stage-block ${stateCls}" ${isCurrent?`style="border-color:var(${getStageVisual(s.key,p).colorVar}); box-shadow:0 0 0 1px var(${getStageVisual(s.key,p).bgVar});"`:''}>
-      <div class="stage-header" onclick="toggleStageOpen('${s.key}')" style="background:var(${getStageVisual(s.key,p).bgVar});">
-        <div class="stage-num" style="background:var(${getStageVisual(s.key,p).colorVar});">${isDone?svgCheckInline(15):getStageVisual(s.key,p).icon(p)}</div>
+    <div class="stage-block ${stateCls}" ${blockStyle?`style="${blockStyle}"`:''}>
+      <div class="stage-header" onclick="toggleStageOpen('${s.key}')" ${headerStyle?`style="${headerStyle}"`:''}>
+        <div class="stage-num" ${numStyle?`style="${numStyle}"`:''}>${isDone?svgCheckInline(15):visual.icon(p)}</div>
         <div class="stage-title">${s.label}</div>
         <div class="stage-progress">${doneCount}/${total}</div>
+        ${total>0?`<div class="stage-fill-track"><div class="stage-fill-bar" style="width:${pct}%; background:var(${visual.colorVar});"></div></div>`:''}
       </div>
       <div class="stage-body" style="display:${isOpen?'flex':'none'}">
         ${bodyHtml}
@@ -11366,7 +11969,7 @@ function renderCustosComparativo(pLike){
   const comp = computeCostosComparativo(pLike);
   const congelado = !!pLike.provisionamentoCongelado;
   const fonteInicialHtml = congelado
-    ? `<div class="form-hint" style="margin-bottom:10px; color:var(--ink-blue);">${svgSendIcon()} O valor Inicial abaixo vem do Provisionamento enviado ao Financeiro em ${formatHistoryDate(pLike.provisionamentoCongelado.ts)} — não muda mais sozinho, mesmo que a aba Custos seja editada depois.</div>`
+    ? `<div class="form-hint" style="margin-bottom:10px; color:var(--ink-blue-fg);">${svgSendIcon()} O valor Inicial abaixo vem do Provisionamento enviado ao Financeiro em ${formatHistoryDate(pLike.provisionamentoCongelado.ts)} — não muda mais sozinho, mesmo que a aba Custos seja editada depois.</div>`
     : `<div class="form-hint" style="margin-bottom:10px;">O valor Inicial abaixo ainda é calculado ao vivo a partir da aba Custos, porque o Provisionamento deste processo ainda não foi enviado ao Financeiro. Assim que for enviado, o Inicial passa a vir de lá.</div>`;
   const linhasHtml = comp.linhas.map(l=>`
     <div class="prov-line">
@@ -11374,7 +11977,7 @@ function renderCustosComparativo(pLike){
       <div class="prov-line-value" style="font-family:inherit; font-weight:400; font-size:13px; flex-direction:column; align-items:flex-end; gap:2px;">
         <span>Inicial: ${fmtBRL(l.inicial)}</span>
         <span style="${l.realizado!=null?'font-weight:700; color:var(--text);':'color:var(--muted); font-style:italic;'}">Realizado: ${l.realizado!=null?fmtBRL(l.realizado):'—'}</span>
-        ${l.diferenca!=null ? `<span style="font-size:11px; color:${l.diferenca>0?'var(--ink-red)':'var(--ink-green,#15803d)'};">Diferença: ${l.diferenca>0?'+':''}${fmtBRL(l.diferenca)}</span>` : ''}
+        ${l.diferenca!=null ? `<span style="font-size:11px; color:${l.diferenca>0?'var(--ink-red-fg)':'var(--ink-green,#15803d)'};">Diferença: ${l.diferenca>0?'+':''}${fmtBRL(l.diferenca)}</span>` : ''}
       </div>
     </div>
   `).join('');
@@ -11385,7 +11988,7 @@ function renderCustosComparativo(pLike){
       <div class="stat-box"><span class="stat-box-label">Custo Total Inicial</span><span class="stat-box-value">${fmtBRL(comp.custoTotalInicial)}</span></div>
       ${comp.temRealizado ? `<div class="stat-box"><span class="stat-box-label">Custo Total Realizado</span><span class="stat-box-value">${fmtBRL(comp.custoTotalRealizado)}</span></div>` : ''}
     </div>
-    ${comp.temRealizado ? `<div class="form-hint" style="margin-top:8px;">Diferença entre Realizado e Inicial: <strong style="color:${comp.diferenca>0?'var(--ink-red)':'var(--ink-green,#15803d)'};">${comp.diferenca>0?'+':''}${fmtBRL(comp.diferenca)}</strong></div>` : ''}
+    ${comp.temRealizado ? `<div class="form-hint" style="margin-top:8px;">Diferença entre Realizado e Inicial: <strong style="color:${comp.diferenca>0?'var(--ink-red-fg)':'var(--ink-green,#15803d)'};">${comp.diferenca>0?'+':''}${fmtBRL(comp.diferenca)}</strong></div>` : ''}
   `;
 }
 
@@ -11446,6 +12049,20 @@ function collectProcessFormData(){
     produtoMestreNome: window.__editingProcess.produtoMestreNome || '',
     produtoMestreSnapshot: window.__editingProcess.produtoMestreSnapshot || null,
     rotaAplicada: window.__editingProcess.rotaAplicada || null,
+    /* Provisionamento congelado (snapshot enviado ao Financeiro) NÃO vem de nenhum campo do
+       formulário — é escrito direto em window.__editingProcess por congelarProvisionamento()/
+       refazerProvisionamento(). Precisa ser copiado aqui manualmente igual aos outros campos
+       "gerenciados por código" acima (checklist, extra, produtoMestreSnapshot etc.), senão
+       cada salvamento subsequente sobrescreve o processo sem ele e a tela de "enviado" nunca
+       sobrevive a um fechar/reabrir do processo — só parecia funcionar durante a mesma sessão
+       do modal porque o objeto em memória continuava com o valor, mas o que ia pro Firestore
+       (e voltava na próxima abertura) já vinha sem. */
+    provisionamentoCongelado: window.__editingProcess.provisionamentoCongelado || null,
+    /* Mesmo caso do provisionamento acima: os lotes já extraídos da fatura (aba Lotes) também
+       são escritos direto em window.__editingProcess por extractAllLotes(), fora do
+       formulário — sem isso aqui, a extração "sumia" a cada reabertura do processo, obrigando
+       a rodar de novo toda vez mesmo já tendo sido feita antes. */
+    lotesExtraidos: window.__editingProcess.lotesExtraidos || null,
     temperaturaControlada: !!window.__editingProcess.temperaturaControlada,
     temperaturaValor: document.getElementById('f-temperatura').value,
     temperaturaOutro: document.getElementById('f-temperatura-outro').value,
@@ -11543,11 +12160,28 @@ function attachOverlayOutsideClose(overlay, closeFn){
   });
 }
 
+/* Pilha de "retornar à origem" entre modais — mecanismo genérico, não específico de nenhum
+   par de telas. Qualquer navegação que troque um modal por outro (fecha modal A, abre modal
+   B) pode registrar, com setModalReturnTo(fn), o que fazer quando o modal B for fechado —
+   em vez de simplesmente sumir e mostrar a página de fundo (o que geralmente é uma tela sem
+   relação nenhuma com o que a pessoa estava fazendo). closeModal() consome esse registro
+   UMA VEZ só (limpa antes de rodar), então não vaza pra fechamentos futuros não relacionados,
+   e closeModal() continua funcionando exatamente como antes (não faz nada além de remover o
+   overlay) pra qualquer modal que não tenha registrado retorno — a esmagadora maioria. */
+window.__modalReturnTo = null;
+function setModalReturnTo(fn){
+  window.__modalReturnTo = fn;
+}
 function closeModal(){
   const overlay = document.getElementById('modal-overlay');
   if(overlay) overlay.remove();
   window.__editingProcess = null;
   window.__confirmFinalizeItem = null;
+  if(window.__modalReturnTo){
+    const fn = window.__modalReturnTo;
+    window.__modalReturnTo = null;
+    fn();
+  }
 }
 
 /* ---------- GERAÇÃO DE CAPA (PDF via impressão) ---------- */
