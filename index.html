@@ -1061,7 +1061,7 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 
 /* MODAL */
 .modal-overlay{
-  position:fixed; inset:0; background:rgba(15,27,45,0.55); z-index:100;
+  position:fixed; inset:0; background:rgba(15,27,45,0.55); z-index:2000;
   display:flex; align-items:flex-start; justify-content:center; padding:40px 20px;
   overflow-y:auto;
 }
@@ -1075,6 +1075,43 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
    padrão de sempre. */
 .modal-view{max-width:960px;}
 .modal-view .view-grid{grid-template-columns:repeat(auto-fit,minmax(210px,1fr));}
+.modal-view .modal-header{
+  padding:0; border-bottom:none; display:block; position:relative; overflow:hidden;
+  border-radius:10px 10px 0 0; box-shadow:0 8px 24px rgba(9,25,46,0.18);
+}
+.modal-view .modal-body{
+  background:
+    radial-gradient(600px 300px at 92% 0%, rgba(117,155,255,0.08), transparent 60%),
+    radial-gradient(500px 300px at 8% 100%, rgba(102,204,170,0.06), transparent 60%),
+    #f7f9fc;
+}
+.modal-view .modal-footer{
+  background:rgba(255,255,255,0.88); border-top:1px solid rgba(183,197,214,0.52);
+  box-shadow:0 -8px 24px rgba(31,58,91,0.08);
+  -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
+}
+.readonly-section{
+  padding:20px; margin-bottom:16px; border:1px solid rgba(183,197,214,0.48); border-radius:20px;
+  background:rgba(255,255,255,0.48); box-shadow:0 10px 28px rgba(31,58,91,0.05), inset 0 1px 0 rgba(255,255,255,0.72);
+  -webkit-backdrop-filter:blur(14px) saturate(115%); backdrop-filter:blur(14px) saturate(115%);
+}
+.readonly-section .view-section-title{margin-top:0;}
+.readonly-section:last-child{margin-bottom:0;}
+.modal-view .view-field{
+  position:relative; min-height:58px; padding:12px 14px;
+  background:rgba(255,255,255,0.68); border:1px solid rgba(188,201,217,0.60); border-radius:13px;
+  box-shadow:0 3px 10px rgba(39,65,94,0.035), inset 0 1px 0 rgba(255,255,255,0.76);
+}
+.modal-view .view-value.copyable:hover{background:rgba(10,132,255,0.10); color:#0a5fb4;}
+body.dark-mode .modal-view .modal-body{
+  background:
+    radial-gradient(600px 300px at 92% 0%, rgba(66,120,220,0.07), transparent 60%),
+    radial-gradient(500px 300px at 8% 100%, rgba(60,170,140,0.05), transparent 60%),
+    var(--paper);
+}
+body.dark-mode .modal-view .modal-footer{background:rgba(255,255,255,0.05); border-top-color:var(--border-strong);}
+body.dark-mode .readonly-section{background:rgba(255,255,255,0.04); border-color:var(--border-strong);}
+body.dark-mode .modal-view .view-field{background:rgba(255,255,255,0.05); border-color:var(--border-strong);}
 /* Modo Viewer: campos ficam visíveis mas travados (não dá pra editar, só ler) — os botões
    de ação (Salvar/Excluir/etc.) já ficam escondidos por role em cada modal; isso trava
    visualmente os campos em si, pra não parecer editável sem ser. */
@@ -1096,6 +1133,35 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .modal-close:hover{background:var(--paper); color:var(--text);}
 .modal-body{padding:22px 26px; max-height:70vh; overflow-y:auto;}
 .modal-footer{padding:16px 26px; border-top:1px solid var(--border); display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+.modal-process .modal-footer{
+  background:rgba(255,255,255,0.88); border-top:1px solid rgba(183,197,214,0.52);
+  box-shadow:0 -8px 24px rgba(31,58,91,0.08);
+  -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
+}
+body.dark-mode .modal-process .modal-body{
+  background:
+    radial-gradient(600px 300px at 92% 0%, rgba(66,120,220,0.07), transparent 60%),
+    radial-gradient(500px 300px at 8% 100%, rgba(60,170,140,0.05), transparent 60%),
+    var(--paper);
+}
+body.dark-mode .modal-process .tabs{background:rgba(255,255,255,0.05); border-bottom-color:var(--border-strong);}
+body.dark-mode .modal-process .tab-btn{color:var(--muted);}
+body.dark-mode .modal-process .tab-btn.active{color:var(--text);}
+body.dark-mode .modal-process .process-summary-card{background:rgba(255,255,255,0.05); border-color:var(--border-strong);}
+body.dark-mode .modal-process .process-summary-card.is-overdue{border-color:rgba(232,137,106,0.5);}
+body.dark-mode .modal-process .process-phase-hint{background:rgba(127,184,232,0.08); border-color:rgba(127,184,232,0.25); color:var(--ink-blue-fg);}
+body.dark-mode .modal-process .process-phase-hint .hint-link{color:var(--ink-blue-fg);}
+body.dark-mode .modal-process .process-section{background:rgba(255,255,255,0.04); border-color:var(--border-strong);}
+body.dark-mode .modal-process .form-group input,
+body.dark-mode .modal-process .form-group select,
+body.dark-mode .modal-process .form-group textarea{background:#232E3D; color:var(--text); border-color:var(--border-strong);}
+body.dark-mode .modal-process .type-toggle{background:rgba(255,255,255,0.05); border-color:var(--border-strong);}
+body.dark-mode .modal-process .type-toggle button{color:var(--muted);}
+body.dark-mode .modal-process details.help-collapsible summary{color:var(--ink-blue-fg);}
+body.dark-mode .modal-process details.help-collapsible .help-body{background:rgba(127,184,232,0.06); border-color:rgba(127,184,232,0.2); color:var(--muted);}
+body.dark-mode .modal-process .reference-token-input{background:#232E3D; border-color:var(--border-strong); color:var(--text);}
+body.dark-mode .modal-process .reference-token-remove{background:var(--ink-red-bg); border-color:var(--ink-red-bg); color:var(--ink-red-fg);}
+body.dark-mode .modal-process .modal-footer{background:rgba(255,255,255,0.05); border-top-color:var(--border-strong);}
 
 /* MODAL DE PROCESSO — versão ampla com cabeçalho ilustrado (ver Reestruturação do Modal).
    Só afeta o modal do processo (classe extra .modal-process); os outros modais do sistema
@@ -1104,15 +1170,16 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .modal-process .modal-header{
   padding:0; border-bottom:none; display:block; position:relative; overflow:hidden;
   border-radius:10px 10px 0 0;
+  box-shadow:0 8px 24px rgba(9,25,46,0.18);
 }
 .process-modal-banner{
-  position:relative; padding:20px 24px; display:flex; align-items:center; gap:14px;
+  position:relative; padding:16px 24px; display:flex; align-items:center; gap:14px;
   background-size:cover; background-position:center 42%; background-color:var(--navy);
   color:#fff;
 }
 .process-modal-banner::before{
   content:''; position:absolute; inset:0;
-  background:linear-gradient(100deg, rgba(10,20,35,0.92) 0%, rgba(10,20,35,0.72) 45%, rgba(10,20,35,0.9) 100%);
+  background:linear-gradient(135deg, rgba(10,27,50,0.97) 0%, rgba(12,31,57,0.90) 55%, rgba(10,27,50,0.97) 100%);
 }
 .process-modal-banner > *{position:relative; z-index:1;}
 .process-modal-icon{
@@ -1120,25 +1187,58 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
   display:flex; align-items:center; justify-content:center; flex-shrink:0; color:#fff;
 }
 .process-modal-text{min-width:0; flex:1;}
-.process-modal-eyebrow{font-size:10px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase; color:rgba(255,255,255,0.68);}
+.process-modal-eyebrow{font-size:10px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase; color:rgba(255,255,255,0.68); margin-bottom:2px;}
 .process-modal-title{font-family:var(--font-text); font-size:21px; font-weight:700; line-height:1.2; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .process-modal-sub{font-size:12.5px; color:rgba(255,255,255,0.8); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .process-modal-phase-badge{
   padding:7px 14px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:0.03em; text-transform:uppercase;
   background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.32); color:#fff; white-space:nowrap; flex-shrink:0;
+  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
 }
-.process-modal-banner .modal-close{color:rgba(255,255,255,0.85); flex-shrink:0;}
+.process-modal-banner .modal-close{
+  color:rgba(255,255,255,0.85); flex-shrink:0; width:32px; height:32px; border-radius:8px;
+}
 .process-modal-banner .modal-close:hover{background:rgba(255,255,255,0.16); color:#fff;}
 
 .modal-process .tabs{
-  position:sticky; top:0; z-index:6; background:var(--card); margin:0;
-  padding:10px 24px 0 24px; border-bottom:1px solid var(--border);
+  position:sticky; top:0; z-index:6;
+  background:rgba(255,255,255,0.82);
+  -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px);
+  margin:0; padding:0 24px; border-bottom:1px solid rgba(183,197,214,0.45);
+  flex-wrap:nowrap; overflow-x:auto;
 }
-.modal-process .modal-body{padding:0;}
+.modal-process .tab-btn{
+  position:relative; min-height:50px; padding:0 14px; margin-right:0;
+  color:#738096; white-space:nowrap; display:inline-flex; align-items:center; border-bottom-color:transparent;
+}
+.modal-process .tab-btn.active{color:#17263a; border-bottom-color:transparent;}
+.modal-process .tab-btn.active::after{
+  content:''; position:absolute; left:10px; right:10px; bottom:-1px; height:2px; border-radius:2px; background:#0a84ff;
+}
+.modal-process .modal-body{
+  padding:0;
+  background:
+    radial-gradient(600px 300px at 92% 0%, rgba(117,155,255,0.08), transparent 60%),
+    radial-gradient(500px 300px at 8% 100%, rgba(102,204,170,0.06), transparent 60%),
+    #f7f9fc;
+}
 .modal-process .tab-pane.active{padding:20px 24px 22px 24px;}
 
 .process-summary-row{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:16px;}
 .process-summary-card{background:var(--paper); border:1px solid var(--border); border-radius:10px; padding:14px 16px;}
+.modal-process .process-summary-card, .modal-view .process-summary-card{
+  background:rgba(255,255,255,0.72); border:1px solid rgba(183,197,214,0.68); border-radius:18px;
+  box-shadow:0 8px 24px rgba(31,58,91,0.07), inset 0 1px 0 rgba(255,255,255,0.88);
+  -webkit-backdrop-filter:blur(16px) saturate(120%); backdrop-filter:blur(16px) saturate(120%);
+}
+.modal-process .process-summary-card.is-overdue, .modal-view .process-summary-card.is-overdue{border-color:rgba(219,111,86,0.48);}
+.modal-process .process-summary-card.is-overdue .process-summary-sub,
+.modal-view .process-summary-card.is-overdue .process-summary-sub{
+  display:inline-block; color:#bd5e45; background:rgba(219,111,86,0.10); padding:2px 8px; border-radius:999px;
+}
+.process-modal-phase-badge.is-overdue{background:rgba(219,111,86,0.22); border-color:rgba(219,111,86,0.42);}
+.view-header-badges{display:flex; align-items:center; gap:8px; flex-wrap:wrap; flex-shrink:0;}
+.view-readonly-note{font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:14px;}
 .process-summary-label{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin-bottom:9px;}
 .process-summary-value{font-family:var(--font-text); font-size:18px; font-weight:700; color:var(--text); line-height:1.2;}
 .process-summary-progress-track{height:6px; border-radius:999px; background:var(--border); margin-top:10px; overflow:hidden;}
@@ -1152,10 +1252,24 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
   font-size:12.5px; display:flex; align-items:center; gap:9px; margin-bottom:20px;
 }
 .process-phase-hint svg{flex-shrink:0; color:var(--ink-blue-fg);}
+.modal-process .process-phase-hint{
+  background:rgba(218,235,248,0.68); border:1px solid rgba(158,192,218,0.48); color:#315d83;
+  -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
+}
+.modal-process .process-phase-hint .hint-link{
+  color:#0a5fb4; font-weight:700; white-space:nowrap; margin-left:auto; cursor:pointer;
+}
+.modal-process .process-phase-hint .hint-link:hover{text-decoration:underline;}
 
 .process-section{padding:18px 0; border-top:1px solid var(--border);}
 .process-section:first-of-type{border-top:none; padding-top:0;}
 .process-section-title{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); margin-bottom:14px;}
+.modal-process .process-section{
+  padding:20px; margin-bottom:16px; border:1px solid rgba(183,197,214,0.44); border-radius:20px;
+  background:rgba(255,255,255,0.42); box-shadow:inset 0 1px 0 rgba(255,255,255,0.58);
+}
+.modal-process .process-section:first-of-type{padding:20px;}
+.modal-process .process-section:last-child{margin-bottom:0;}
 .process-grid-4{display:grid; grid-template-columns:repeat(4,1fr); gap:6px 16px;}
 .process-grid-4 .form-group, .process-grid-2 .form-group{margin-bottom:12px;}
 .process-grid-2{display:grid; grid-template-columns:repeat(2,1fr); gap:6px 16px;}
@@ -1176,6 +1290,42 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .form-group input:focus, .form-group select:focus, .form-group textarea:focus{outline:2px solid var(--ink-blue-fg); outline-offset:1px; border-color:var(--ink-blue-fg);}
 .form-group textarea{resize:vertical; min-height:60px;}
 .form-hint{font-size:11px; color:var(--muted); margin-top:4px; font-style:italic; font-weight:300;}
+.modal-process .form-group input,
+.modal-process .form-group select,
+.modal-process .form-group textarea{
+  min-height:40px; color:#17263a; background:rgba(255,255,255,0.70);
+  border:1px solid rgba(169,184,202,0.68); border-radius:11px;
+  transition:border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+.modal-process .form-group input:focus,
+.modal-process .form-group select:focus,
+.modal-process .form-group textarea:focus{
+  outline:none; background:rgba(255,255,255,0.88); border-color:rgba(10,132,255,0.60);
+  box-shadow:0 0 0 4px rgba(10,132,255,0.10);
+}
+.modal-process details.help-collapsible{margin-top:4px;}
+.modal-process details.help-collapsible summary{
+  list-style:none; cursor:pointer; font-size:12px; font-weight:600; color:#315d83;
+  display:flex; align-items:center; gap:6px;
+}
+.modal-process details.help-collapsible summary::-webkit-details-marker{display:none;}
+.modal-process details.help-collapsible summary::after{content:'▾'; margin-left:2px; font-size:10px;}
+.modal-process details.help-collapsible[open] summary::after{content:'▴';}
+.modal-process details.help-collapsible .help-body{
+  margin-top:6px; padding:10px 12px; border-radius:10px; font-size:11.5px; line-height:1.5;
+  color:var(--muted); background:rgba(218,235,248,0.4); border:1px solid rgba(158,192,218,0.35);
+}
+.modal-process .reference-token-row{display:flex; align-items:center; gap:6px; margin-bottom:6px;}
+.modal-process .reference-token-input{
+  flex:1; min-height:34px; padding:0 10px; border-radius:9px;
+  background:rgba(220,235,247,0.55); border:1px solid rgba(160,192,217,0.50); color:#17263a; font-size:13px;
+}
+.modal-process .reference-token-remove{
+  width:30px; height:30px; flex-shrink:0; border:1px solid rgba(225,157,139,0.48); background:rgba(255,244,240,0.72);
+  color:#b5543d; border-radius:9px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.modal-process .reference-token-remove:hover{background:rgba(255,244,240,0.95);}
+
 /* "Modo fixo" do cadastro de Produto (Banco de Itens): campo já preenchido mostra como um
    valor travado (não parece um input) até a pessoa clicar em "Editar Produto". */
 .fixed-field-value{
@@ -1192,6 +1342,18 @@ body.dark-mode .fixed-field-value{background:var(--card); border-color:var(--bor
 .tab-btn.active{color:var(--text); border-bottom-color:var(--ink-red-fg);}
 .tab-pane{display:none;}
 .tab-pane.active{display:block;}
+
+.modal-process .type-toggle{
+  display:grid; grid-template-columns:1fr 1fr; padding:4px; gap:0;
+  border:1px solid rgba(183,197,214,0.58); border-radius:14px; background:rgba(236,241,247,0.72);
+}
+.modal-process .type-toggle button{
+  min-height:38px; border:0; border-radius:10px; background:transparent; color:#788699; font-weight:600;
+}
+.modal-process .type-toggle button.active{
+  color:#fff; background:#132b49; box-shadow:0 4px 10px rgba(19,43,73,0.16); border-color:transparent;
+}
+
 
 .cost-table{width:100%; border-collapse:collapse; font-size:13px;}
 .cost-table td{padding:7px 0; border-bottom:1px solid var(--border);}
@@ -4075,6 +4237,24 @@ function openProcessViewModal(id, event){
     `;
   })() : '';
 
+  const progressPctView = Math.round(processProgressRatio(p)*100);
+  const prontidaoView = (()=>{
+    if(!p.prontidao) return {value:'Não definida', sub:'', overdue:false};
+    const dateLabel = fmtDate(p.prontidao);
+    /* "Atrasado" só faz sentido enquanto a prontidão ainda é uma pendência em aberto — uma
+       vez que a carga já embarcou (ou o processo já foi concluído), a data ficou no passado
+       porque a etapa já foi cumprida, não porque está atrasada. Sem essa checagem, todo
+       processo já embarcado/finalizado mostrava "Atrasado Xd" pra sempre, mesmo tendo
+       embarcado no prazo — pedido explícito pra não aparecer "só por aparecer". */
+    if(p.dataEmbarqueReal || isProcessDone(p)) return {value:dateLabel, sub:'', overdue:false};
+    const d = daysBetween(todayStr(), p.prontidao);
+    if(d>0) return {value:dateLabel, sub:`Faltam ${d} dia${d===1?'':'s'}`, overdue:false};
+    if(d===0) return {value:dateLabel, sub:'É hoje', overdue:false};
+    return {value:dateLabel, sub:`Atrasado ${Math.abs(d)} dia${Math.abs(d)===1?'':'s'}`, overdue:true};
+  })();
+  const fornecedorPlainNameView = fornecedor ? fornecedor.name : 'Fornecedor não definido';
+  const headerSubView = [fornecedorPlainNameView, p.origemPais, modalLabel(p.modal)].filter(Boolean).join(' · ');
+
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
@@ -4082,20 +4262,42 @@ function openProcessViewModal(id, event){
   overlay.innerHTML = `
     <div class="modal modal-view">
       <div class="modal-header">
-        <h2>${p.produto||'Processo'} <span style="font-family:var(--font-text); font-size:14px; color:var(--muted);">· ${p.ref||''}</span></h2>
-        <button class="modal-close" onclick="closeModal()">${svgCloseIcon()}</button>
+        <div class="process-modal-banner">
+          <div class="process-modal-icon">${modalIcon(p.modal)}</div>
+          <div class="process-modal-text">
+            <div class="process-modal-title">${p.produto||'Processo'} · ${p.ref||''}</div>
+            <div class="process-modal-sub">${headerSubView}</div>
+          </div>
+          <div class="view-header-badges">
+            <div class="process-modal-phase-badge">${stageInfoFor(p,p.status).label}</div>
+            <div class="process-modal-phase-badge">${progressPctView}% concluído</div>
+            ${prontidaoView.overdue ? `<div class="process-modal-phase-badge is-overdue">${prontidaoView.sub}</div>` : ''}
+          </div>
+          <button class="modal-close" onclick="closeModal()">${svgCloseIcon()}</button>
+        </div>
       </div>
       <div class="modal-body">
-        <div class="status-badge-row">
-          <div class="stamp ${stageInfoFor(p,p.status).cls}">${stageInfoFor(p,p.status).label}</div>
-          <div class="status-badge-hint">${Math.round(processProgressRatio(p)*100)}% concluído · Visualização somente leitura</div>
+        <div class="view-readonly-note">Visualização somente leitura</div>
+
+        <div class="process-summary-row">
+          <div class="process-summary-card">
+            <div class="process-summary-label">Valor FOB (USD)</div>
+            <div class="process-summary-value">${p.fob ? fmtUSD(parseFloat(p.fob)) : '—'}</div>
+            <div class="process-summary-chip">FOB</div>
+          </div>
+          <div class="process-summary-card">
+            <div class="process-summary-label">Progresso</div>
+            <div class="process-summary-value">${progressPctView}% concluído</div>
+            <div class="process-summary-sub">${stageInfoFor(p,p.status).label}</div>
+          </div>
+          <div class="process-summary-card ${prontidaoView.overdue?'is-overdue':''}">
+            <div class="process-summary-label">Prontidão</div>
+            <div class="process-summary-value">${prontidaoView.value}</div>
+            ${prontidaoView.sub ? `<div class="process-summary-sub">${prontidaoView.sub}</div>` : ''}
+          </div>
         </div>
 
-        <div class="fob-usd-hero">
-          <span class="fob-usd-hero-label">FOB (USD)</span>
-          <span class="fob-usd-hero-value">${p.fob ? fmtUSD(parseFloat(p.fob)) : '—'}</span>
-        </div>
-
+        <div class="readonly-section">
         <div class="view-section-title">Identificação</div>
         <div class="view-grid">
           ${viewFieldHtml('Fornecedor', fornecedor?fornecedorNameHtml(fornecedor):'—', svgPersonIcon())}
@@ -4105,7 +4307,9 @@ function openProcessViewModal(id, event){
           ${viewFieldHtml('Pedido no SAP', extra.numeroPedidoSAP, svgBarcodeIcon())}
           ${viewFieldHtml('Referências do Fornecedor', (p.referenciasFornecedor||[]).map(r=>r.ref).filter(Boolean).join(' / '), svgDocumentIcon())}
         </div>
+        </div>
 
+        <div class="readonly-section">
         <div class="view-section-title">Dados da Importação</div>
         <div class="view-grid">
           ${viewFieldHtml('Origem', (countryFlag(p.origemPais)?countryFlag(p.origemPais)+' ':'')+(p.origemPais||'—'), svgGlobeIcon())}
@@ -4149,15 +4353,21 @@ function openProcessViewModal(id, event){
           ${viewFieldHtml('Controle de Temperatura', p.temperaturaControlada ? (p.temperaturaValor==='outro'?p.temperaturaOutro:p.temperaturaValor+'°C') : 'Não', svgThermometerIcon())}
         </div>
         ${containersHtml}
+        </div>
 
+        <div class="readonly-section">
         <div class="view-section-title">Etapas</div>
         ${etapasHtml}
+        </div>
 
+        <div class="readonly-section">
         <div class="view-section-title">Documentos</div>
         ${docsHtml}
+        </div>
 
-        ${itensViewHtml}
+        ${itensViewHtml ? `<div class="readonly-section">${itensViewHtml}</div>` : ''}
 
+        <div class="readonly-section">
         <div class="view-section-title">Custos</div>
         <div class="view-grid">
           ${viewFieldHtml('CIF (BRL) — referência', fmtBRL(costs.cifBrl), svgMoneyIcon())}
@@ -4166,8 +4376,9 @@ function openProcessViewModal(id, event){
           ${paymentBreakdownRows(p).map(r=>viewFieldHtml(`Pagamento — ${r.label}`, fmtBRL(r.valor), svgCreditCardIcon())).join('')}
         </div>
         <div class="stat-box" style="margin-top:6px;"><span class="stat-box-label">Custo Total</span><span class="stat-box-value">${fmtBRL(costs.total)}</span></div>
+        </div>
 
-        ${p.obs ? `<div class="view-section-title">Observações</div><div class="view-field">${p.obs}</div>` : ''}
+        ${p.obs ? `<div class="readonly-section"><div class="view-section-title">Observações</div><div class="view-field">${p.obs}</div></div>` : ''}
       </div>
       <div class="modal-footer">
         ${canEdit('processos') ? `<button class="btn btn-pdf" onclick="closeModal(); openProcessModal('${p.id}');">Abrir para editar</button>` : ''}
@@ -11043,9 +11254,9 @@ function refFornecedorRowsHtml(p){
   const list = p.referenciasFornecedor || [];
   if(!list.length) return `<div class="form-hint">Nenhuma referência ainda — clique em "+ Adicionar Fatura".</div>`;
   return list.map(r=>`
-    <div class="form-row" style="grid-template-columns:1fr auto; margin-bottom:6px; align-items:center;">
-      <input type="text" value="${(r.ref||'').replace(/"/g,'&quot;')}" placeholder="Nº do pedido/PO/invoice no sistema do fornecedor" oninput="updateRefFornecedor('${r.id}', this.value)">
-      <button type="button" class="btn btn-danger" style="padding:8px 12px;" onclick="removeRefFornecedor('${r.id}')">Remover</button>
+    <div class="reference-token-row">
+      <input type="text" class="reference-token-input" value="${(r.ref||'').replace(/"/g,'&quot;')}" placeholder="Nº do pedido/PO/invoice no sistema do fornecedor" oninput="updateRefFornecedor('${r.id}', this.value)">
+      <button type="button" class="reference-token-remove" onclick="removeRefFornecedor('${r.id}')" title="Remover" aria-label="Remover">${svgTrashIcon()}</button>
     </div>
   `).join('');
 }
@@ -11375,12 +11586,16 @@ function openProcessModal(id){
   const stageNow = stageInfoFor(p, p.status);
   const progressPct = Math.round(processProgressRatio(p)*100);
   const prontidaoResumo = (()=>{
-    if(!p.prontidao) return {value:'Não definida', sub:''};
-    const d = daysBetween(todayStr(), p.prontidao);
+    if(!p.prontidao) return {value:'Não definida', sub:'', overdue:false};
     const dateLabel = fmtDate(p.prontidao);
-    if(d>0) return {value:dateLabel, sub:`Faltam ${d} dia${d===1?'':'s'}`};
-    if(d===0) return {value:dateLabel, sub:'É hoje'};
-    return {value:dateLabel, sub:`Atrasado ${Math.abs(d)} dia${Math.abs(d)===1?'':'s'}`};
+    /* Ver comentário equivalente em openProcessViewModal() — "Atrasado" só vale enquanto a
+       prontidão ainda está em aberto; depois que a carga embarca (ou o processo é concluído),
+       a data no passado é só histórico, não uma pendência ativa. */
+    if(p.dataEmbarqueReal || isProcessDone(p)) return {value:dateLabel, sub:'', overdue:false};
+    const d = daysBetween(todayStr(), p.prontidao);
+    if(d>0) return {value:dateLabel, sub:`Faltam ${d} dia${d===1?'':'s'}`, overdue:false};
+    if(d===0) return {value:dateLabel, sub:'É hoje', overdue:false};
+    return {value:dateLabel, sub:`Atrasado ${Math.abs(d)} dia${Math.abs(d)===1?'':'s'}`, overdue:true};
   })();
   const headerProdutoNome = p.produto || (existing ? 'Sem nome de produto' : 'Novo Processo');
   const headerFornecedorNome = initialSupplier ? initialSupplier.name : 'Fornecedor não definido';
@@ -11432,7 +11647,7 @@ function openProcessModal(id){
               <div class="process-summary-value">${p.fob?fmtUSD(p.fob):'—'}</div>
               <div class="process-summary-chip">FOB</div>
             </div>
-            <div class="process-summary-card">
+            <div class="process-summary-card ${prontidaoResumo.overdue?'is-overdue':''}">
               <div class="process-summary-label">Prontidão da Carga</div>
               <div class="process-summary-value">${prontidaoResumo.value}</div>
               ${prontidaoResumo.sub ? `<div class="process-summary-sub">${prontidaoResumo.sub}</div>` : ''}
@@ -11441,6 +11656,7 @@ function openProcessModal(id){
           <div class="process-phase-hint">
             ${svgInfoIcon(18)}
             <span>O status é atualizado automaticamente conforme você marca os itens na aba <strong>Etapas</strong>.</span>
+            <a class="hint-link" onclick="switchTab('etapas')">Ver etapas →</a>
           </div>
 
           <div class="process-section">
@@ -11494,7 +11710,10 @@ function openProcessModal(id){
                 </select>
               </div>
             </div>
-            <div class="form-hint">Definir Despachante/Transportadora aqui só registra quem vai atuar no processo — não substitui marcar "Despachante notificado" e "Solicitar DTA" na aba Etapas, que é o que os alertas de pendência acompanham. A Modalidade de Pagamento definida aqui já reflete sozinha no rótulo do item "Pagamento" da aba Etapas e no alerta de cobrança de pagamento — só é cobrado quando estiver marcada como "Adiantado". Cada Referência do Fornecedor vira automaticamente um espaço de documento na aba Documentos ("Invoice - referência").</div>
+            <details class="help-collapsible">
+              <summary>Como funciona (despachante, transportadora, pagamento e referências)</summary>
+              <div class="help-body">Definir Despachante/Transportadora aqui só registra quem vai atuar no processo — não substitui marcar "Despachante notificado" e "Solicitar DTA" na aba Etapas, que é o que os alertas de pendência acompanham. A Modalidade de Pagamento definida aqui já reflete sozinha no rótulo do item "Pagamento" da aba Etapas e no alerta de cobrança de pagamento — só é cobrado quando estiver marcada como "Adiantado". Cada Referência do Fornecedor vira automaticamente um espaço de documento na aba Documentos ("Invoice - referência").</div>
+            </details>
           </div>
 
           <div class="process-section">
@@ -11782,7 +12001,7 @@ function openProcessModal(id){
         </div>
         <div style="display:flex; gap:8px;">
           <button class="btn" onclick="closeModal()">${!canEdit('processos')?'Fechar':'Cancelar'}</button>
-          ${canEdit('processos') ? `<button class="btn btn-primary" onclick="saveProcess()">Salvar Processo</button>` : ''}
+          ${canEdit('processos') ? `<button class="btn btn-primary" id="btn-save-process" onclick="saveProcess()">Salvar Processo</button>` : ''}
         </div>
       </div>
     </div>
@@ -12716,10 +12935,14 @@ function collectProcessFormData(){
 
 async function saveProcess(){
   if(!requireEditPermission()) return;
+  const saveBtn = document.getElementById('btn-save-process');
+  const saveBtnLabel = saveBtn ? saveBtn.textContent : null;
+  if(saveBtn){ saveBtn.disabled = true; saveBtn.textContent = 'Salvando…'; }
   const data = collectProcessFormData();
   if(!data.produto){
     alert('Informe ao menos o nome do produto.');
     switchTab('geral');
+    if(saveBtn){ saveBtn.disabled = false; saveBtn.textContent = saveBtnLabel; }
     return;
   }
   const idx = state.processes.findIndex(p=>p.id===data.id);
@@ -12740,6 +12963,7 @@ async function saveProcess(){
        e a pessoa só percebia a perda ao reabrir o processo depois. Agora avisa e mantém tudo
        aberto pra tentar de novo. */
     alert('Não foi possível salvar o processo agora (sem conexão ou erro no servidor). Suas alterações continuam aqui na tela — tente salvar de novo em alguns segundos.');
+    if(saveBtn){ saveBtn.disabled = false; saveBtn.textContent = saveBtnLabel; }
     return;
   }
   /* O processo já está salvo com segurança neste ponto (persistState() confirmou). Qualquer
