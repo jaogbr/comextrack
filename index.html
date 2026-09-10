@@ -2010,6 +2010,22 @@ let currentUserPermissoes = null; // matriz de permissões do cargo do usuário 
 let currentUserVerAlertas = true; // permissão à parte da matriz — controla se o cargo vê os alertas de pendência nos cards de processo (ex: "faltando provisionamento")
 let unsubscribeData = null;
 
+/* ===================== MULTIEMPRESA — FASE 1 (fundação) =====================
+   `activeCompanyId` é o único lugar do código que sabe qual empresa está ativa. Por enquanto
+   é sempre 'scientific-dental' (só existe uma empresa cadastrada) — a Fase 3 (seletor de
+   empresa) só vai precisar REATRIBUIR essa variável quando o usuário trocar de empresa; nada
+   mais no app referencia "Scientific Dental" como texto fixo pra decidir de onde ler/gravar
+   dado. `let`, não `const`, de propósito — é exatamente o ponto de extensão pra isso. */
+let activeCompanyId = 'scientific-dental';
+/* Caminho antigo (documento único, todas as empresas juntas — nunca vai existir mais de uma
+   empresa nele, é só o formato de ANTES da Fase 1). Mantido só pra leitura, como ponte de
+   transição automática (ver bootstrapMigrateFromLegacyDocument) — nunca mais escrito depois
+   que a empresa ativa já tem seu próprio documento. */
+const LEGACY_DATA_DOC_PATH = {collection:'comextrack', doc:'data'};
+function companyDocRef(companyId){
+  return db.collection('companies').doc(companyId || activeCompanyId);
+}
+
 function doLogin(){
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
@@ -2191,7 +2207,7 @@ async function ensureUserRole(user){
 
 function attachDataListener(){
   if(unsubscribeData) unsubscribeData();
-  unsubscribeData = db.collection('comextrack').doc('data').onSnapshot(doc=>{
+  unsubscribeData = companyDocRef().onSnapshot(doc=>{
     window.__lastSyncTs = Date.now(); // TESTE VISUAL — Painel v2: usado no rodapé "Atualizado há..."
     if(doc.exists){
       const d = doc.data();
@@ -2205,8 +2221,15 @@ function attachDataListener(){
       state.codigosImposto = d.codigosImposto || [];
       state.tiposItem = (d.tiposItem && d.tiposItem.length) ? d.tiposItem : DEFAULT_TIPOS_ITEM.map(t=>({...t}));
     } else {
+      /* MULTIEMPRESA — FASE 1: documento da empresa ainda não existe (é a primeira vez que
+         alguém carrega o app depois dessa mudança). Em vez de começar vazio — o que pareceria
+         ter perdido os 17 processos e todo o resto da Scientific Dental —, busca uma vez no
+         documento antigo (formato de ANTES da Fase 1, ver LEGACY_DATA_DOC_PATH) e copia pro
+         caminho novo. Não apaga nem toca no documento antigo — ele continua existindo como
+         está, intacto, só deixa de ser lido depois que o documento novo passa a existir. */
       state = { processes:[], suppliers:[], partners: DEFAULT_PARTNERS.map(p=>({...p})), ncms: DEFAULT_NCMS.map(n=>({...n})), empresaConfig: { nome:'', estoques:[] },
         finalidades: DEFAULT_FINALIDADES.map(f=>({...f})), codigosImposto: [], tiposItem: DEFAULT_TIPOS_ITEM.map(t=>({...t})) };
+      bootstrapMigrateFromLegacyDocument();
     }
     /* MIGRAÇÃO: "Aprovar Draft de BL" mudou de posição (Fase 5 → Fase 4) pra corrigir a ordem
        de negócio (ver comentário em STAGE_DEFS). Roda sempre, pra QUALQUER usuário (mesmo
@@ -2231,6 +2254,27 @@ function attachDataListener(){
     console.error('Erro ao sincronizar', err);
     updateSaveIndicator(`${svgWarnInline()} Erro de conexão com a nuvem`);
   });
+}
+/* MULTIEMPRESA — FASE 1: ponte de migração automática, uma única vez, do documento antigo
+   (comextrack/data, formato pré-multiempresa) pro documento novo da empresa ativa
+   (companies/scientific-dental). Só grava se o documento antigo realmente tiver dado —
+   nunca cria um documento novo vazio por cima de nada, e nunca escreve no documento antigo.
+   Se dois navegadores caírem aqui ao mesmo tempo (ex: duas pessoas abrindo o app no mesmo
+   minuto logo após esse deploy), os dois vão gravar o MESMO conteúdo de origem no documento
+   novo — inofensivo, é o mesmo dado duas vezes, não corrompe nada. Depois que o documento
+   novo existe uma vez, esta função nunca mais roda (attachDataListener só chama isso quando
+   doc.exists é false). */
+async function bootstrapMigrateFromLegacyDocument(){
+  try{
+    const legacySnap = await db.collection(LEGACY_DATA_DOC_PATH.collection).doc(LEGACY_DATA_DOC_PATH.doc).get();
+    if(!legacySnap.exists) return;
+    const legacyData = legacySnap.data();
+    if(!legacyData) return;
+    await companyDocRef().set(legacyData);
+    console.info('[multiempresa] Dados existentes migrados de comextrack/data para companies/'+activeCompanyId+'.');
+  }catch(e){
+    console.error('[multiempresa] Não foi possível migrar automaticamente do documento antigo', e);
+  }
 }
 
 auth.onAuthStateChanged(async (user)=>{
@@ -7074,7 +7118,7 @@ async function persistState(isRetry){
       codigosImposto: state.codigosImposto || [],
       tiposItem: state.tiposItem || [],
     }));
-    await db.collection('comextrack').doc('data').set(payload);
+    await companyDocRef().set(payload);
     updateSaveIndicator(`Dados salvos na nuvem ${svgCheckInline()}`);
     return true;
   }catch(e){
