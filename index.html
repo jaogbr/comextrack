@@ -332,6 +332,33 @@ main.main-collapsed{margin-left:76px;}
   background:#DC2626; color:#fff; font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center;
   border:2px solid var(--card);
 }
+.company-switcher-label{
+  font-size:12.5px; font-weight:600; color:var(--muted); padding:5px 10px; white-space:nowrap;
+}
+.company-switcher-wrap{position:relative; z-index:1001;}
+.company-switcher-trigger{
+  display:flex; align-items:center; gap:6px; cursor:pointer; padding:6px 12px; border-radius:10px;
+  border:1px solid var(--border-strong); background:var(--paper); font-size:12.5px; font-weight:600; color:var(--text);
+  white-space:nowrap;
+}
+.company-switcher-trigger:hover{background:var(--card-hover, var(--border));}
+.company-switcher-dropdown{
+  position:absolute; top:calc(100% + 8px); left:0; min-width:220px;
+  background:rgba(255,255,255,0.88);
+  -webkit-backdrop-filter:blur(24px) saturate(135%); backdrop-filter:blur(24px) saturate(135%);
+  border:1px solid rgba(194,207,224,0.85); border-radius:16px;
+  box-shadow:0 18px 45px rgba(29,53,83,0.18), 0 4px 12px rgba(29,53,83,0.08), inset 0 1px 0 rgba(255,255,255,0.95);
+  padding:6px; z-index:1000; color:#0F1B2D;
+  transform-origin:top left; animation:profileMenuEnter 180ms ease-out both;
+}
+body.dark-mode .company-switcher-dropdown{background:rgba(30,38,50,0.92); border-color:rgba(255,255,255,0.1); color:var(--text);}
+.company-switcher-dropdown .sidebar-switch-label{color:#7A889B;}
+.company-switcher-dropdown .sidebar-switch-row{color:#0F1B2D; cursor:pointer;}
+.company-switcher-dropdown .sidebar-switch-row:hover{background:rgba(91,143,198,0.12);}
+.company-switcher-dropdown .sidebar-switch-row.current{cursor:default; opacity:0.7;}
+body.dark-mode .company-switcher-dropdown .sidebar-switch-label{color:var(--muted);}
+body.dark-mode .company-switcher-dropdown .sidebar-switch-row{color:var(--text);}
+body.dark-mode .company-switcher-dropdown .sidebar-switch-row:hover{background:rgba(255,255,255,0.08);}
 .topbar-account-wrap{position:relative; z-index:1001;}
 .topbar-account{display:flex; align-items:center; gap:8px; cursor:pointer; padding:5px 10px 5px 5px; border-radius:10px; border:1px solid var(--border-strong); background:var(--paper);}
 .topbar-account:hover{background:var(--card-hover, var(--border));}
@@ -1369,6 +1396,25 @@ body.dark-mode .fixed-field-value{background:var(--card); border-color:var(--bor
 .prov-section{background:var(--card); border:1px solid var(--border); border-radius:8px; padding:16px 18px;}
 .prov-section-title{font-size:11px; font-weight:800; letter-spacing:.6px; color:var(--muted); margin-bottom:10px;}
 .prov-line{padding:10px 0; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;}
+
+.company-toolbar{display:flex; align-items:center; gap:10px; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap;}
+.company-toolbar input{max-width:280px; flex:1;}
+.company-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px;}
+.company-card{
+  background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px;
+  display:flex; flex-direction:column; gap:6px;
+}
+.company-card.is-active{border-color:var(--ink-blue-fg); box-shadow:0 0 0 1px var(--ink-blue-fg);}
+.company-card.is-managing{background:var(--paper);}
+.company-card-top{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+.company-card-name{font-family:var(--font-display); font-weight:700; font-size:14.5px; color:var(--text); text-transform:uppercase; letter-spacing:0.02em;}
+.company-card-status{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; padding:3px 9px; border-radius:999px; flex-shrink:0;}
+.company-card-status.is-ativa{background:var(--ink-green-bg); color:var(--ink-green-fg);}
+.company-card-status.is-inativa{background:var(--ink-red-bg); color:var(--ink-red-fg);}
+.company-card-badge{display:inline-block; width:fit-content; font-size:10px; font-weight:700; color:var(--ink-blue-fg); background:var(--ink-blue-bg); padding:2px 8px; border-radius:999px;}
+.company-card-meta{font-size:11.5px; color:var(--muted);}
+.company-card-actions{display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;}
+.company-card-actions .btn{padding:6px 12px; font-size:12.5px;}
 .prov-line:last-child{border-bottom:none;}
 .prov-line-label{font-size:13px; color:var(--text);}
 .prov-line-value{font-family:var(--font-text); font-weight:700; font-size:14px; display:flex; align-items:center; gap:8px;}
@@ -2009,6 +2055,8 @@ let currentUserNome = ''; // nome de exibição cadastrado pelo próprio usuári
 let currentUserPermissoes = null; // matriz de permissões do cargo do usuário logado — null quando é 'admin' (bypass total)
 let currentUserVerAlertas = true; // permissão à parte da matriz — controla se o cargo vê os alertas de pendência nos cards de processo (ex: "faltando provisionamento")
 let unsubscribeData = null;
+let userAvailableCompanies = null; // empresas que a pessoa logada pode acessar — carregado no login, usado pelo seletor do topbar
+let showCompanySwitcher = false;
 
 /* ===================== MULTIEMPRESA — FASE 1 (fundação) =====================
    `activeCompanyId` é o único lugar do código que sabe qual empresa está ativa. Por enquanto
@@ -2024,6 +2072,87 @@ let activeCompanyId = 'scientific-dental';
 const LEGACY_DATA_DOC_PATH = {collection:'comextrack', doc:'data'};
 function companyDocRef(companyId){
   return db.collection('companies').doc(companyId || activeCompanyId);
+}
+
+/* ===================== MULTIEMPRESA — FASE 3 (vínculo usuário-empresa) =====================
+   Até aqui (Fase 1/2) só existia UMA empresa de verdade, então o cargo de cada usuário podia
+   morar direto em users/{uid}.cargoId sem problema. Agora que dá pra cadastrar mais empresas
+   (Fase 2), o MESMO usuário precisa poder ter cargos DIFERENTES em empresas diferentes — daí
+   esta tabela de vínculo. 'admin' continua sendo global (ver users/{uid}.role) — é o
+   "Administrador da Plataforma" do pedido original, enxerga todas as empresas sempre; os
+   demais cargos (Editor, Visualizador, e os que forem criados) passam a valer só dentro da
+   empresa em que a pessoa foi vinculada. */
+function userCompanyDocId(uid, companyId){ return `${uid}__${companyId}`; }
+function userCompanyRef(uid, companyId){ return db.collection('user_companies').doc(userCompanyDocId(uid, companyId||activeCompanyId)); }
+
+/* Preserva o acesso de quem já usava o sistema antes da Fase 3: se a pessoa ainda não tem
+   vínculo pra empresa ativa, cria um a partir do cargoId que ela já tinha em users/{uid} —
+   ninguém perde acesso com este deploy. Idempotente pela própria existência do vínculo. */
+async function ensureUserCompanyBootstrap(uid, userData){
+  if(userData.role==='admin') return; // admin não precisa de vínculo — acessa tudo sempre
+  const ref = userCompanyRef(uid, activeCompanyId);
+  const snap = await ref.get();
+  if(snap.exists) return;
+  const now = Date.now();
+  await ref.set({
+    userId: uid, companyId: activeCompanyId,
+    cargoId: userData.cargoId || 'editor',
+    status: 'ativo', isDefaultCompany: true,
+    invitedAt: userData.createdAt || now, acceptedAt: now, lastAccessAt: now,
+  });
+}
+/* Convites: quando alguém adiciona um e-mail numa empresa (ver renderUsersWithAccessSection)
+   mas essa pessoa ainda não tinha feito login nenhuma vez na plataforma, não existe uid pra
+   vincular ainda — fica um convite pendente por e-mail. Assim que essa pessoa loga pela
+   primeira vez, este convite vira um vínculo de verdade automaticamente. */
+async function resolvePendingInvitesForEmail(uid, email){
+  if(!email) return;
+  const snap = await db.collection('company_invites').where('email','==',email.toLowerCase()).get();
+  if(snap.empty) return;
+  const now = Date.now();
+  for(const doc of snap.docs){
+    const inv = doc.data();
+    await userCompanyRef(uid, inv.companyId).set({
+      userId: uid, companyId: inv.companyId, cargoId: inv.cargoId || 'editor',
+      status: 'ativo', isDefaultCompany: false,
+      invitedAt: inv.invitedAt || now, acceptedAt: now, lastAccessAt: now,
+    });
+    await doc.ref.delete();
+  }
+}
+/* Resolve cargo/permissões da pessoa PRA EMPRESA ATIVA — chamado no login e de novo sempre
+   que switchCompany() troca de contexto. 'admin' continua bypass total, em qualquer empresa. */
+async function resolveActiveCompanyAccess(uid, userData){
+  if(userData.role==='admin'){
+    currentUserCargoId = null; currentUserPermissoes = null; currentUserVerAlertas = true;
+    currentUserRoleLabel = 'Administrador';
+    return;
+  }
+  const link = await userCompanyRef(uid, activeCompanyId).get();
+  if(!link.exists){
+    /* Sem vínculo com esta empresa — acontece só se alguém manipular o contexto por fora do
+       seletor (que só lista empresas com vínculo). Trava em "sem acesso", não em admin nem
+       num cargo qualquer — mais seguro que liberar por omissão. */
+    currentUserCargoId = null; currentUserPermissoes = {}; currentUserVerAlertas = false;
+    currentUserRoleLabel = 'Sem acesso a esta empresa';
+    return;
+  }
+  const data = link.data();
+  currentUserCargoId = data.cargoId;
+  const cargo = await getCargoByIdRemote(currentUserCargoId);
+  currentUserPermissoes = cargo ? cargo.permissoes : defaultViewerPermissoes();
+  currentUserVerAlertas = cargo && cargo.verAlertas===false ? false : true;
+  currentUserRoleLabel = cargo ? cargo.nome : 'Usuário';
+  userCompanyRef(uid, activeCompanyId).set({lastAccessAt: Date.now()}, {merge:true}).catch(()=>{});
+}
+/* Empresas que a pessoa pode acessar — admin vê todas as cadastradas; os demais, só as que
+   têm vínculo ativo. Usado pelo seletor de empresa no topbar. */
+async function getUserAvailableCompanies(uid, isAdmin){
+  await loadCompaniesRegistry();
+  if(isAdmin) return companiesRegistry.filter(c=>c.status==='ativa');
+  const snap = await db.collection('user_companies').where('userId','==',uid).where('status','==','ativo').get();
+  const ids = new Set(snap.docs.map(d=>d.data().companyId));
+  return companiesRegistry.filter(c=>ids.has(c.id) && c.status==='ativa');
 }
 
 function doLogin(){
@@ -2189,20 +2318,16 @@ async function ensureUserRole(user){
     await ref.set(userData);
   }
   currentRole = userData.role || 'editor';
-  currentUserCargoId = userData.cargoId || (currentRole==='viewer' ? 'viewer' : (currentRole==='admin' ? null : 'editor'));
   currentUserNome = userData.nome || '';
   await ensureDefaultCargos();
-  if(currentRole==='admin'){
-    currentUserPermissoes = null; // bypass — admin nunca depende da matriz
-    currentUserVerAlertas = true;
-    currentUserRoleLabel = 'Administrador';
-  } else {
-    const cargo = await getCargoByIdRemote(currentUserCargoId);
-    currentUserPermissoes = cargo ? cargo.permissoes : defaultViewerPermissoes();
-    currentUserVerAlertas = cargo && cargo.verAlertas===false ? false : true;
-    currentUserRoleLabel = cargo ? cargo.nome : 'Usuário';
-  }
-
+  /* MULTIEMPRESA — FASE 3: resolve convites pendentes por e-mail (caso a pessoa tenha sido
+     vinculada a uma empresa antes de logar pela primeira vez), garante o vínculo com a
+     empresa ativa a partir do cargo que ela já tinha antes desta fase (não perde acesso),
+     e só então resolve cargo/permissões — que agora vêm do vínculo por empresa, não mais
+     direto de users/{uid}.cargoId. */
+  await resolvePendingInvitesForEmail(user.uid, userData.email);
+  await ensureUserCompanyBootstrap(user.uid, userData);
+  await resolveActiveCompanyAccess(user.uid, userData);
 }
 
 function attachDataListener(){
@@ -2283,9 +2408,11 @@ auth.onAuthStateChanged(async (user)=>{
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('loading').style.display = 'block';
     await ensureUserRole(user);
+    userAvailableCompanies = await getUserAvailableCompanies(user.uid, currentRole==='admin');
     attachDataListener();
   } else {
     currentUser = null;
+    userAvailableCompanies = null;
     if(unsubscribeData) unsubscribeData();
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').style.display = 'none';
@@ -3121,6 +3248,10 @@ document.addEventListener('click', function(e){
     const chevron = document.getElementById(cId);
     if(chevron) chevron.classList.remove('open');
   });
+  if(showCompanySwitcher){
+    const wrap = document.querySelector('.company-switcher-wrap');
+    if(wrap && !wrap.contains(e.target)){ showCompanySwitcher = false; render(); }
+  }
 });
 document.addEventListener('keydown', function(e){
   if(e.key!=='Escape') return;
@@ -7201,6 +7332,57 @@ function render(){
 /* Barra superior global (busca + sino + conta) — ver comentário no CSS .global-topbar.
    A busca só aparece nas páginas que já têm um filtro de busca próprio (Painel, Processos,
    Finalizados); nas demais, o espaço fica livre e sino/conta continuam à direita. */
+/* MULTIEMPRESA — FASE 3: seletor de empresa. Só vira dropdown de verdade se a pessoa tiver
+   acesso a mais de uma empresa (ver spec original: "não necessariamente mostrar opção de
+   troca" quando só tem uma) — com uma empresa só, mostra o nome como contexto, sem dropdown. */
+function renderCompanySwitcher(){
+  if(!userAvailableCompanies) return '';
+  const active = userAvailableCompanies.find(c=>c.id===activeCompanyId);
+  const activeName = active ? active.name : (getEmpresaConfig().nome || 'Empresa');
+  if(userAvailableCompanies.length<=1){
+    return `<div class="company-switcher-label" title="Empresa ativa">${activeName}</div>`;
+  }
+  return `
+    <div class="company-switcher-wrap">
+      <div class="company-switcher-trigger" onclick="showCompanySwitcher=!showCompanySwitcher; render();">
+        <span>${activeName}</span>
+        <span class="topbar-account-chevron ${showCompanySwitcher?'open':''}">${svgChevronDown()}</span>
+      </div>
+      ${showCompanySwitcher ? `
+      <div class="company-switcher-dropdown">
+        <div class="sidebar-switch-label">Trocar empresa</div>
+        ${userAvailableCompanies.map(c=>`
+          <div class="sidebar-switch-row ${c.id===activeCompanyId?'current':''}" ${c.id===activeCompanyId?'':`onclick="switchCompany('${c.id}')"`}>
+            <span>${c.id===activeCompanyId?'✓ ':''}${c.name}</span>
+          </div>
+        `).join('')}
+      </div>` : ''}
+    </div>
+  `;
+}
+/* Troca de contexto — recarrega tudo, limpa filtros/cache da empresa anterior, nunca deixa
+   dado velho visível durante a troca (pedido explícito no plano original). */
+async function switchCompany(companyId){
+  if(companyId===activeCompanyId) return;
+  showCompanySwitcher = false;
+  const target = (userAvailableCompanies||[]).find(c=>c.id===companyId);
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('app').style.display = 'none';
+  if(unsubscribeData) unsubscribeData();
+  activeCompanyId = companyId;
+  // limpa filtros e estado de tela específicos da empresa anterior — nunca reaproveita entre empresas
+  pageFilters = {
+    dashboard: {search:'', supplierId:'', modal:'', tipo:'', stage:''},
+    processos: {search:'', supplierId:'', modal:'', tipo:'', stage:''},
+    finalizados: {search:'', supplierId:'', modal:'', tipo:'', stage:''},
+  };
+  empresaManagingId = null;
+  currentView = 'dashboard';
+  await resolveActiveCompanyAccess(currentUser.uid, {role: currentRole});
+  attachDataListener();
+  updateSaveIndicator(`Empresa alterada para ${target?target.name:''} ${svgCheckInline()}`);
+}
+
 function renderGlobalTopbar(){
   const searchablePages = {dashboard:1, processos:1, finalizados:1};
   const hasSearch = !!searchablePages[currentView];
@@ -7221,6 +7403,7 @@ function renderGlobalTopbar(){
         <button type="button" class="gts-clear" id="${currentView}-search-clear" onclick="clearPageSearch('${currentView}')" title="Limpar busca" aria-label="Limpar busca" style="display:${f.search?'flex':'none'};">${svgCloseIcon(13)}</button>
       </div>` : `<div class="global-topbar-spacer"></div>`}
       <div class="global-topbar-actions">
+        ${renderCompanySwitcher()}
         <button type="button" class="topbar-bell" onclick="openAttentionDetailsModal()" title="Pendências e alertas">
           ${svgBellIcon()}
           ${attentionCount>0 ? `<span class="topbar-bell-badge">${attentionCount>99?'99+':attentionCount}</span>` : ''}
@@ -7270,7 +7453,7 @@ const NAV_ITEMS = [
   {key:'rotas', label:'Rotas'},
   {key:'produtosmestre', label:'Produtos'},
   {key:'indicadores', label:'Indicadores'},
-  {key:'empresa', label:'Empresa', adminOnly:true},
+  {key:'empresa', label:'Empresas', adminOnly:true},
   {key:'equipe', label:'Equipe', adminOnly:true},
   {key:'personalizacao', label:'Personalização', adminOnly:true},
 ];
@@ -7357,7 +7540,7 @@ function viewTitle(){
   if(currentView==='ncm') return 'NCM e Alíquotas';
   if(currentView==='rotas') return 'Rotas';
   if(currentView==='produtosmestre') return 'Produtos';
-  if(currentView==='empresa') return 'Empresa';
+  if(currentView==='empresa') return 'Empresas';
   if(currentView==='equipe') return 'Equipe';
   if(currentView==='personalizacao') return 'Personalização do Painel';
 }
@@ -7373,7 +7556,7 @@ function viewSubtitle(){
   if(currentView==='ncm') return 'Cadastro de NCMs e suas alíquotas — usado como referência nos itens do Banco de Itens';
   if(currentView==='rotas') return 'Modelos de rota logística, para reaproveitar na criação de processos';
   if(currentView==='produtosmestre') return 'Modelos de informações gerais da carga — não afeta os itens (PN) do processo';
-  if(currentView==='empresa') return 'Nome da empresa deste acesso e cadastro de estoques (usados no e-mail de Nota Fiscal e em funcionalidades futuras)';
+  if(currentView==='empresa') return 'Cadastre e gerencie as empresas que utilizam a plataforma';
   if(currentView==='equipe') return 'Gerencie quem tem acesso e o nível de permissão de cada pessoa';
   if(currentView==='personalizacao') return 'Nomes, ícones e regras dos estágios que aparecem no Painel Geral';
 }
@@ -7416,26 +7599,34 @@ async function renderEquipe(){
 }
 
 async function renderUsuariosSubTab(el, tabsHtml){
-  const [usersSnap, cargosSnap] = await Promise.all([
+  const [usersSnap, cargosSnap, linksSnap] = await Promise.all([
     db.collection('users').get(),
     db.collection('cargos').get(),
+    db.collection('user_companies').where('companyId','==',activeCompanyId).get(),
   ]);
   const users = []; usersSnap.forEach(doc=>users.push({id:doc.id, ...doc.data()}));
   const cargos = []; cargosSnap.forEach(doc=>cargos.push({id:doc.id, ...doc.data()}));
   window.__cargos = cargos;
+  /* MULTIEMPRESA — FASE 3: o cargo de cada pessoa agora é por empresa (ver user_companies),
+     não mais um campo fixo em users/{uid}. Esta tela sempre mostra/edita o vínculo com a
+     EMPRESA ATIVA — a mesma pessoa pode ter cargos diferentes em outras empresas, geridos
+     pela aba Empresas → Usuários com acesso. */
+  const linksByUid = {}; linksSnap.forEach(doc=>linksByUid[doc.data().userId]=doc.data());
   const cargoOptionsHtml = (u)=>{
     const isAdmin = u.role==='admin';
     const podeAtribuirAdmin = currentRole==='admin'; // só um admin de verdade pode promover/rebaixar admin
+    const linkCargoId = linksByUid[u.id] ? linksByUid[u.id].cargoId : null;
     return `
       ${podeAtribuirAdmin ? `<option value="admin" ${isAdmin?'selected':''}>Administrador (acesso total)</option>` : (isAdmin ? `<option value="admin" selected>Administrador (acesso total)</option>` : '')}
-      ${cargos.map(c=>`<option value="${c.id}" ${(!isAdmin && u.cargoId===c.id)?'selected':''}>${c.nome}</option>`).join('')}
+      ${!isAdmin && !linkCargoId ? `<option value="" selected disabled>Sem acesso a esta empresa</option>` : ''}
+      ${cargos.map(c=>`<option value="${c.id}" ${(!isAdmin && linkCargoId===c.id)?'selected':''}>${c.nome}</option>`).join('')}
     `;
   };
   const rows = users.map(u=>`
     <div class="supplier-card" style="cursor:default; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;">
       <div style="flex:1; min-width:220px;">
         <h3 style="font-size:14px;">${u.email}</h3>
-        <div class="supplier-meta">${u.id===currentUser.uid?'Você':''}</div>
+        <div class="supplier-meta">${u.id===currentUser.uid?'Você':''}${(u.role!=='admin' && !linksByUid[u.id])?' · sem acesso a esta empresa':''}</div>
       </div>
       <div class="form-group" style="margin-bottom:0; width:180px;">
         <label style="font-size:10.5px;">Nome de exibição</label>
@@ -7447,22 +7638,22 @@ async function renderUsuariosSubTab(el, tabsHtml){
     </div>
   `).join('');
   el.innerHTML = tabsHtml + `
-    <div class="form-hint" style="margin-bottom:14px;">Administrador tem acesso total à plataforma, sempre. Os demais cargos seguem a matriz de permissões configurada na aba "Cargos e Permissões".</div>
+    <div class="form-hint" style="margin-bottom:14px;">Administrador tem acesso total à plataforma inteira, em qualquer empresa. Os demais cargos valem só para a empresa ativa agora — a mesma pessoa pode ter cargos diferentes em empresas diferentes (gerencie pela aba Empresas → Usuários com acesso).</div>
     <div class="supplier-grid" style="grid-template-columns:1fr;">${rows}</div>
-    <div class="cost-note" style="margin-top:16px;">Para adicionar uma nova pessoa, cadastre o login dela no Console do Firebase (Authentication &gt; Users). Na primeira vez que ela entrar, aparece aqui automaticamente com o cargo Editor.</div>
+    <div class="cost-note" style="margin-top:16px;">Para adicionar uma nova pessoa, cadastre o login dela no Console do Firebase (Authentication &gt; Users), ou conceda acesso pelo e-mail dela na aba Empresas → Usuários com acesso. Na primeira vez que ela entrar, aparece aqui automaticamente.</div>
   `;
 }
 
 async function renderCargosSubTab(el, tabsHtml){
-  const [cargosSnap, usersSnap] = await Promise.all([
+  const [cargosSnap, linksSnap] = await Promise.all([
     db.collection('cargos').get(),
-    db.collection('users').get(),
+    db.collection('user_companies').where('companyId','==',activeCompanyId).get(),
   ]);
   const cargos = []; cargosSnap.forEach(doc=>cargos.push({id:doc.id, ...doc.data()}));
-  const users = []; usersSnap.forEach(doc=>users.push({id:doc.id, ...doc.data()}));
+  const links = []; linksSnap.forEach(doc=>links.push(doc.data()));
   window.__cargos = cargos;
   cargos.sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
-  const usoCount = (cargoId)=> users.filter(u=>u.role!=='admin' && u.cargoId===cargoId).length;
+  const usoCount = (cargoId)=> links.filter(l=>l.status==='ativo' && l.cargoId===cargoId).length;
   const rows = cargos.map(c=>{
     const emUso = usoCount(c.id);
     return `
@@ -7498,6 +7689,7 @@ async function saveUserNome(uid, nome){
 }
 
 async function changeUserCargo(uid, value){
+  if(!value) return; // "Sem acesso a esta empresa" — opção informativa, não uma escolha válida
   if(value==='admin' && currentRole!=='admin'){
     alert('Só um administrador pode promover alguém a Administrador.');
     renderEquipe();
@@ -7514,8 +7706,21 @@ async function changeUserCargo(uid, value){
       return;
     }
   }
-  const data = value==='admin' ? { role:'admin', cargoId: null } : { role:'editor', cargoId: value };
-  await db.collection('users').doc(uid).set(data, {merge:true});
+  if(value==='admin'){
+    await db.collection('users').doc(uid).set({role:'admin'}, {merge:true});
+  } else {
+    // garante que não fica marcado como admin global, e grava o cargo no vínculo da empresa ativa
+    await db.collection('users').doc(uid).set({role:'editor'}, {merge:true});
+    const existing = await userCompanyRef(uid, activeCompanyId).get();
+    await userCompanyRef(uid, activeCompanyId).set({
+      userId: uid, companyId: activeCompanyId, cargoId: value, status:'ativo',
+      isDefaultCompany: existing.exists ? (existing.data().isDefaultCompany || false) : true,
+      invitedAt: existing.exists ? existing.data().invitedAt : Date.now(),
+      acceptedAt: existing.exists ? existing.data().acceptedAt : Date.now(),
+      lastAccessAt: existing.exists ? (existing.data().lastAccessAt || null) : null,
+    });
+  }
+  delete companyUsersCache[activeCompanyId];
   renderEquipe();
 }
 
@@ -8882,10 +9087,13 @@ async function acknowledgeNCMAlert(ncmId, alertId){
 
 let ncmPageState = { query:'', sortField:'ncm', sortDir:'asc' };
 
-/* ---------- EMPRESA (nome do acesso + estoques) ---------- */
-/* Área simples de configuração — nome da empresa deste acesso e cadastro de Estoques
-   (hoje usados pra escolher o local de destino no e-mail de Nota Fiscal; pensada pra
-   crescer com outras configurações no futuro, sem precisar de uma aba nova pra cada uma). */
+/* ---------- EMPRESAS (multiempresa — Fase 2) ---------- */
+/* getEmpresaConfig() continua servindo as configs OPERACIONAIS da empresa ATIVA (seguro,
+   estoques) — isso já mora dentro do documento por empresa desde a Fase 1, não precisa mudar.
+   O que a Fase 2 adiciona é um CADASTRO separado, leve, com os dados de identificação de cada
+   empresa (nome, CNPJ, endereço etc.) — guardado em 'companies_registry', uma coleção à parte
+   bem mais barata de listar do que abrir o documento operacional inteiro de cada empresa (que
+   pode ter centenas de processos) só pra mostrar um card com nome e CNPJ. */
 function getEmpresaConfig(){
   state.empresaConfig = state.empresaConfig || { nome:'', estoques:[] };
   state.empresaConfig.estoques = state.empresaConfig.estoques || [];
@@ -8895,9 +9103,235 @@ function getEmpresaConfig(){
   return state.empresaConfig;
 }
 
-function renderEmpresaPage(){
+let companiesRegistry = null; // null = ainda não carregado nesta sessão
+let empresaManagingId = null; // qual empresa está sendo exibida/editada na seção de dados (padrão: a ativa)
+let empresaSearchQuery = '';
+let showNewCompanyForm = false;
+
+/* Só roda de verdade UMA vez, pra empresa que ainda não tem registro (o caso da Scientific
+   Dental logo depois deste deploy) — idempotente pela própria existência do documento, mesmo
+   padrão de segurança já usado no bootstrap do Fase 1 (nunca sobrescreve o que já existe). */
+async function ensureCompanyRegistryBootstrap(){
+  const ref = db.collection('companies_registry').doc(activeCompanyId);
+  const snap = await ref.get();
+  if(snap.exists) return;
   const cfg = getEmpresaConfig();
+  const now = Date.now();
+  await ref.set({
+    id: activeCompanyId,
+    name: cfg.nome || 'Scientific Dental',
+    legalName:'', tradeName:'', documentNumber:'', stateRegistration:'',
+    country:'Brasil', state:'', city:'', address:'', mainEmail:'', phone:'', logoUrl:'',
+    internalCode:'SCIENTIFIC_DENTAL', status:'ativa', createdAt: now, updatedAt: now,
+  });
+}
+async function loadCompaniesRegistry(){
+  await ensureCompanyRegistryBootstrap();
+  const snap = await db.collection('companies_registry').get();
+  companiesRegistry = snap.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  if(!empresaManagingId) empresaManagingId = activeCompanyId;
+  render();
+}
+
+function renderEmpresaPage(){
+  if(companiesRegistry===null){
+    loadCompaniesRegistry(); // dispara a busca; a própria função chama render() de novo quando terminar
+    return `<div class="form-hint">Carregando empresas...</div>`;
+  }
   const podeEditar = canEdit('empresa');
+  const q = (empresaSearchQuery||'').trim().toLowerCase();
+  const filtered = companiesRegistry.filter(c=>!q || (c.name||'').toLowerCase().includes(q) || (c.documentNumber||'').toLowerCase().includes(q) || (c.internalCode||'').toLowerCase().includes(q));
+  const managing = companiesRegistry.find(c=>c.id===empresaManagingId) || companiesRegistry.find(c=>c.id===activeCompanyId);
+
+  const cardsHtml = filtered.length ? filtered.map(c=>{
+    const isActive = c.id===activeCompanyId;
+    const isManaging = managing && c.id===managing.id;
+    const temAcesso = (userAvailableCompanies||[]).some(uc=>uc.id===c.id);
+    return `
+      <div class="company-card ${isActive?'is-active':''} ${isManaging?'is-managing':''}">
+        <div class="company-card-top">
+          <div class="company-card-name">${(c.name||'Empresa sem nome')}</div>
+          <div class="company-card-status ${c.status==='ativa'?'is-ativa':'is-inativa'}">${c.status==='ativa'?'Ativa':'Inativa'}</div>
+        </div>
+        ${isActive?`<div class="company-card-badge">Empresa ativa neste acesso</div>`:''}
+        <div class="company-card-meta">${c.documentNumber?`CNPJ: ${c.documentNumber} · `:''}Código: ${c.internalCode||'—'}</div>
+        <div class="company-card-meta">${isActive?`${state.processes.length} processo(s) · ${state.suppliers.length} fornecedor(es)`:'Dados operacionais só visíveis ao trocar de contexto'}</div>
+        <div class="company-card-actions">
+          <button type="button" class="btn" onclick="empresaManagingId='${c.id}'; render();">Gerenciar</button>
+          ${(!isActive && temAcesso)?`<button type="button" class="btn btn-primary" onclick="switchCompany('${c.id}')">Trocar para esta</button>`:''}
+          ${podeEditar?`<button type="button" class="btn" onclick="toggleCompanyStatus('${c.id}')">${c.status==='ativa'?'Desativar':'Ativar'}</button>`:''}
+        </div>
+      </div>
+    `;
+  }).join('') : `<div class="form-hint">Nenhuma empresa encontrada para essa busca.</div>`;
+
+  return `
+    <div class="company-toolbar">
+      <input type="text" placeholder="Buscar empresa..." value="${(empresaSearchQuery||'').replace(/"/g,'&quot;')}" oninput="empresaSearchQuery=this.value; render();">
+      ${podeEditar?`<button type="button" class="btn btn-primary" onclick="showNewCompanyForm=!showNewCompanyForm; render();">+ Nova empresa</button>`:''}
+    </div>
+
+    ${showNewCompanyForm ? `
+    <div class="prov-section" style="margin-bottom:18px;">
+      <div class="prov-section-title">NOVA EMPRESA</div>
+      <div class="form-hint" style="margin-bottom:10px;">Isso cadastra a empresa. Pra operar como ela, conceda acesso a alguém em "Usuários com acesso" (logo abaixo, depois de criar) e troque de empresa pelo seletor no topo da tela.</div>
+      <div class="form-row">
+        <div class="form-group"><label>Nome da Empresa</label><input type="text" id="new-company-name" placeholder="Ex: Empresa Exemplo 2"></div>
+        <div class="form-group"><label>Código Interno</label><input type="text" id="new-company-code" placeholder="Ex: EMPRESA_002"></div>
+      </div>
+      <button type="button" class="btn btn-primary" onclick="createCompanyRegistryEntry()">Criar Empresa</button>
+      <button type="button" class="btn" onclick="showNewCompanyForm=false; render();">Cancelar</button>
+    </div>` : ''}
+
+    <div class="company-grid">${cardsHtml}</div>
+
+    ${managing ? `
+    <div class="prov-section" style="margin-top:26px;">
+      <div class="prov-section-title">DADOS DA EMPRESA${managing.id!==activeCompanyId?` — ${managing.name}`:''}</div>
+      ${renderCompanyMetaForm(managing, podeEditar)}
+    </div>` : ''}
+
+    ${managing ? renderUsersWithAccessSection(managing, podeEditar) : ''}
+
+    ${managing && managing.id===activeCompanyId ? renderEmpresaOperationalSections(podeEditar) : (managing ? `<div class="form-hint" style="margin-top:16px;">Alerta de seguro e estoques desta empresa só ficam disponíveis pra edição quando ela estiver ativa neste acesso — troque pelo seletor no topo da tela.</div>` : '')}
+  `;
+}
+
+function renderCompanyMetaForm(c, podeEditar){
+  const field = (key, label, type)=>`
+    <div class="form-group">
+      <label>${label}</label>
+      <input type="${type||'text'}" id="company-meta-${key}" value="${(c[key]||'').toString().replace(/"/g,'&quot;')}" ${podeEditar?'':'disabled'}>
+    </div>
+  `;
+  return `
+    <div class="form-row">${field('name','Nome da Empresa')}${field('tradeName','Nome Fantasia')}</div>
+    <div class="form-row">${field('legalName','Razão Social')}${field('documentNumber','CNPJ')}</div>
+    <div class="form-row">${field('stateRegistration','Inscrição Estadual')}${field('internalCode','Código Interno')}</div>
+    <div class="form-row">${field('country','País')}${field('state','Estado')}${field('city','Cidade')}</div>
+    ${field('address','Endereço')}
+    <div class="form-row">${field('mainEmail','E-mail Principal','email')}${field('phone','Telefone')}</div>
+    ${podeEditar?`<button type="button" class="btn btn-primary" style="margin-top:6px;" onclick="saveCompanyMeta('${c.id}')">Salvar Dados da Empresa</button>`:''}
+  `;
+}
+
+/* ---------- USUÁRIOS COM ACESSO (por empresa — Fase 3) ---------- */
+let companyUsersCache = {}; // companyId -> [{link, user, cargo}] | undefined (não carregado)
+let allCargosCache = null;
+let showAddCompanyUserForm = false;
+
+async function loadCompanyUsers(companyId){
+  const [linksSnap, usersSnap, cargosSnap, invitesSnap] = await Promise.all([
+    db.collection('user_companies').where('companyId','==',companyId).get(),
+    db.collection('users').get(),
+    db.collection('cargos').get(),
+    db.collection('company_invites').where('companyId','==',companyId).get(),
+  ]);
+  const usersById = {}; usersSnap.forEach(d=>usersById[d.id]={id:d.id, ...d.data()});
+  const cargosById = {}; cargosSnap.forEach(d=>cargosById[d.id]={id:d.id, ...d.data()});
+  allCargosCache = Object.values(cargosById).sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+  companyUsersCache[companyId] = linksSnap.docs.map(d=>{
+    const link = {id:d.id, ...d.data()};
+    return { link, user: usersById[link.userId] || {email:'(usuário removido)'}, cargo: cargosById[link.cargoId] || null };
+  });
+  companyUsersCache[companyId+'__invites'] = invitesSnap.docs.map(d=>({id:d.id, ...d.data()}));
+  render();
+}
+
+function renderUsersWithAccessSection(c, podeEditar){
+  if(companyUsersCache[c.id]===undefined){
+    loadCompanyUsers(c.id);
+    return `<div class="prov-section" style="margin-top:22px;"><div class="prov-section-title">USUÁRIOS COM ACESSO</div><div class="form-hint">Carregando...</div></div>`;
+  }
+  const rows = companyUsersCache[c.id];
+  const invites = companyUsersCache[c.id+'__invites'] || [];
+  const cargoOptions = (selectedId)=> (allCargosCache||[]).map(cg=>`<option value="${cg.id}" ${selectedId===cg.id?'selected':''}>${cg.nome}</option>`).join('');
+  const rowsHtml = rows.map(r=>`
+    <div class="prov-line">
+      <div class="prov-line-label">
+        <div style="font-weight:600;">${r.user.nome || r.user.email}</div>
+        <div class="form-hint">${r.user.email}${r.link.isDefaultCompany?' · empresa padrão':''}${r.link.lastAccessAt?` · último acesso: ${fmtDate(new Date(r.link.lastAccessAt).toISOString().slice(0,10))}`:''}</div>
+      </div>
+      ${podeEditar?`
+      <select onchange="changeCompanyUserCargo('${c.id}','${r.link.userId}', this.value)" style="max-width:180px;">${cargoOptions(r.link.cargoId)}</select>
+      <button type="button" class="btn btn-danger" style="padding:6px 10px;" onclick="removeCompanyUserAccess('${c.id}','${r.link.userId}')">Remover</button>` : `<div class="form-hint">${r.cargo?r.cargo.nome:'—'}</div>`}
+    </div>
+  `).join('');
+  const invitesHtml = invites.map(inv=>`
+    <div class="prov-line">
+      <div class="prov-line-label">
+        <div style="font-weight:600;">${inv.email}</div>
+        <div class="form-hint">Convite pendente — o acesso é criado sozinho no primeiro login dessa pessoa</div>
+      </div>
+      ${podeEditar?`<button type="button" class="btn btn-danger" style="padding:6px 10px;" onclick="cancelCompanyInvite('${c.id}','${inv.id}')">Cancelar convite</button>`:''}
+    </div>
+  `).join('');
+  return `
+    <div class="prov-section" style="margin-top:22px;">
+      <div class="prov-section-title">USUÁRIOS COM ACESSO${c.id!==activeCompanyId?` — ${c.name}`:''}</div>
+      <div class="form-hint" style="margin-bottom:10px;">Cadastre os e-mails que poderão acessar os dados desta empresa.</div>
+      <div id="company-users-list">${rowsHtml}${invitesHtml}${(!rows.length && !invites.length)?'<div class="form-hint">Ninguém tem acesso a esta empresa ainda.</div>':''}</div>
+      ${podeEditar?`
+      <button type="button" class="btn" style="margin-top:12px;" onclick="showAddCompanyUserForm=!showAddCompanyUserForm; render();">+ Adicionar usuário</button>
+      ${showAddCompanyUserForm?`
+      <div class="form-row" style="margin-top:10px;">
+        <div class="form-group"><label>E-mail</label><input type="email" id="new-company-user-email" placeholder="pessoa@empresa.com"></div>
+        <div class="form-group"><label>Cargo</label><select id="new-company-user-cargo">${cargoOptions()}</select></div>
+      </div>
+      <button type="button" class="btn btn-primary" onclick="addCompanyUserAccess('${c.id}')">Conceder Acesso</button>
+      <div class="form-hint">Se a pessoa já usou a plataforma antes (em qualquer empresa), o acesso é concedido na hora. Se nunca logou, ela precisa ter o login criado no Console do Firebase primeiro — o acesso a esta empresa é aplicado sozinho no primeiro login dela.</div>
+      `:''}` : ''}
+    </div>
+  `;
+}
+
+async function addCompanyUserAccess(companyId){
+  if(!requireEditPermission()) return;
+  const emailEl = document.getElementById('new-company-user-email');
+  const cargoEl = document.getElementById('new-company-user-cargo');
+  const email = emailEl ? emailEl.value.trim().toLowerCase() : '';
+  if(!email || !email.includes('@')){ alert('Informe um e-mail válido.'); return; }
+  const cargoId = cargoEl ? cargoEl.value : (allCargosCache && allCargosCache[0] ? allCargosCache[0].id : 'editor');
+  const usersSnap = await db.collection('users').where('email','==',email).get();
+  if(!usersSnap.empty){
+    const uid = usersSnap.docs[0].id;
+    const now = Date.now();
+    await userCompanyRef(uid, companyId).set({
+      userId: uid, companyId, cargoId, status:'ativo', isDefaultCompany:false,
+      invitedAt: now, acceptedAt: now, lastAccessAt: null,
+    });
+  } else {
+    await db.collection('company_invites').doc(`${companyId}__${email}`).set({
+      email, companyId, cargoId, invitedAt: Date.now(),
+    });
+  }
+  showAddCompanyUserForm = false;
+  delete companyUsersCache[companyId];
+  delete companyUsersCache[companyId+'__invites'];
+  await loadCompanyUsers(companyId);
+}
+async function changeCompanyUserCargo(companyId, uid, cargoId){
+  if(!requireEditPermission()) return;
+  await userCompanyRef(uid, companyId).set({cargoId}, {merge:true});
+  delete companyUsersCache[companyId];
+  await loadCompanyUsers(companyId);
+}
+async function removeCompanyUserAccess(companyId, uid){
+  if(!requireEditPermission()) return;
+  if(!confirm('Remover o acesso desta pessoa a esta empresa?')) return;
+  await userCompanyRef(uid, companyId).delete();
+  delete companyUsersCache[companyId];
+  await loadCompanyUsers(companyId);
+}
+async function cancelCompanyInvite(companyId, inviteId){
+  if(!requireEditPermission()) return;
+  await db.collection('company_invites').doc(inviteId).delete();
+  delete companyUsersCache[companyId+'__invites'];
+  await loadCompanyUsers(companyId);
+}
+
+function renderEmpresaOperationalSections(podeEditar){
+  const cfg = getEmpresaConfig();
   const estoquesHtml = cfg.estoques.length ? cfg.estoques.map(e=>`
     <div class="prov-line" data-estoque-id="${e.id}">
       <div class="prov-line-label">
@@ -8908,15 +9342,6 @@ function renderEmpresaPage(){
   `).join('') : `<div class="form-hint">Nenhum estoque cadastrado ainda.</div>`;
 
   return `
-    <div class="prov-section">
-      <div class="prov-section-title">DADOS DA EMPRESA</div>
-      <div class="form-group">
-        <label>Nome da Empresa (deste acesso)</label>
-        <input type="text" id="empresa-nome-input" value="${(cfg.nome||'').replace(/"/g,'&quot;')}" placeholder="Ex: Scientific Dental" ${podeEditar?'':'disabled'}>
-      </div>
-      ${podeEditar?`<button class="btn btn-primary" onclick="saveEmpresaNome()">Salvar Nome</button>`:''}
-    </div>
-
     <div class="prov-section" style="margin-top:22px;">
       <div class="prov-section-title">ALERTA DE SEGURO</div>
       <div class="form-hint" style="margin-bottom:10px;">A partir de qual valor de carga (CIF) o processo deve avisar pra notificar a seguradora. Escolha se esse valor é conferido em Dólares ou em Reais.</div>
@@ -8947,12 +9372,62 @@ function renderEmpresaPage(){
   `;
 }
 
-async function saveEmpresaNome(){
+async function saveCompanyMeta(id){
   if(!requireEditPermission()) return;
-  const cfg = getEmpresaConfig();
-  cfg.nome = document.getElementById('empresa-nome-input').value.trim();
-  await persistState();
-  updateSaveIndicator(`Nome da empresa salvo ${svgCheckInline()}`);
+  const c = companiesRegistry.find(x=>x.id===id);
+  if(!c) return;
+  ['name','tradeName','legalName','documentNumber','stateRegistration','country','state','city','address','mainEmail','phone','internalCode'].forEach(key=>{
+    const el = document.getElementById('company-meta-'+key);
+    if(el) c[key] = el.value.trim();
+  });
+  c.updatedAt = Date.now();
+  await db.collection('companies_registry').doc(id).set(c);
+  /* Se a empresa editada é a ativa, mantém empresaConfig.nome em sincronia — evita duas fontes
+     de verdade divergentes pro mesmo nome dentro do mesmo acesso. */
+  if(id===activeCompanyId){
+    const cfg = getEmpresaConfig();
+    cfg.nome = c.name;
+    await persistState();
+  }
+  updateSaveIndicator(`Dados da empresa salvos ${svgCheckInline()}`);
+  render();
+}
+
+async function toggleCompanyStatus(id){
+  if(!requireEditPermission()) return;
+  const c = companiesRegistry.find(x=>x.id===id);
+  if(!c) return;
+  if(id===activeCompanyId && c.status==='ativa'){
+    alert('Não é possível desativar a empresa ativa neste acesso agora — troque para outra empresa pelo seletor no topo da tela antes de desativar esta, pra ninguém ficar "sem chão" no meio da troca.');
+    return;
+  }
+  c.status = c.status==='ativa' ? 'inativa' : 'ativa';
+  c.updatedAt = Date.now();
+  await db.collection('companies_registry').doc(id).set(c);
+  render();
+}
+
+async function createCompanyRegistryEntry(){
+  if(!requireEditPermission()) return;
+  const nameEl = document.getElementById('new-company-name');
+  const name = nameEl ? nameEl.value.trim() : '';
+  if(!name){ alert('Informe o nome da empresa.'); return; }
+  const codeEl = document.getElementById('new-company-code');
+  const internalCode = (codeEl && codeEl.value.trim()) || name.toUpperCase().replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+  const id = uid();
+  const now = Date.now();
+  const company = {
+    id, name, legalName:'', tradeName:'', documentNumber:'', stateRegistration:'',
+    country:'Brasil', state:'', city:'', address:'', mainEmail:'', phone:'', logoUrl:'',
+    internalCode, status:'ativa', createdAt: now, updatedAt: now,
+  };
+  await db.collection('companies_registry').doc(id).set(company);
+  companiesRegistry.push(company);
+  companiesRegistry.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  showNewCompanyForm = false;
+  empresaManagingId = id;
+  render();
+  alert(`Empresa "${name}" cadastrada. Ela ainda não tem processos, fornecedores nem usuários próprios — conceda acesso a alguém em "Usuários com acesso" (logo abaixo) pra poder trocar pra ela pelo seletor no topo da tela.`);
 }
 
 async function saveEmpresaSeguro(){
