@@ -2227,6 +2227,7 @@ let currentRole = 'viewer';
 let currentUserCargoId = null;
 let currentUserRoleLabel = 'Usuário'; // nome amigável do cargo, pra mostrar na sidebar (ex: "Administrador", "Editor")
 let currentUserNome = ''; // nome de exibição cadastrado pelo próprio usuário — usado só na saudação da página inicial
+let currentUserNavOrder = null; // ordem das abas da sidebar deste usuário — carregada no login (Firestore), não mais só localStorage
 let currentUserPermissoes = null; // matriz de permissões do cargo do usuário logado — null quando é 'admin' (bypass total)
 let currentUserVerAlertas = true; // permissão à parte da matriz — controla se o cargo vê os alertas de pendência nos cards de processo (ex: "faltando provisionamento")
 let unsubscribeData = null;
@@ -2502,6 +2503,7 @@ async function ensureUserRole(user){
   }
   currentRole = userData.role || 'editor';
   currentUserNome = userData.nome || '';
+  currentUserNavOrder = Array.isArray(userData.navOrder) ? userData.navOrder : null;
   await ensureDefaultCargos();
   /* MULTIEMPRESA — FASE 3: resolve convites pendentes por e-mail (caso a pessoa tenha sido
      vinculada a uma empresa antes de logar pela primeira vez), garante o vínculo com a
@@ -2546,6 +2548,7 @@ function attachDataListener(){
        padrão já usado pro auto-preenchimento de NCM logo abaixo. */
     const blOrderChanged = migrateBLDraftOrder();
     const inicioDtaOrderChanged = migrateInicioDTAOrder();
+    const atracacaoOrderChanged = migrateAtracacaoOrder();
     /* Evita rodar o auto-preenchimento de NCM (que dispara um persistState() de fundo) enquanto
        o modal de processo está aberto — evita uma corrida onde esse salvamento de fundo grava
        uma versão de state.processes anterior às edições que a pessoa está fazendo agora mesmo,
@@ -2553,7 +2556,7 @@ function attachDataListener(){
     if(!window.__editingProcess && hasAnyEditAccess()){
       const ncmChanged = autoFillKnownNcmAliquotas();
       const codigosChanged = seedCodigosImpostoParaNcmsConhecidas();
-      if(ncmChanged || codigosChanged || blOrderChanged || inicioDtaOrderChanged) persistState();
+      if(ncmChanged || codigosChanged || blOrderChanged || inicioDtaOrderChanged || atracacaoOrderChanged) persistState();
     }
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
@@ -2659,30 +2662,30 @@ const STAGE_DEFS = [
       3:[{key:'dataRascunhoDUIMP', label:'Data do Rascunho', type:'date'}],
     }},
   {key:'fase6', label:'Fase 6 · Chegada, Trânsito e Desembaraço', cls:'stamp-desembaraco',
-    /* "Início da DTA" (índice 3) foi inserido DEPOIS de "Agendar DTA" — pedido explícito,
-       válido só pra MARÍTIMO (esta lista de items é a versão marítima; o AÉREO tem sua
-       própria lista, totalmente separada, montada em getStagesForProcess() com seu próprio
-       item "Início DTA" — não tem relação com este e não foi tocado). Como o checklist é
-       tick por ÍNDICE (mesmo motivo do aviso em fase2/fase4 acima), inserir no meio deslocou
-       todo mundo do antigo índice 3 em diante uma posição pra frente — processos existentes
-       são migrados automaticamente por migrateInicioDTAOrder() (chamada em attachDataListener,
-       mesmo padrão de migrateBLDraftOrder()) antes de qualquer leitura do checklist. */
-    items:['Solicitar DTA','Chegada e presença','Agendar DTA','Início da DTA','Chegada no Recinto de Desembaraço','Descarga no Recinto de Desembaraço','Pagar numerário despachante','Registro da DUIMP','Testar NF','Desembaraço da DUIMP','Liberação SEFAZ'],
+    /* "Navio Atracado no Porto" (índice 1) foi inserido ANTES de "Chegada e presença" — pedido
+       explícito: são dois marcos diferentes na prática (o navio atraca no porto, e só depois a
+       carga é de fato redestinada/apresentada à Movecta na Zona Primária), válido só pra
+       MARÍTIMO. "Início da DTA" (agora índice 4) e as demais etapas empurradas continuam onde
+       já estavam relativamente — só descolaram +1 posição. Como o checklist é tick por
+       ÍNDICE, processos existentes são migrados automaticamente por
+       migrateAtracacaoOrder() (chamada em attachDataListener) antes de qualquer leitura do
+       checklist — mesmo padrão de migrateInicioDTAOrder()/migrateBLDraftOrder(). */
+    items:['Solicitar DTA','Navio Atracado no Porto','Chegada e presença','Agendar DTA','Início da DTA','Chegada no Recinto de Desembaraço','Descarga no Recinto de Desembaraço','Pagar numerário despachante','Registro da DUIMP','Testar NF','Desembaraço da DUIMP','Liberação SEFAZ'],
     itemFields:{
-      1:[{key:'recintoZonaPrimaria', label:'Recinto (Zona Primária)', type:'partner', partnerType:'Recinto Alfandegado', zona:'Zona Primária'},{key:'dataChegadaZonaPrimaria', label:'Data de Chegada (Zona Primária)', type:'date'}],
-      2:[{key:'dataAgendamentoDTA', label:'Data Agendada', type:'date'}],
-      3:[{key:'dataInicioDTA', label:'Data de Início', type:'date'}],
-      4:[{key:'recintoAlfandegado', label:'Recinto de Desembaraço (Zona Secundária)', type:'partner', partnerType:'Recinto Alfandegado', zona:'Zona Secundária'},{key:'dataChegadaBetim', label:'Data de Chegada', type:'date'}],
-      7:[{key:'numeroDUIMP', label:'Número da DUIMP', type:'text'},{key:'chaveAcessoDUIMP', label:'Chave de Acesso da DUIMP', type:'text'},{key:'dataRegistroDUIMP', label:'Data de Registro', type:'date'}],
-      9:[{key:'canalDesembaraco', label:'Canal', type:'select', options:['Verde','Amarelo','Vermelho','Cinza']},{key:'dataDesembaraco', label:'Data do Desembaraço', type:'date'}],
-      10:[{key:'dataLiberacaoSefaz', label:'Data de Liberação SEFAZ', type:'date'}],
+      1:[{key:'dataAtracacaoPorto', label:'Data de Atracação', type:'date'}],
+      2:[{key:'recintoZonaPrimaria', label:'Recinto (Zona Primária)', type:'partner', partnerType:'Recinto Alfandegado', zona:'Zona Primária'},{key:'dataChegadaZonaPrimaria', label:'Data de Chegada (Zona Primária)', type:'date'}],
+      3:[{key:'dataAgendamentoDTA', label:'Data Agendada', type:'date'}],
+      4:[{key:'dataInicioDTA', label:'Data de Início', type:'date'}],
+      5:[{key:'recintoAlfandegado', label:'Recinto de Desembaraço (Zona Secundária)', type:'partner', partnerType:'Recinto Alfandegado', zona:'Zona Secundária'},{key:'dataChegadaBetim', label:'Data de Chegada', type:'date'}],
+      8:[{key:'numeroDUIMP', label:'Número da DUIMP', type:'text'},{key:'chaveAcessoDUIMP', label:'Chave de Acesso da DUIMP', type:'text'},{key:'dataRegistroDUIMP', label:'Data de Registro', type:'date'}],
+      10:[{key:'canalDesembaraco', label:'Canal', type:'select', options:['Verde','Amarelo','Vermelho','Cinza']},{key:'dataDesembaraco', label:'Data do Desembaraço', type:'date'}],
+      11:[{key:'dataLiberacaoSefaz', label:'Data de Liberação SEFAZ', type:'date'}],
     },
-    /* "Chegada e presença" (índice 1, chegada na Zona Primária) é o marco que faz o processo
-       sair de "Em Trânsito" e virar "Em Desembaraço" — não a chegada na Zona Secundária
-       (agora índice 4, um passo bem mais à frente). Antes estava apontando pro índice errado (3),
-       fazendo o processo continuar marcado como "Em Trânsito" mesmo depois de já ter
-       confirmado a chegada no Brasil, o que também deixava os alertas de chegada
-       contraditórios com o card do processo. */
+    /* "Navio Atracado no Porto" (índice 1) agora é o marco que faz o processo sair de
+       "Em Trânsito" e virar "Em Desembaraço" — é o sinal mais objetivo/mais cedo de chegada
+       (o navio já está atracado, mesmo que a carga ainda não tenha sido formalmente
+       apresentada/redestinada à Movecta, que é o que "Chegada e presença", agora índice 2,
+       continua registrando). */
     arrivalItemIndex:1,
     extraFields:[{key:'statusDesembaraco', label:'Status Atual do Desembaraço (descreva livremente)', type:'text'}]},
   {key:'fase7', label:'Fase 7 · Remoção e Entrada', cls:'stamp-remocao',
@@ -2763,6 +2766,28 @@ function migrateInicioDTAOrder(){
       const novoFase6 = oldFase6.slice(0,3).map(v=>v===true)
         .concat([false])
         .concat(oldFase6.slice(3).map(v=>v===true));
+      checklist['fase6'] = novoFase6;
+      p.checklist = checklist;
+      changed = true;
+    }
+  });
+  return changed;
+}
+/* MIGRAÇÃO: "Navio Atracado no Porto" foi inserido no índice 1 da Fase 6 (marítimo), logo
+   depois de "Solicitar DTA" — ver comentário em STAGE_DEFS/fase6. Mesmo padrão das duas
+   migrações acima: idempotente pelo TAMANHO do array (formato antigo marítimo tinha 11 itens
+   — já com "Início da DTA" migrado; um array de 12 nunca é tocado de novo). Só toca
+   processos marítimos, pelo mesmo motivo (AÉREO tem tamanho totalmente diferente). */
+function migrateAtracacaoOrder(){
+  let changed = false;
+  (state.processes||[]).forEach(p=>{
+    if(!p || p.tipo==='temporaria') return;
+    const checklist = p.checklist || {};
+    const oldFase6 = Array.isArray(checklist['fase6']) ? checklist['fase6'] : null;
+    if(oldFase6 && oldFase6.length===11){
+      const novoFase6 = oldFase6.slice(0,1).map(v=>v===true)
+        .concat([false])
+        .concat(oldFase6.slice(1).map(v=>v===true));
       checklist['fase6'] = novoFase6;
       p.checklist = checklist;
       changed = true;
@@ -4174,16 +4199,15 @@ function effectiveProvValue(p, computedValue, overrideKey){
   return ov!==null ? ov : computedValue;
 }
 
-/* Data limite para devolução do container vazio = Chegada na Zona Primária + Free Time.
-   Só calcula quando a chegada na Zona Primária estiver de fato confirmada (checklist da Fase
-   6 · "Chegada e presença" preenchido com data) — nunca estima com base em previsão, como
-   pedido. extra.dataChegadaBetim (Zona Secundária) entra só como fallback pra processos
-   antigos que não tinham o campo de Zona Primária ainda — na prática a chegada na Zona
-   Primária sempre acontece antes ou junto da chegada na Zona Secundária, então segue sendo
-   uma data real, nunca uma estimativa. */
+/* Data limite para devolução do container vazio = Atracação no Porto + Free Time (era a
+   Chegada na Zona Primária antes de "Navio Atracado no Porto" virar um marco próprio — o
+   navio atracar é o sinal mais cedo e objetivo de chegada, então é o que conta agora). Só
+   calcula quando essa data estiver de fato confirmada — nunca estima com base em previsão,
+   como pedido. Os campos mais antigos (Zona Primária, depois Zona Secundária) entram só como
+   fallback em cascata pra processos que ainda não tinham o campo de Atracação preenchido. */
 function containerReturnDate(p){
   const extra = p.extra || {};
-  const baseDate = extra.dataChegadaZonaPrimaria || extra.dataChegadaBetim;
+  const baseDate = extra.dataAtracacaoPorto || extra.dataChegadaZonaPrimaria || extra.dataChegadaBetim;
   if(!baseDate || !extra.freetime) return null;
   const dias = parseInt(extra.freetime)||0;
   const dt = new Date(baseDate+'T00:00:00');
@@ -4798,9 +4822,10 @@ function detectHistoryChanges(prev, next){
   };
 
   fieldChange('Data prevista de chegada alterada', svgCalendarIcon(), prev.chegadaPrevista, next.chegadaPrevista, fmtDate);
+  fieldChange('Navio atracado no porto', svgAnchorIcon(), (prev.extra||{}).dataAtracacaoPorto, (next.extra||{}).dataAtracacaoPorto, fmtDate);
   fieldChange('Chegada na Zona Primária confirmada', svgAnchorIcon(), (prev.extra||{}).dataChegadaZonaPrimaria, (next.extra||{}).dataChegadaZonaPrimaria, fmtDate);
   fieldChange('Data de embarque alterada', svgShipIcon(), prev.dataEmbarqueReal, next.dataEmbarqueReal, fmtDate);
-  fieldChange('Data de chegada ao porto alterada', svgAnchorIcon(), (prev.extra||{}).dataChegadaBetim, (next.extra||{}).dataChegadaBetim, fmtDate);
+  fieldChange('Chegada no Recinto de Desembaraço (Zona Secundária) alterada', svgAnchorIcon(), (prev.extra||{}).dataChegadaBetim, (next.extra||{}).dataChegadaBetim, fmtDate);
   fieldChange('Número da DUIMP registrado', svgDocumentIcon(), (prev.extra||{}).numeroDUIMP, (next.extra||{}).numeroDUIMP);
   fieldChange('DUIMP desembaraçada — data', svgCheckInline(), (prev.extra||{}).dataDesembaraco, (next.extra||{}).dataDesembaraco, fmtDate);
   fieldChange('Canal de conferência definido', svgEditIcon(), (prev.extra||{}).canalDesembaraco, (next.extra||{}).canalDesembaraco);
@@ -5271,7 +5296,7 @@ function formatAndamentoHtml(text){
 const FOLLOWUP_TABLE_HEADERS = ['PROCESSO','FORNECEDOR','Data Pedido','Descrição do Produto','PRONTIDÃO','Embarque','CHEGADA BR','TRANSIT\n(dias)','FREETIME\n(dias)','DEVOLUÇÃO','MODAL','Origem','Status','ANDAMENTO'];
 /* Ordem canônica dos 9 status, do mais inicial ao mais avançado — usada tanto pra escolher
    o status de cada processo quanto pro quadro de contagem no topo da tabela. */
-const FOLLOWUP_STATUS_ORDER = ['Em produção','Aguardando Embarque','Em trânsito','Transporte DTA','Em processo de desembaraço','Aguardando carimbo do estado','Em remoção','Entregue','Finalizado'];
+const FOLLOWUP_STATUS_ORDER = ['Em produção','Aguardando Embarque','Em trânsito','No Porto','Na Movecta','Aguardando Início da DTA','Transporte DTA','Em processo de desembaraço','Aguardando carimbo do estado','Em remoção','Entregue','Finalizado'];
 const FOLLOWUP_FORNECEDOR_POR_LETRA = {C:'CARESTREAM', M:'MORITA', G:'GENORAY'};
 
 /* Linguagem de POSIÇÃO da carga — nunca de pendência/tarefa administrativa. Usada como
@@ -5280,7 +5305,10 @@ const FOLLOWUP_POSICAO_ATUAL = {
   'Em produção': 'Em produção',
   'Aguardando Embarque': 'Aguardando embarque',
   'Em trânsito': 'Aguardando chegada ao Brasil',
-  'Transporte DTA': 'Em deslocamento para o recinto de desembaraço',
+  'No Porto': 'No porto, aguardando redestinação para a Movecta',
+  'Na Movecta': 'Na Movecta, aguardando liberação para agendamento da DTA',
+  'Aguardando Início da DTA': 'DTA agendada, aguardando início',
+  'Transporte DTA': 'Em transporte DTA para o recinto de desembaraço',
   'Em processo de desembaraço': 'No recinto de desembaraço',
   'Aguardando carimbo do estado': 'Aguardando carimbo do estado',
   'Em remoção': 'Em remoção para o destino',
@@ -5306,6 +5334,9 @@ function followUpSortKey(p, stage){
     case 'Em produção': return [p.prontidao||null, p.dataPedido||null];
     case 'Aguardando Embarque': return [p.embarquePrevisto||null, p.prontidao||null];
     case 'Em trânsito': return [p.chegadaPrevista||null, p.dataEmbarqueReal||null];
+    case 'No Porto': return [extra.dataAtracacaoPorto||null, null];
+    case 'Na Movecta': return [extra.dataChegadaZonaPrimaria||null, extra.dataAtracacaoPorto||null];
+    case 'Aguardando Início da DTA': return [extra.dataAgendamentoDTA||null, null];
     case 'Transporte DTA': return [extra.dataInicioDTA||null, extra.dataAgendamentoDTA||null];
     case 'Em processo de desembaraço': return [extra.dataChegadaBetim||null, extra.dataInicioDTA||null];
     case 'Aguardando carimbo do estado': return [extra.dataDesembaraco||null, null];
@@ -5357,6 +5388,9 @@ const FOLLOWUP_STAGE_COLOR_EMAIL = {
   'Em produção': '#2F668F',
   'Aguardando Embarque': '#B88624',
   'Em trânsito': '#6042A0',
+  'No Porto': '#3D6D99',
+  'Na Movecta': '#2E7A72',
+  'Aguardando Início da DTA': '#C79A3D',
   'Transporte DTA': '#5365A2',
   'Em processo de desembaraço': '#C8734F',
   'Aguardando carimbo do estado': '#A86F2A',
@@ -5397,13 +5431,30 @@ function getFollowUpStatus(p){
   const fase6Stage = stages.find(s=>s.key==='fase6');
   const fase6 = checklist['fase6']||[];
   if(fase6Stage){
-    const desembaracoIdx = fase6Stage.items.indexOf('Desembaraço da DUIMP');
-    const liberacaoIdx = fase6Stage.items.indexOf('Liberação SEFAZ');
-    if(desembaracoIdx>=0 && fase6[desembaracoIdx]){
-      if(!(liberacaoIdx>=0 && fase6[liberacaoIdx])) return 'Aguardando carimbo do estado';
+    const idxOf = (label) => fase6Stage.items.indexOf(label);
+    const done = (label) => { const i=idxOf(label); return i>=0 && !!fase6[i]; };
+
+    if(done('Desembaraço da DUIMP') && !done('Liberação SEFAZ')) return 'Aguardando carimbo do estado';
+
+    if(p.modal==='aereo'){
+      /* Aéreo não passa por porto/Movecta — vai direto de "chegou no aeroporto" pra
+         desembaraço, com Transporte DTA só quando o processo realmente tem essa etapa
+         (incluirDTA, ver getStagesForProcess). Lógica original, sem mudança de granularidade
+         aqui — o pedido foi especificamente sobre o fluxo marítimo. */
+      if(fase6Stage.arrivalItemIndex!=null && fase6[fase6Stage.arrivalItemIndex]) return 'Em processo de desembaraço';
+      if(fase6.some(Boolean)) return 'Transporte DTA';
+    } else {
+      /* Marítimo: cada posição reflete o ÚLTIMO marco realmente cumprido, na ordem física de
+         verdade — carga chega no Brasil (navio atraca) mas ainda não está a caminho do
+         recinto de desembaraço: primeiro fica NO PORTO; só depois de dar presença na Movecta
+         é que passa a estar lá dentro; DTA agendada != DTA iniciada (ainda aguardando início);
+         só quando a DTA é iniciada é que a carga está de fato em transporte pro recinto. */
+      if(done('Chegada no Recinto de Desembaraço')) return 'Em processo de desembaraço';
+      if(done('Início da DTA')) return 'Transporte DTA';
+      if(done('Agendar DTA')) return 'Aguardando Início da DTA';
+      if(done('Chegada e presença')) return 'Na Movecta';
+      if(done('Navio Atracado no Porto')) return 'No Porto';
     }
-    if(fase6Stage.arrivalItemIndex!=null && fase6[fase6Stage.arrivalItemIndex]) return 'Em processo de desembaraço';
-    if(fase6.some(Boolean)) return 'Transporte DTA';
   }
 
   const bucket = getBucket(p);
@@ -5430,7 +5481,10 @@ function buildAndamentoLines(p){
 
   add('Carga embarcada', p.dataEmbarqueReal);
 
-  const chegadaReal = extra.dataChegadaBetim;
+  // "Chegada" no andamento geral agora prioriza o navio atracar no porto (sinal mais cedo e
+  // objetivo de chegada) — antes só contava a chegada no recinto de desembaraço (Zona
+  // Secundária), um marco bem mais tardio. Fallback mantido pra processos antigos.
+  const chegadaReal = extra.dataAtracacaoPorto || extra.dataChegadaBetim;
   const nomeChegada = p.modal==='aereo' ? 'Chegada em Confins' : 'Chegada no Brasil';
   if(chegadaReal){
     add(`${nomeChegada} confirmada`, chegadaReal);
@@ -5488,7 +5542,7 @@ function buildFollowUpTableRow(p){
 
   let devolucao = '';
   if(isMaritimo){
-    const baseChegadaZP = extra.dataChegadaZonaPrimaria || extra.dataChegadaBetim;
+    const baseChegadaZP = extra.dataAtracacaoPorto || extra.dataChegadaZonaPrimaria || extra.dataChegadaBetim;
     if(baseChegadaZP && extra.freetime){
       const dt = new Date(baseChegadaZP+'T00:00:00');
       dt.setDate(dt.getDate() + (parseInt(extra.freetime)||0) - 1);
@@ -5498,8 +5552,9 @@ function buildFollowUpTableRow(p){
     devolucao = '-';
   }
 
-  const chegadaConfirmada = !!extra.dataChegadaBetim;
-  const chegadaValorBase = extra.dataChegadaBetim || p.chegadaPrevista;
+  const chegadaConfirmadaData2 = extra.dataAtracacaoPorto || extra.dataChegadaBetim;
+  const chegadaConfirmada = !!chegadaConfirmadaData2;
+  const chegadaValorBase = chegadaConfirmadaData2 || p.chegadaPrevista;
   const chegadaBR = chegadaValorBase ? (fmtDate(chegadaValorBase) + (chegadaConfirmada ? '' : ' (prevista)')) : '';
 
   return {
@@ -5541,7 +5596,7 @@ function generateFollowUpMarkdownTable(processes){
 function processFollowUpMeta(p){
   const fornecedor = state.suppliers.find(s=>s.id===p.supplierId);
   const extra = p.extra || {};
-  const chegadaReal = extra.dataChegadaBetim;
+  const chegadaReal = extra.dataAtracacaoPorto || extra.dataChegadaBetim;
   let transit = '';
   if(p.dataEmbarqueReal && (chegadaReal||p.chegadaPrevista)){
     transit = daysBetween(p.dataEmbarqueReal, chegadaReal||p.chegadaPrevista) + 'd' + (chegadaReal?'':' (est.)');
@@ -5572,6 +5627,9 @@ function followUpStatusColorInfo(status){
     'Em produção': {bg:'var(--ink-blue-bg)', fg:'var(--ink-blue-fg)'},
     'Aguardando Embarque': {bg:'var(--ink-amber-bg)', fg:'var(--ink-amber-fg)'},
     'Em trânsito': {bg:'var(--ink-purple-bg)', fg:'var(--ink-purple-fg)'},
+    'No Porto': {bg:'var(--ink-blue-bg)', fg:'var(--ink-blue-fg)'},
+    'Na Movecta': {bg:'var(--ink-teal-bg)', fg:'var(--ink-teal-fg)'},
+    'Aguardando Início da DTA': {bg:'var(--ink-amber-bg)', fg:'var(--ink-amber-fg)'},
     'Transporte DTA': {bg:'var(--ink-purple-bg)', fg:'var(--ink-purple-fg)'},
     'Em processo de desembaraço': {bg:'var(--ink-red-bg)', fg:'var(--ink-red-fg)'},
     'Aguardando carimbo do estado': {bg:'var(--ink-amber-bg)', fg:'var(--ink-amber-fg)'},
@@ -5599,8 +5657,9 @@ function followUpTableRowHtml(p){
     : (p.embarquePrevisto ? {label:'Embarque previsto', value:fmtDate(p.embarquePrevisto)} : {label:'Embarque', value:'—'});
   const extra = p.extra||{};
   let chegadaInfo;
-  if(extra.dataChegadaBetim){
-    chegadaInfo = {label:'Chegada confirmada', value:fmtDate(extra.dataChegadaBetim), pending:false};
+  const chegadaConfirmadaData = extra.dataAtracacaoPorto || extra.dataChegadaBetim;
+  if(chegadaConfirmadaData){
+    chegadaInfo = {label:'Chegada confirmada', value:fmtDate(chegadaConfirmadaData), pending:false};
   } else if(p.chegadaPrevista){
     chegadaInfo = {label:'Chegada prevista', value:fmtDate(p.chegadaPrevista), pending:true};
   } else {
@@ -5648,6 +5707,9 @@ const FOLLOWUP_STAGE_RECT_CLASS = {
   'Em produção': 'is-production',
   'Aguardando Embarque': 'is-waiting',
   'Em trânsito': 'is-transit',
+  'No Porto': 'is-info',
+  'Na Movecta': 'is-info',
+  'Aguardando Início da DTA': 'is-waiting',
   'Transporte DTA': 'is-transit',
   'Em processo de desembaraço': 'is-customs',
   'Aguardando carimbo do estado': 'is-waiting',
@@ -5660,6 +5722,9 @@ function followUpStageIcon(stage){
     case 'Em produção': return svgBoxIcon(17);
     case 'Aguardando Embarque': return svgClockIcon(17);
     case 'Em trânsito': return svgShipIcon(17);
+    case 'No Porto': return svgAnchorIcon(17);
+    case 'Na Movecta': return svgBoxIcon(17);
+    case 'Aguardando Início da DTA': return svgClockIcon(17);
     case 'Transporte DTA': return svgTruckIcon(17);
     case 'Em processo de desembaraço': return svgDocumentIcon(17);
     case 'Aguardando carimbo do estado': return svgClockIcon(17);
@@ -5760,6 +5825,9 @@ const FOLLOWUP_STATUS_COLORS_EMAIL = {
   'Em produção': {bg:'#E4EEF6', fg:'#2A5C8A'},
   'Aguardando Embarque': {bg:'#FBF0DC', fg:'#A5730F'},
   'Em trânsito': {bg:'#EDE7F8', fg:'#5B3FA0'},
+  'No Porto': {bg:'#E4EEF6', fg:'#2A5C8A'},
+  'Na Movecta': {bg:'#E4F3EC', fg:'#1F7A5C'},
+  'Aguardando Início da DTA': {bg:'#FBF0DC', fg:'#A5730F'},
   'Transporte DTA': {bg:'#EDE7F8', fg:'#5B3FA0'},
   'Em processo de desembaraço': {bg:'#FBE9E2', fg:'#B8441F'},
   'Aguardando carimbo do estado': {bg:'#FBF0DC', fg:'#A5730F'},
@@ -5819,27 +5887,40 @@ function generateFollowUpEmailProcessBlock(p){
   const embarqueInfo = p.dataEmbarqueReal
     ? {label:'Embarque confirmado', value:fmtDate(p.dataEmbarqueReal)}
     : (p.embarquePrevisto ? {label:'Embarque previsto', value:fmtDate(p.embarquePrevisto)} : null);
-  const chegadaInfo = extra.dataChegadaBetim
-    ? {label:'Chegada confirmada', value:fmtDate(extra.dataChegadaBetim)}
+  const chegadaConfirmadaData = extra.dataAtracacaoPorto || extra.dataChegadaBetim;
+  const chegadaInfo = chegadaConfirmadaData
+    ? {label:'Chegada confirmada', value:fmtDate(chegadaConfirmadaData)}
     : (p.chegadaPrevista ? {label:'Chegada prevista', value:fmtDate(p.chegadaPrevista)} : null);
 
   // Só entram no bloco os campos que o processo realmente tem — nada de "—" ou linha vazia.
   // Datas atrasadas continuam aparecendo normalmente como "prevista" — sem alerta, sem cor de
-  // aviso: Follow-up mostra posição da carga, não pendência (ver seção 9 do pedido).
-  const leftFields = [];
-  if(r.dataPedido) leftFields.push({label:'Pedido', value:r.dataPedido});
-  if(r.prontidao) leftFields.push({label:'Prontidão prevista', value:r.prontidao});
-  if(embarqueInfo) leftFields.push(embarqueInfo);
-  if(chegadaInfo) leftFields.push(chegadaInfo);
-  if(r.transit) leftFields.push({label:'Trânsito', value:r.transit+' dias'});
-  if(r.freetime && r.freetime!=='-') leftFields.push({label:'Free time', value:r.freetime+' dias'});
-  if(r.devolucao && r.devolucao!=='-') leftFields.push({label:'Devolução', value:r.devolucao});
-  if(r.modal) leftFields.push({label:'Modal', value:r.modal});
-  if(r.origem) leftFields.push({label:'Origem', value:r.origem});
+  // aviso: Follow-up mostra posição da carga, não pendência (ver seção 7 do pedido).
+  const gridFields = [];
+  if(r.dataPedido) gridFields.push({label:'Pedido', value:r.dataPedido});
+  if(r.prontidao) gridFields.push({label:'Prontidão prevista', value:r.prontidao});
+  if(r.modal) gridFields.push({label:'Modal', value:r.modal});
+  if(embarqueInfo) gridFields.push(embarqueInfo);
+  if(chegadaInfo) gridFields.push(chegadaInfo);
+  if(r.origem) gridFields.push({label:'Origem', value:r.origem});
+  if(r.transit) gridFields.push({label:'Trânsito', value:r.transit+' dias'});
+  if(r.freetime && r.freetime!=='-') gridFields.push({label:'Free time', value:r.freetime+' dias'});
+  if(r.devolucao && r.devolucao!=='-') gridFields.push({label:'Devolução', value:r.devolucao});
 
-  const leftHtml = leftFields.map(f=>
-    `<strong style="color:#65758A;">${esc(f.label)}</strong><br>${esc(f.value)}`
-  ).join('<br><br>');
+  // Grade interna de 3 colunas (tabela HTML, nunca flex/grid) — em vez de empilhar cada campo
+  // numa linha só, o que deixava a coluna esquerda comprida demais e o resto da largura vazio.
+  let gridHtml = '';
+  for(let i=0; i<gridFields.length; i+=3){
+    const row = gridFields.slice(i, i+3);
+    gridHtml += '<tr>' + row.map((f,idx)=>{
+      const isLast = idx===row.length-1;
+      const padStyle = idx===0 ? 'padding:0 10px 12px 0;' : (isLast ? 'padding:0 0 12px 10px;' : 'padding:0 10px 12px 10px;');
+      return `<td width="33%" valign="top" style="width:33%; ${padStyle}">
+        <p style="margin:0; font-size:11px; line-height:15px; font-weight:bold; color:#65758A; text-transform:uppercase;">${esc(f.label)}</p>
+        <p style="margin:3px 0 0 0; font-size:13px; line-height:18px; color:#17263A; word-break:normal; overflow-wrap:break-word;">${esc(f.value)}</p>
+      </td>`;
+    }).join('') + (row.length<3 ? `<td width="${(3-row.length)*33}%">&nbsp;</td>` : '') + '</tr>';
+  }
+  const leftHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; border-collapse:collapse;">${gridHtml}</table>`;
 
   // ANDAMENTO — obrigatório, nunca resumido/omitido; mesmas linhas cronológicas já calculadas
   // por buildAndamentoLines() (a mesma fonte usada na coluna ANDAMENTO da tela interna), já
@@ -5847,26 +5928,23 @@ function generateFollowUpEmailProcessBlock(p){
   const andamentoBody = r.andamento ? formatAndamentoHtml(r.andamento) : 'Sem eventos registrados ainda.';
 
   // Cabeçalho em duas cores independentes: fornecedor à esquerda (estável, não muda com a
-  // etapa), etapa à direita (cor semântica do status). Dentro da área do fornecedor, o
-  // PRODUTO agora vem na linha principal (junto da referência) — é a informação mais útil
-  // pra reconhecer o processo — e fornecedor/modal/origem viram a linha secundária, sem
-  // destino/rota (só origem, como pedido).
+  // etapa), etapa à direita (cor semântica do status). Produto em destaque na linha principal.
+  // Sem bandeira/ícone/emoji de país — origem só como texto, como pedido.
   const supplierColor = followUpSupplierColorEmail(p);
   const stageColor = followUpHeaderColorEmail(r.status);
-  const originFlag = countryFlag(r.origem) || '';
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; max-width:680px; border-collapse:collapse; background-color:#FFFFFF; border:1px solid #D8E1EA;">
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; border-collapse:collapse; background-color:#FFFFFF; border:1px solid #D8E1EA;">
     <tr>
-      <td width="68%" valign="middle" style="width:68%; padding:11px 14px; background-color:${supplierColor}; font-family:Arial,Helvetica,sans-serif; color:#FFFFFF;">
-        <p style="margin:0; font-size:15px; line-height:20px; font-weight:bold; color:#FFFFFF;">${esc(r.processo)} &middot; ${esc(r.descricao)}</p>
-        <p style="margin:3px 0 0 0; font-size:12px; line-height:17px; color:#D7E5F2;">${esc(r.fornecedor)}${r.modal?` &middot; ${esc(r.modal)}`:''}${r.origem?` &middot; ${originFlag?originFlag+' ':''}${esc(r.origem)}`:''}</p>
+      <td width="72%" valign="middle" style="width:72%; padding:11px 16px; background-color:${supplierColor}; font-family:Arial,Helvetica,sans-serif; color:#FFFFFF;">
+        <p style="margin:0; font-size:15px; line-height:20px; font-weight:bold; color:#FFFFFF;">${esc(r.processo)} &middot; ${esc(r.descricao)} &middot; ${esc(r.fornecedor)}</p>
+        <p style="margin:3px 0 0 0; font-size:12px; line-height:17px; color:#D7E5F2;">${esc(r.modal)}${r.origem?` &middot; ${esc(r.origem)}`:''}</p>
       </td>
-      <td width="32%" align="right" valign="middle" style="width:32%; padding:11px 14px; background-color:${stageColor}; font-family:Arial,Helvetica,sans-serif; color:#FFFFFF;">
+      <td width="28%" align="right" valign="middle" style="width:28%; padding:11px 16px; background-color:${stageColor}; font-family:Arial,Helvetica,sans-serif; color:#FFFFFF;">
         <p style="margin:0; font-size:12px; line-height:16px; font-weight:bold; color:#FFFFFF;">${esc(String(r.status).toUpperCase())}</p>
       </td>
     </tr>
     <tr>
-      <td width="40%" valign="top" style="width:40%; padding:12px 14px; border-top:1px solid #E1E8EF; border-right:1px solid #E1E8EF; font-family:Arial,Helvetica,sans-serif; font-size:12px; line-height:18px; color:#17263A;">${leftHtml}</td>
-      <td width="60%" valign="top" style="width:60%; padding:12px 14px; border-top:1px solid #E1E8EF; background-color:#F8FAFC; font-family:Arial,Helvetica,sans-serif; font-size:12px; line-height:18px; color:#17263A;">
+      <td width="48%" valign="top" style="width:48%; padding:14px 16px; border-top:1px solid #E1E8EF; border-right:1px solid #E1E8EF; font-family:Arial,Helvetica,sans-serif; font-size:12px; line-height:18px; color:#17263A;">${leftHtml}</td>
+      <td width="52%" valign="top" style="width:52%; padding:14px 16px; border-top:1px solid #E1E8EF; background-color:#F8FAFC; font-family:Arial,Helvetica,sans-serif; font-size:12px; line-height:18px; color:#17263A; word-break:normal; overflow-wrap:break-word;">
         <strong style="font-size:11px; color:#315D87;">ANDAMENTO</strong><br><br>
         ${andamentoBody}
       </td>
@@ -5884,7 +5962,7 @@ function generateFollowUpEmailHtml(processes){
   const dataGerado = fmtDate(agora.toISOString().slice(0,10));
   const horaGerado = agora.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
 
-  const headerHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; max-width:680px; border-collapse:collapse; margin-bottom:16px;">
+  const headerHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; border-collapse:collapse; margin-bottom:16px;">
     <tr><td style="font-family:Arial,Helvetica,sans-serif; font-size:18px; line-height:24px; font-weight:bold; color:#0F1B2D;">COMEX TRACK</td></tr>
     <tr><td style="font-family:Arial,Helvetica,sans-serif; font-size:13px; line-height:18px; color:#65758A; padding-top:2px; padding-bottom:10px;">Follow-up de Processos de Importação</td></tr>
     <tr><td style="font-family:Arial,Helvetica,sans-serif; font-size:12px; line-height:18px; color:#17263A;">Empresa: ${esc(empresaNome)}<br>Gerado em: ${dataGerado} às ${horaGerado}</td></tr>
@@ -5894,7 +5972,7 @@ function generateFollowUpEmailHtml(processes){
   const summaryHtml = generateFollowUpStatusSummaryHtml(processes);
   const stageHeaderHtml = (stage, count) => {
     const color = followUpHeaderColorEmail(stage);
-    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; max-width:680px; border-collapse:collapse; margin:4px 0 10px 0;">
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; border-collapse:collapse; margin:4px 0 10px 0;">
       <tr><td style="padding:8px 2px; font-family:Arial,Helvetica,sans-serif; font-size:12.5px; font-weight:bold; letter-spacing:0.3px; color:${color}; border-bottom:2px solid ${color};">${esc(stage.toUpperCase())} &mdash; ${count} PROCESSO${count===1?'':'S'}</td></tr>
     </table>`;
   };
@@ -5903,11 +5981,23 @@ function generateFollowUpEmailHtml(processes){
     const items = g.items.map(p=>generateFollowUpEmailProcessBlock(p)+spacer).join('');
     return header + items;
   }).join('');
-  const footerHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; max-width:680px; border-collapse:collapse;">
+  const footerHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; border-collapse:collapse;">
     <tr><td style="font-family:Arial,Helvetica,sans-serif; font-size:10.5px; line-height:15px; color:#9AA6B5; padding-top:6px; border-top:1px solid #E5EBF1;">Gerado automaticamente pela plataforma Comex Track.</td></tr>
   </table>`;
 
-  return `<div style="max-width:680px;">${headerHtml}${summaryHtml}${spacer}${blocksHtml}${footerHtml}</div>`;
+  /* Largura: usa praticamente toda a área disponível do corpo do e-mail (até 1180px, em vez
+     dos 680px estreitos de antes, que deixavam quase 60% da tela vazia). O comentário
+     condicional [if mso] garante que o Outlook (que ignora max-width em CSS normal) também
+     respeite essa largura, sem sobrar área vazia nem criar rolagem horizontal. */
+  return `<!--[if mso]>
+<table role="presentation" width="1180" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td width="1180">
+<![endif]-->
+<div style="width:100%; max-width:1180px; margin:0 auto;">
+${headerHtml}${summaryHtml}${spacer}${blocksHtml}${footerHtml}
+</div>
+<!--[if mso]>
+</td></tr></table>
+<![endif]-->`;
 }
 
 /* Fallback em texto puro (text/plain) — mesma estrutura de blocos, sem HTML. */
@@ -5933,8 +6023,9 @@ function generateFollowUpEmailPlainText(processes){
         ? {label:'Embarque confirmado', value:fmtDate(p.dataEmbarqueReal)}
         : (p.embarquePrevisto ? {label:'Embarque previsto', value:fmtDate(p.embarquePrevisto)} : null);
       const extra = p.extra||{};
-      const chegadaInfo = extra.dataChegadaBetim
-        ? {label:'Chegada confirmada', value:fmtDate(extra.dataChegadaBetim)}
+      const chegadaConfirmadaData = extra.dataAtracacaoPorto || extra.dataChegadaBetim;
+      const chegadaInfo = chegadaConfirmadaData
+        ? {label:'Chegada confirmada', value:fmtDate(chegadaConfirmadaData)}
         : (p.chegadaPrevista ? {label:'Chegada prevista', value:fmtDate(p.chegadaPrevista)} : null);
 
       text += `${r.processo} · ${r.descricao} — ${String(r.status).toUpperCase()}\n`;
@@ -5981,7 +6072,7 @@ function openFollowUpTablePreview(processes, title){
   overlay.id = 'followup-overlay';
   attachOverlayOutsideClose(overlay, ()=>overlay.remove());
   overlay.innerHTML = `
-    <div class="modal" style="max-width:760px;">
+    <div class="modal" style="max-width:1240px;">
       <div class="modal-header">
         <h2>${title}</h2>
         <button class="modal-close" onclick="document.getElementById('followup-overlay').remove()">×</button>
@@ -8088,18 +8179,28 @@ let navReorderMode = false;
 
 function getNavOrder(){
   try{
-    const saved = JSON.parse(localStorage.getItem('comextrack_nav_order')||'null');
-    if(Array.isArray(saved) && saved.length){
+    if(Array.isArray(currentUserNavOrder) && currentUserNavOrder.length){
       const byKey = {}; NAV_ITEMS.forEach(i=>byKey[i.key]=i);
-      const ordered = saved.map(k=>byKey[k]).filter(Boolean);
-      NAV_ITEMS.forEach(i=>{ if(!saved.includes(i.key)) ordered.push(i); });
+      const ordered = currentUserNavOrder.map(k=>byKey[k]).filter(Boolean);
+      NAV_ITEMS.forEach(i=>{ if(!currentUserNavOrder.includes(i.key)) ordered.push(i); });
       return ordered;
     }
   }catch(e){}
   return NAV_ITEMS.slice();
 }
-function saveNavOrder(items){
-  try{ localStorage.setItem('comextrack_nav_order', JSON.stringify(items.map(i=>i.key))); }catch(e){}
+/* A ordem das abas agora é salva no documento do usuário no Firestore (users/{uid}.navOrder),
+   não só no localStorage do navegador — antes, reordenar num computador não valia em outro
+   (ou depois de limpar o navegador), obrigando a ajustar de novo toda vez. localStorage
+   continua sendo atualizado também, só como cache instantâneo — a fonte de verdade agora é
+   a nuvem. */
+async function saveNavOrder(items){
+  const keys = items.map(i=>i.key);
+  currentUserNavOrder = keys;
+  try{ localStorage.setItem('comextrack_nav_order', JSON.stringify(keys)); }catch(e){}
+  if(currentUser){
+    try{ await db.collection('users').doc(currentUser.uid).set({navOrder: keys}, {merge:true}); }
+    catch(e){ console.error('Não foi possível salvar a ordem das abas na nuvem', e); }
+  }
 }
 function toggleNavReorderMode(){
   navReorderMode = !navReorderMode;
