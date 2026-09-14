@@ -2553,6 +2553,8 @@ function attachDataListener(){
     const blOrderChanged = migrateBLDraftOrder();
     const inicioDtaOrderChanged = migrateInicioDTAOrder();
     const atracacaoOrderChanged = migrateAtracacaoOrder();
+    const aereoDtaSplitChanged = migrateAereoDTASplit();
+    const provRulesBackfilled = backfillDefaultProvisioningRules();
     /* Evita rodar o auto-preenchimento de NCM (que dispara um persistState() de fundo) enquanto
        o modal de processo está aberto — evita uma corrida onde esse salvamento de fundo grava
        uma versão de state.processes anterior às edições que a pessoa está fazendo agora mesmo,
@@ -2560,7 +2562,7 @@ function attachDataListener(){
     if(!window.__editingProcess && hasAnyEditAccess()){
       const ncmChanged = autoFillKnownNcmAliquotas();
       const codigosChanged = seedCodigosImpostoParaNcmsConhecidas();
-      if(ncmChanged || codigosChanged || blOrderChanged || inicioDtaOrderChanged || atracacaoOrderChanged) persistState();
+      if(ncmChanged || codigosChanged || blOrderChanged || inicioDtaOrderChanged || atracacaoOrderChanged || aereoDtaSplitChanged || provRulesBackfilled) persistState();
     }
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
@@ -2650,6 +2652,7 @@ const STAGE_DEFS = [
       1:[{key:'agenteCarga', label:'Agente de Cargas', type:'partner', partnerType:'Agente de Cargas'}],
       2:[
         {key:'numeroBooking', label:'Número do Booking', type:'text'},
+        {key:'armador', label:'Armador', type:'text'},
         {key:'navio', label:'Navio', type:'text'},
         {key:'viagem', label:'Viagem', type:'text'},
         {key:'freetime', label:'Freetime (dias)', type:'number'},
@@ -2792,6 +2795,33 @@ function migrateAtracacaoOrder(){
       const novoFase6 = oldFase6.slice(0,1).map(v=>v===true)
         .concat([false])
         .concat(oldFase6.slice(1).map(v=>v===true));
+      checklist['fase6'] = novoFase6;
+      p.checklist = checklist;
+      changed = true;
+    }
+  });
+  return changed;
+}
+
+/* MIGRAÇÃO: no aéreo COM TRANSFERÊNCIA, "Início DTA" (1 item) virou dois marcos separados —
+   "DTA agendada" e "DTA iniciada" — ver comentário em STAGE_DEFS/fase6 (bloco isAereo) e
+   getCondicaoAereo(). Mesmo padrão das migrações acima: idempotente pelo TAMANHO do array.
+   O formato antigo aéreo-com-transferência tinha 8 itens (só esse — aéreo direto tem 7, sem
+   nenhum item de DTA, e marítimo tem uma estrutura totalmente diferente — 12 itens — então não
+   há ambiguidade nenhuma em usar só o comprimento). Um array de 9 (formato novo) nunca é
+   tocado de novo. Se "Início DTA" já estava marcado, as DUAS etapas novas ficam confirmadas —
+   quem já tinha iniciado a DTA necessariamente também já tinha agendado, então nenhum
+   progresso já registrado se perde. Só toca processos aéreos. */
+function migrateAereoDTASplit(){
+  let changed = false;
+  (state.processes||[]).forEach(p=>{
+    if(!p || p.tipo==='temporaria' || p.modal!=='aereo') return;
+    const checklist = p.checklist || {};
+    const oldFase6 = Array.isArray(checklist['fase6']) ? checklist['fase6'] : null;
+    if(oldFase6 && oldFase6.length===8){
+      const iniciouDTA = oldFase6[1]===true;
+      const novoFase6 = [oldFase6[0]===true, iniciouDTA, iniciouDTA]
+        .concat(oldFase6.slice(2).map(v=>v===true));
       checklist['fase6'] = novoFase6;
       p.checklist = checklist;
       changed = true;
@@ -3061,12 +3091,33 @@ const DEFAULT_PROVISIONING_RULES = [
   {id:'seed-rule-2', categoria:'despachante', modal:'aereo', condicao:'AEREO_DIRETO', dataBase:'chegada_prevista_1o_aeroporto', dias:4, descricao:'Despachante — aéreo direto'},
   {id:'seed-rule-3', categoria:'despachante', modal:'maritimo', condicao:null, dataBase:'chegada_prevista_brasil', dias:10, descricao:'Despachante — marítimo'},
   {id:'seed-rule-4', categoria:'agente_cargas', modal:null, condicao:'TODOS_OS_MODAIS', dataBase:'chegada_prevista_brasil', dias:5, descricao:'Agente de cargas — todos os modais'},
+  {id:'seed-rule-9', categoria:'transportadora_dta', modal:null, condicao:'TODOS_OS_MODAIS', dataBase:'chegada_prevista_brasil', dias:18, descricao:'Transportadora (DTA) — todos os modais'},
   {id:'seed-rule-5', categoria:'armazenagem', modal:'maritimo', condicao:'MARITIMO_ZONA_PRIMARIA', dataBase:'chegada_prevista_brasil', dias:15, descricao:'Armazenagem — zona primária'},
   {id:'seed-rule-6', categoria:'armazenagem', modal:'maritimo', condicao:'MARITIMO_ZONA_SECUNDARIA', dataBase:'chegada_prevista_brasil', dias:20, descricao:'Armazenagem — zona secundária'},
   {id:'seed-rule-7', categoria:'armazenagem', modal:'aereo', condicao:'AEREO_COM_TRANSFERENCIA', dataBase:'chegada_prevista_1o_aeroporto', dias:12, descricao:'Armazenagem aeroportuária — aéreo com transferência'},
   {id:'seed-rule-8', categoria:'armazenagem', modal:'aereo', condicao:'AEREO_DIRETO', dataBase:'chegada_prevista_1o_aeroporto', dias:9, descricao:'Armazenagem aeroportuária — aéreo direto'},
 ].map(r=>({...r, partnerId:null, ativa:true, prioridade:0, ts:null, userEmail:''}));
 
+/* Backfill de regras padrão de Provisionamento: quando uma categoria nova é adicionada ao
+   código (ex: "transportadora_dta"), quem já tinha o dado salvo antes não ganha ela
+   automaticamente — o carregamento em attachDataListener usa d.provisioningRules inteiro
+   quando ele já existe, sem mesclar com DEFAULT_PROVISIONING_RULES. Preenche só o que falta
+   (comparando categoria+modal+condicao das regras padrão da empresa, partnerId null), nunca
+   duplica nem sobrescreve uma regra que a pessoa já tenha customizado. */
+function backfillDefaultProvisioningRules(){
+  state.provisioningRules = state.provisioningRules || [];
+  const existing = new Set(state.provisioningRules.filter(r=>!r.partnerId).map(r=>`${r.categoria}|${r.modal||''}|${r.condicao||''}`));
+  let changed = false;
+  DEFAULT_PROVISIONING_RULES.forEach(def=>{
+    const key = `${def.categoria}|${def.modal||''}|${def.condicao||''}`;
+    if(!existing.has(key)){
+      state.provisioningRules.push({...def});
+      existing.add(key);
+      changed = true;
+    }
+  });
+  return changed;
+}
 const CONDICOES_OPERACIONAIS = ['AEREO_DIRETO','AEREO_COM_TRANSFERENCIA','MARITIMO_ZONA_PRIMARIA','MARITIMO_ZONA_SECUNDARIA','TODOS_OS_MODAIS'];
 const CONDICAO_LABELS = {
   AEREO_DIRETO: 'Aéreo direto',
@@ -3075,7 +3126,7 @@ const CONDICAO_LABELS = {
   MARITIMO_ZONA_SECUNDARIA: 'Marítimo — zona secundária',
   TODOS_OS_MODAIS: 'Todos os modais',
 };
-const PROVISIONING_CATEGORIA_LABELS = {despachante:'Despachante', agente_cargas:'Agente de Cargas', armazenagem:'Armazenagem'};
+const PROVISIONING_CATEGORIA_LABELS = {despachante:'Despachante', agente_cargas:'Agente de Cargas', armazenagem:'Armazenagem', transportadora_dta:'Transportadora (DTA)'};
 /* Datas-base disponíveis pra regra — a primeira implementação (pedido explícito) só usa as
    duas primeiras (chegada prevista ao Brasil / ao 1º aeroporto); as demais já ficam no enum
    pra regra futura poder escolher, sem precisar mexer em código de novo. */
@@ -3106,12 +3157,24 @@ function resolveDataBaseValue(p, key){
     default: return null;
   }
 }
-/* Aéreo direto × aéreo com transferência — hoje ainda decidido pelo flag manual
-   `p.aeroportoDestinoFinal` (a comparação automática de aeroportos é o Bloco B, ainda não
-   implementado). Centralizado aqui de propósito: quando o Bloco B trocar o critério pela
-   comparação automática, só esta função muda — Provisionamento e o resto continuam iguais. */
+/* Aéreo direto × aéreo com transferência — regra automática (pedido explícito): compara o
+   aeroporto de chegada ao Brasil (1ª entrada) com o aeroporto final/recinto de desembaraço.
+   Sem campo manual "Requer DTA?" nenhum. Enquanto os dois campos novos não estiverem
+   preenchidos (processo criado antes desta mudança, ou ainda no início), cai no flag antigo
+   (`p.aeroportoDestinoFinal`) como aproximação — preserva o comportamento de cada processo
+   existente até que os aeroportos reais sejam informados, sem migração em massa nem mudança
+   repentina de estrutura da Fase 6 pra ninguém. */
+function normalizarLocalAereo(valor){
+  return (valor||'').trim().toUpperCase();
+}
 function getCondicaoAereo(p){
   if(p.modal!=='aereo') return null;
+  const extra = p.extra||{};
+  const chegada = normalizarLocalAereo(extra.aeroportoPrimeiraEntrada);
+  const final = normalizarLocalAereo(extra.aeroportoFinalDesembaraco);
+  if(chegada && final){
+    return chegada===final ? 'AEREO_DIRETO' : 'AEREO_COM_TRANSFERENCIA';
+  }
   return p.aeroportoDestinoFinal===true ? 'AEREO_DIRETO' : 'AEREO_COM_TRANSFERENCIA';
 }
 /* Resolve qual regra usar pra uma combinação categoria+modal+condição, na prioridade pedida
@@ -4010,7 +4073,8 @@ function renderProvisionamentoTab(){
 
     <div class="prov-section prov-total" style="margin-top:22px;" id="prov-total-body"></div>
 
-    <div style="margin-top:20px; display:flex; justify-content:flex-end;">
+    <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:10px;">
+      <button class="btn" onclick="openEmailProvisionamentoPreview()">${svgSendIcon()} Gerar E-mail</button>
       <button class="btn btn-primary" onclick="congelarProvisionamento()">${svgSendIcon()} Enviar Provisionamento ao Financeiro</button>
     </div>
   `;
@@ -4143,6 +4207,29 @@ function renderPrazoZonaSecundariaHtml(p){
   return `<div class="prov-line"><div class="prov-line-label">Prazo do 1º período (Zona Secundária)</div><div class="prov-line-value" style="font-size:13px;">${fmtDate(prazo)} — ${statusHtml}</div></div>`;
 }
 
+/* PROVISIONAMENTO — arredondamento pra cima (nunca pra baixo), só usado aqui: lida com
+   ESTIMATIVA, então um valor "quebrado" (ex: R$10.811,28) passa a falsa impressão de
+   precisão centavo a centavo — melhor superestimar um pouco. Arredonda pra cima até a
+   centena mais próxima (10.811,28 → 10.900). Nunca aplicado na aba Custos (valores reais). */
+function roundUpProv(valor){
+  return Math.ceil((valor||0)/100)*100;
+}
+/* Valor do Despachante no Provisionamento = Honorários + Impostos (II+IPI+PIS+COFINS,
+   respeitando o ajuste manual se houver) + Acréscimos — é o total que de fato precisa ser
+   transferido pro despachante processar a DUIMP (honorário dele + os impostos que ele vai
+   recolher + o que foi somado no Valor Aduaneiro), não só o honorário puro. */
+function getValorDespachante(p){
+  const extra = p.extra || {};
+  const honorarios = getHonorariosDespachante(p).valor;
+  const impostos = computeImpostosImportacao(p);
+  const impostosEfetivo = effectiveProvValue(p, impostos.total, 'provImpostosOverride');
+  const va = computeValorAduaneiroBreakdown(p);
+  const acrescimosValorInformado = parseFloat(extra.provAcrescimosUsd)||0;
+  const acrescimosMoeda = extra.provAcrescimosMoeda || 'USD';
+  const acrescimosBrl = acrescimosMoeda==='BRL' ? acrescimosValorInformado : acrescimosValorInformado*va.cambio;
+  return honorarios + impostosEfetivo + acrescimosBrl;
+}
+
 function updateProvPreview(){
   const p = window.__editingProcess;
   if(!p) return;
@@ -4200,8 +4287,8 @@ function updateProvPreview(){
   const totalEl = document.getElementById('prov-total-body');
   if(totalEl){
     const totalGeral = honorarios + impostosEfetivo + icmsValor + freteInternacionalBrl + armazenagemTotal + armazenagemZSTotal + siscomexEfetivo + dtaValor + lavagemValor;
-    totalEl.innerHTML = `<div class="prov-line prov-line-grand-total"><div class="prov-line-label">TOTAL PROVISIONADO</div><div class="prov-line-value">${fmtBRL(totalGeral)}</div></div>
-      <div class="form-hint" style="margin-top:6px;">Honorários + Impostos (II+IPI+PIS+COFINS+ICMS) + Frete Internacional + Armazenagem + Taxa SISCOMEX + Transporte DTA + Lavagem de Container.</div>`;
+    totalEl.innerHTML = `<div class="prov-line prov-line-grand-total"><div class="prov-line-label">TOTAL PROVISIONADO</div><div class="prov-line-value">${fmtBRL(roundUpProv(totalGeral))}</div></div>
+      <div class="form-hint" style="margin-top:6px;">Honorários + Impostos (II+IPI+PIS+COFINS+ICMS) + Frete Internacional + Armazenagem + Taxa SISCOMEX + Transporte DTA + Lavagem de Container — arredondado pra cima até a centena mais próxima.</div>`;
   }
 }
 
@@ -5682,12 +5769,16 @@ function getFollowUpStatus(p){
     if(done('Desembaraço da DUIMP')) return 'Aguardando carimbo do estado';
 
     if(p.modal==='aereo'){
-      /* Aéreo não passa por porto/Movecta — vai direto de "chegou no aeroporto" pra
-         desembaraço, com Transporte DTA só quando o processo realmente tem essa etapa
-         (incluirDTA, ver getStagesForProcess). Lógica original, sem mudança de granularidade
-         aqui — o pedido foi especificamente sobre o fluxo marítimo. */
+      /* Aéreo direto (mesmo aeroporto de entrada e de desembaraço, ver getCondicaoAereo) não
+         passa por DTA/transferência — vai direto de "chegou" pra desembaraço. Aéreo com
+         transferência agora distingue "DTA agendada" (planejamento, não move fase) de "DTA
+         iniciada" (só aqui move pra Transporte DTA) — mesmo princípio do marítimo logo abaixo,
+         nunca inferido da existência de uma data, só da etapa confirmada. */
       if(fase6Stage.arrivalItemIndex!=null && fase6[fase6Stage.arrivalItemIndex]) return 'Em processo de desembaraço';
-      if(fase6.some(Boolean)) return 'Transporte DTA';
+      if(getCondicaoAereo(p)!=='AEREO_DIRETO'){
+        if(done('DTA iniciada')) return 'Transporte DTA';
+        if(done('DTA agendada')) return 'Aguardando Início da DTA';
+      }
     } else {
       /* Marítimo: cada posição reflete o ÚLTIMO marco realmente cumprido, na ordem física de
          verdade — carga chega no Brasil (navio atraca) mas ainda não está a caminho do
@@ -5815,7 +5906,16 @@ function isChegadaRecintoConfirmada(p){
   if(!fase6) return false;
   const checklist = p.checklist['fase6']||[];
   if(p.modal==='aereo'){
-    return fase6.arrivalItemIndex!=null && !!checklist[fase6.arrivalItemIndex];
+    if(fase6.arrivalItemIndex!=null && !!checklist[fase6.arrivalItemIndex]) return true;
+    /* Aéreo direto: chegada ao Brasil e chegada ao recinto são o mesmo aeroporto (ver
+       getCondicaoAereo) — não faz sentido esse processo passar pela fase "Em Transferência
+       Aduaneira". Se já confirmou "Chegada e presença" e a condição é direto, já conta como
+       chegada ao recinto também. */
+    if(getCondicaoAereo(p)==='AEREO_DIRETO'){
+      const idx0 = fase6.items.indexOf('Chegada e presença');
+      if(idx0>=0 && !!checklist[idx0]) return true;
+    }
+    return false;
   }
   const idx = fase6.items.indexOf('Chegada no Recinto de Desembaraço');
   return idx>=0 && !!checklist[idx];
@@ -5990,9 +6090,11 @@ function followUpTableRowHtml(p){
   const chegadaInfo = r.chegadaDisplayDate
     ? {label:r.chegadaLabel, value:fmtDate(r.chegadaDisplayDate), pending:!r.chegadaConfirmada}
     : {label:'Chegada', value:'—', pending:false};
-  const bothConfirmed = r.embarqueConfirmadoFlag && r.chegadaConfirmada;
-  const embarqueCellCls = bothConfirmed ? 'is-confirmed' : (embarqueInfo.pending ? 'is-pending' : '');
-  const chegadaCellCls = bothConfirmed ? 'is-confirmed' : (chegadaInfo.pending ? 'is-pending' : '');
+  /* Embarque e Chegada são independentes um do outro: cada um vira verde assim que a SUA
+     própria etapa é confirmada, sem esperar o outro — antes só ficava verde quando os dois
+     estavam confirmados ao mesmo tempo. */
+  const embarqueCellCls = r.embarqueConfirmadoFlag ? 'is-confirmed' : (embarqueInfo.pending ? 'is-pending' : '');
+  const chegadaCellCls = r.chegadaConfirmada ? 'is-confirmed' : (chegadaInfo.pending ? 'is-pending' : '');
   const narrativeId = 'followup-narrative-'+p.id;
   const isOpen = !!window.__followupOpenRows[p.id];
   const modalIconHtml = modalIcon(p.modal);
@@ -6249,12 +6351,15 @@ function generateFollowUpEmailProcessBlock(p){
   const r = buildFollowUpTableRow(p);
   const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-  const bothConfirmed = r.embarqueConfirmadoFlag && r.chegadaConfirmada;
+  /* Embarque e Chegada são independentes um do outro: cada um vira verde assim que a SUA
+     própria etapa é confirmada, sem esperar o outro — antes só ficava verde quando os dois
+     estavam confirmados ao mesmo tempo (e enquanto isso não acontecia, um lado já confirmado
+     ficava sem nenhuma cor, nem verde nem âmbar). */
   const embarqueInfo = r.embarqueDisplayDate
-    ? {label:r.embarqueLabel, value:fmtDate(r.embarqueDisplayDate), highlight: bothConfirmed?'green':(r.embarqueConfirmadoFlag?null:'amber')}
+    ? {label:r.embarqueLabel, value:fmtDate(r.embarqueDisplayDate), highlight: r.embarqueConfirmadoFlag?'green':'amber'}
     : null;
   const chegadaInfo = r.chegadaDisplayDate
-    ? {label:r.chegadaLabel, value:fmtDate(r.chegadaDisplayDate), highlight: bothConfirmed?'green':(r.chegadaConfirmada?null:'amber')}
+    ? {label:r.chegadaLabel, value:fmtDate(r.chegadaDisplayDate), highlight: r.chegadaConfirmada?'green':'amber'}
     : null;
 
   // Só entram no bloco os campos que o processo realmente tem — nada de "—" ou linha vazia.
@@ -6362,11 +6467,12 @@ function generateFollowUpEmailHtml(processes){
   /* Largura: usa praticamente toda a área disponível do corpo do e-mail (até 1180px, em vez
      dos 680px estreitos de antes, que deixavam quase 60% da tela vazia). O comentário
      condicional [if mso] garante que o Outlook (que ignora max-width em CSS normal) também
-     respeite essa largura, sem sobrar área vazia nem criar rolagem horizontal. */
+     respeite essa largura, sem sobrar área vazia nem criar rolagem horizontal.
+     Alinhamento: à esquerda (não centralizado) — pedido explícito, mantendo a mesma largura. */
   return `<!--[if mso]>
-<table role="presentation" width="1180" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td width="1180">
+<table role="presentation" width="1180" align="left" cellpadding="0" cellspacing="0" border="0"><tr><td width="1180">
 <![endif]-->
-<div style="width:100%; max-width:1180px; margin:0 auto;">
+<div style="width:100%; max-width:1180px; margin:0;">
 ${headerHtml}${summaryHtml}${spacer}${blocksHtml}${footerHtml}
 </div>
 <!--[if mso]>
@@ -7355,6 +7461,198 @@ function generateEmailDespachanteText(p){
   return { subject, bodyHtml, bodyText, ccList };
 }
 
+/* PROVISIONAMENTO — Vencimento do pagamento: regra por Modalidade de Pagamento (já
+   cadastrada na Visão Geral — ver getModalidadePagamentoOptions), sempre a partir da
+   Prontidão da Carga. Adiantado = mesma data da prontidão. Factoring/A prazo usam os dias
+   configurados no cadastro do fornecedor (embutidos no próprio texto da modalidade, ex:
+   "Factoring (45 dias)") — com 45/90 dias como fallback só quando o fornecedor não tem
+   modalidade própria configurada (mesmo padrão "Adiantado/A prazo/Factoring" genérico de
+   getModalidadePagamentoOptions). */
+function computeVencimentoPagamento(p){
+  const mp = ((p.extra||{}).modalidadePagamento || '').trim();
+  const prontidao = p.prontidao;
+  if(!prontidao || !mp) return null;
+  if(/^adiantado/i.test(mp)) return prontidao;
+  const m = mp.match(/\((\d+)\s*dias?\)/i);
+  let dias = m ? parseInt(m[1]) : null;
+  if(dias==null){
+    if(/^factoring/i.test(mp)) dias = 45;
+    else if(/^a\s*prazo/i.test(mp)) dias = 90;
+    else return null;
+  }
+  const dt = new Date(prontidao+'T00:00:00');
+  dt.setDate(dt.getDate() + dias);
+  return dt.toISOString().slice(0,10);
+}
+
+/* PROVISIONAMENTO — Gerar E-mail: resumo pro time (Financeiro/SAP), seguindo o layout de
+   referência (tabela INFORMAÇÕES + tabela CUSTOS ESTIMADOS). Reaproveita os MESMOS cálculos
+   já usados na aba Provisionamento (getHonorariosDespachante, computeArmazenagemZona*,
+   computePrevisaoPagamento) — nunca recalcula os valores de um jeito diferente daquele que
+   a pessoa já vê na tela.
+   Limitação conhecida: a linha de Agente de Cargas/Transportadora não entra na tabela de
+   Custos Estimados porque a Provisionamento ainda não tem uma fórmula de valor pra elas
+   (só a data prevista de pagamento, do Bloco C) — só Despachante e Armazenagem (Zona
+   Primária/Secundária ou Aeroportuária) têm valor calculado hoje. */
+function generateEmailProvisionamentoText(p){
+  const extra = p.extra || {};
+  const fornecedor = state.suppliers.find(s=>s.id===p.supplierId);
+  const ref = p.ref || ('REF-'+p.id.slice(0,6).toUpperCase());
+  const produtoNome = (p.produto||'').trim();
+  const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const isAereo = p.modal==='aereo';
+  const va = computeValorAduaneiroBreakdown(p);
+  const numerosFatura = (p.referenciasFornecedor||[]).map(r=>(r.ref||'').trim()).filter(Boolean).join(' / ') || '—';
+  const valorFaturaUsd = va.fobTotalUsd || 0;
+
+  const prontidaoTxt = p.prontidao ? fmtDate(p.prontidao) : '—';
+  const vencimento = computeVencimentoPagamento(p);
+  const vencimentoTxt = vencimento ? fmtDate(vencimento) : '—';
+
+  const localEmbarque = isAereo ? (p.aeroportoDesembarque||'') : (p.portoEmbarque||'');
+  const localChegada = isAereo ? (p.aeroportoDestino||p.aeroportoDesembarque||'') : (p.portoDestino||'');
+  const embarqueDate = p.dataEmbarqueReal || p.embarquePrevisto || null;
+  const chegadaDate = p.chegadaPrevista || null;
+
+  const stages = getStagesForProcess(p);
+  const fase2 = stages.find(s=>s.key==='fase2');
+  const idxSap = fase2 ? fase2.items.indexOf('Pedido no SAP') : -1;
+  const pedidoSapConfirmado = idxSap>=0 && !!(p.checklist['fase2']||[])[idxSap];
+
+  /* Custos Estimados — todos os valores arredondados pra cima (roundUpProv), só aqui.
+     Despachante usa o total combinado (Honorários + Impostos + Acréscimos, ver
+     getValorDespachante). DTA usa exatamente o valor preenchido em Provisionamento (não tem
+     fórmula própria de valor), mas a DATA prevista agora vem da regra "Transportadora
+     (DTA)" (padrão: chegada prevista ao Brasil + 18 dias, editável por parceiro em
+     Parceiros → Transportadora). Frete usa a regra já existente de "Agente de Cargas"
+     (chegada prevista ao Brasil + 5 dias). O "tipo" de cada linha vem da
+     Transportadora/Agente de Cargas selecionada na Etapas, mesmo padrão de nome que as
+     outras linhas (Despachante, Armazenagem) já usam. */
+  const condicaoAereo = getCondicaoAereo(p);
+  const custos = [];
+  const valorDespachante = getValorDespachante(p);
+  if(valorDespachante){
+    const prev = computePrevisaoPagamento(p, 'despachante', isAereo?'aereo':'maritimo', condicaoAereo, getPartnerIdByName('Despachante', extra.despachante), 'provDataPagamentoDespachante');
+    custos.push({ tipo: extra.despachante || 'Despachante', valor: roundUpProv(valorDespachante), data: prev.data });
+  }
+  if(!isAereo){
+    const zp = computeArmazenagemZonaPrimaria(p);
+    if(zp.status==='ok'){
+      const prev = computePrevisaoPagamento(p, 'armazenagem', 'maritimo', 'MARITIMO_ZONA_PRIMARIA', getPartnerIdByName('Recinto Alfandegado', extra.recintoZonaPrimaria), 'provDataPagamentoArmazenagemZP');
+      custos.push({ tipo: extra.recintoZonaPrimaria || zp.recintoNome, valor: roundUpProv(zp.total), data: prev.data });
+    }
+  }
+  const zs = computeArmazenagemZonaSecundaria(p);
+  if(zs.status==='ok'){
+    const label = isAereo ? 'Armazenagem Aeroportuária' : (extra.recintoAlfandegado || zs.recintoNome);
+    const prev = computePrevisaoPagamento(p, 'armazenagem', isAereo?'aereo':'maritimo', isAereo?condicaoAereo:'MARITIMO_ZONA_SECUNDARIA', isAereo?null:getPartnerIdByName('Recinto Alfandegado', extra.recintoAlfandegado), 'provDataPagamentoArmazenagemZS');
+    custos.push({ tipo: label, valor: roundUpProv(zs.total), data: prev.data });
+  }
+  const dtaValor = parseFloat(extra.provTransporteDtaBrl)||0;
+  if(dtaValor){
+    const prevDta = computePrevisaoPagamento(p, 'transportadora_dta', null, 'TODOS_OS_MODAIS', getPartnerIdByName('Transportadora', extra.transportadoraDTA), 'provDataPagamentoDTA');
+    custos.push({ tipo: extra.transportadoraDTA || 'Transporte DTA', valor: roundUpProv(dtaValor), data: prevDta.data });
+  }
+  const cambio = parseFloat(p.cambio)||0;
+  const freteValorInformado = parseFloat(extra.provFreteInternacionalUsd)||0;
+  const freteMoeda = extra.provFreteMoeda || 'USD';
+  const freteInternacionalBrl = freteMoeda==='BRL' ? freteValorInformado : freteValorInformado*cambio;
+  if(freteInternacionalBrl){
+    const prevFrete = computePrevisaoPagamento(p, 'agente_cargas', null, 'TODOS_OS_MODAIS', getPartnerIdByName('Agente de Cargas', extra.agenteCarga), 'provDataPagamentoAgenteCargas');
+    custos.push({ tipo: extra.agenteCarga || 'Frete Internacional', valor: roundUpProv(freteInternacionalBrl), data: prevFrete.data });
+  }
+
+  const subject = `Provisionamento - ${ref}${produtoNome?(' - '+produtoNome):''}`;
+
+  /* Layout à prova de cliente de e-mail: SEM rowspan e SEM tabela aninhada dentro de célula
+     (essas duas coisas são as que mais quebram/desalinham ao colar no Outlook/Gmail) — cada
+     linha é uma grade "chata" de 4 colunas (rótulo/valor/rótulo/valor), sempre com o mesmo
+     número de <td> por linha. Larguras fixas em px (não %) nas células e nas tabelas, com o
+     atributo width (não só style), que é o que o Outlook realmente respeita. */
+  const navy = '#0F1B2D', blue = '#1E5FA8', blueBg = '#E9F1FB', green = '#1FA05A', border = '#D7DEE8';
+  const fontBase = 'font-family:Arial,Helvetica,sans-serif;';
+  const th = `background:${navy}; color:#ffffff; font-weight:bold; padding:10px 12px; ${fontBase} font-size:15px; text-align:center;`;
+  const labelCell = `background:${blue}; color:#ffffff; font-weight:bold; padding:8px 10px; ${fontBase} font-size:12px; border:1px solid ${border};`;
+  const valueCell = `background:#ffffff; color:${navy}; padding:8px 10px; ${fontBase} font-size:12px; border:1px solid ${border};`;
+  const subHeadCell = `background:${blueBg}; color:${navy}; font-weight:bold; padding:6px 10px; ${fontBase} font-size:11px; text-align:center; border:1px solid ${border};`;
+
+  const custosRowsHtml = custos.length ? custos.map(c=>`
+    <tr>
+      <td width="200" style="${labelCell}">${esc((c.tipo||'—').toUpperCase())}</td>
+      <td width="140" style="${valueCell} text-align:right;">R$ ${fmtNumberBR(c.valor)}</td>
+      <td width="120" style="${valueCell} text-align:center;">${c.data?fmtDate(c.data):'—'}</td>
+    </tr>`).join('') : `<tr><td colspan="3" style="${valueCell}">Nenhum custo estimado disponível ainda.</td></tr>`;
+
+  const sapBannerHtml = pedidoSapConfirmado ? `<tr><td colspan="4" style="background:${green}; color:#ffffff; font-weight:bold; padding:8px 12px; ${fontBase} font-size:12px; text-align:center; border:1px solid ${border};">PEDIDO CADASTRADO NO SAP${extra.numeroPedidoSAP?(' — Nº '+esc(extra.numeroPedidoSAP)):''}</td></tr>` : '';
+
+  /* Layout horizontal: INFORMAÇÕES (grade chata de 4 colunas — Referência/Invoice/Total à
+     esquerda, Prontidão/Vencimento/Previsões à direita, lado a lado nas MESMAS linhas) e
+     CUSTOS ESTIMADOS ao lado, não embaixo — usa a largura em vez de empilhar tudo. */
+  const informacoesHtml = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="660" style="border-collapse:collapse; width:660px;">
+    <tr><td colspan="4" style="${th}">INFORMAÇÕES</td></tr>
+    <tr>
+      <td width="130" style="${labelCell}">REFERÊNCIA:</td>
+      <td width="200" style="${valueCell}">${esc(ref)}</td>
+      <td width="130" style="${labelCell}">PRONTIDÃO DA CARGA:</td>
+      <td width="200" style="${valueCell}">${prontidaoTxt}</td>
+    </tr>
+    <tr>
+      <td style="${labelCell}">INVOICE NUMBER:</td>
+      <td style="${valueCell}">${esc(numerosFatura)}</td>
+      <td style="${labelCell}">VENCIMENTO:</td>
+      <td style="${valueCell}">${vencimentoTxt}</td>
+    </tr>
+    <tr>
+      <td style="${labelCell}">INVOICE VALOR:</td>
+      <td style="${valueCell}">$ ${fmtNumberBR(valorFaturaUsd)}</td>
+      <td style="${labelCell}">PREVISÃO DE EMBARQUE${localEmbarque?(' - '+esc(localEmbarque.toUpperCase())):''}:</td>
+      <td style="${valueCell}">${embarqueDate?fmtDate(embarqueDate):'—'}</td>
+    </tr>
+    <tr>
+      <td style="${labelCell}">TOTAL:</td>
+      <td style="${valueCell}">$ ${fmtNumberBR(valorFaturaUsd)}</td>
+      <td style="${labelCell}">PREVISÃO DE CHEGADA${localChegada?(' - '+esc(localChegada.toUpperCase())):''}:</td>
+      <td style="${valueCell}">${chegadaDate?fmtDate(chegadaDate):'—'}</td>
+    </tr>
+    ${sapBannerHtml}
+  </table>`;
+
+  const custosHtml = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="460" style="border-collapse:collapse; width:460px;">
+    <tr><td colspan="3" style="${th}">CUSTOS ESTIMADOS</td></tr>
+    <tr><td width="200" style="${subHeadCell}">TIPO</td><td width="140" style="${subHeadCell}">VALOR</td><td width="120" style="${subHeadCell}">DATA</td></tr>
+    ${custosRowsHtml}
+  </table>`;
+
+  const bodyHtml = `<p>${greetingByHour()}</p>
+<p>Segue provisionamento do processo: <b>${esc(ref)}${produtoNome?(' - '+esc(produtoNome)):''}</b>.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="1140" style="border-collapse:collapse; width:1140px;">
+  <tr>
+    <td width="660" style="vertical-align:top; padding:0 20px 0 0;">${informacoesHtml}</td>
+    <td width="460" style="vertical-align:top;">${custosHtml}</td>
+  </tr>
+</table>`;
+
+  const bodyText = `${greetingByHour()}\n\nSegue provisionamento do processo: ${ref}${produtoNome?(' - '+produtoNome):''}.\n\n`
+    + `Referência: ${ref}\n`
+    + `Invoice: ${numerosFatura} — Valor: $ ${fmtNumberBR(valorFaturaUsd)}\n`
+    + `Total: $ ${fmtNumberBR(valorFaturaUsd)}\n`
+    + `Prontidão da carga: ${prontidaoTxt}\n`
+    + `Vencimento: ${vencimentoTxt}\n`
+    + `Previsão de embarque${localEmbarque?(' - '+localEmbarque):''}: ${embarqueDate?fmtDate(embarqueDate):'—'}\n`
+    + `Previsão de chegada${localChegada?(' - '+localChegada):''}: ${chegadaDate?fmtDate(chegadaDate):'—'}\n`
+    + (pedidoSapConfirmado ? `Pedido cadastrado no SAP${extra.numeroPedidoSAP?(' — Nº '+extra.numeroPedidoSAP):''}\n` : '')
+    + `\nCustos estimados:\n`
+    + (custos.length ? custos.map(c=>`${(c.tipo||'—')}\tR$ ${fmtNumberBR(c.valor)}\t${c.data?fmtDate(c.data):'—'}`).join('\n') : 'Nenhum custo estimado disponível ainda.') + '\n';
+
+  return { subject, bodyHtml, bodyText };
+}
+function openEmailProvisionamentoPreview(){
+  const p = window.__editingProcess;
+  const { subject, bodyHtml, bodyText } = generateEmailProvisionamentoText(p);
+  openEmailPreview(subject, bodyHtml, bodyText, 'E-mail — Provisionamento');
+}
+
 function openEmailDespachantePreview(){
   const p = window.__editingProcess;
   if(!(p.extra && p.extra.despachante)){
@@ -7706,14 +8004,27 @@ function getStagesForProcess(p){
         {key:'aeroportoPrimeiraEntrada', label:'Aeroporto de Entrada no Brasil', type:'text'},
         {key:'dataChegadaPrimeiraEntrada', label:'Data de Chegada', type:'date'},
       ]};
-      const incluirDTA = p.aeroportoDestinoFinal !== true;
+      /* "Precisa de DTA/transferência?" não é mais um flag manual — é a regra automática de
+         getCondicaoAereo() (compara aeroporto de entrada × aeroporto final/recinto). "Início
+         DTA" virou dois marcos separados, mesmo padrão já usado no marítimo (Agendar DTA ×
+         Início da DTA, mesmos nomes de campo — dataAgendamentoDTA/dataInicioDTA — pra
+         reaproveitar a ordenação do Follow-up sem duplicar lógica): "DTA agendada" é só
+         planejamento e não move a fase; só "DTA iniciada" move pra Transporte DTA. Processos
+         aéreos com transferência já existentes são migrados por migrateAereoDTASplit()
+         (chamada em attachDataListener), mesmo padrão de migrateAtracacaoOrder(). */
+      const incluirDTA = getCondicaoAereo(p) !== 'AEREO_DIRETO';
       if(incluirDTA){
-        items.push('Início DTA');
-        itemFields[items.length-1] = [{key:'dataAgendamentoDTA', label:'Data de Início', type:'date'}];
+        items.push('DTA agendada');
+        itemFields[items.length-1] = [{key:'dataAgendamentoDTA', label:'Data Agendada', type:'date'}];
+        items.push('DTA iniciada');
+        itemFields[items.length-1] = [{key:'dataInicioDTA', label:'Data de Início', type:'date'}];
       }
       items.push('Chegada no Aeroporto de Confins');
       const arrivalItemIndex = items.length-1;
-      itemFields[arrivalItemIndex] = [{key:'dataChegadaBetim', label:'Data de Chegada', type:'date'}];
+      itemFields[arrivalItemIndex] = [
+        {key:'aeroportoFinalDesembaraco', label:'Aeroporto Final / Recinto de Desembaraço', type:'text'},
+        {key:'dataChegadaBetim', label:'Data de Chegada', type:'date'},
+      ];
       items.push('Pagar numerário despachante');
       items.push('Registro da DUIMP');
       itemFields[items.length-1] = [{key:'numeroDUIMP', label:'Número da DUIMP', type:'text'},{key:'chaveAcessoDUIMP', label:'Chave de Acesso da DUIMP', type:'text'},{key:'dataRegistroDUIMP', label:'Data de Registro', type:'date'}];
@@ -8480,9 +8791,9 @@ async function switchCompany(companyId){
   activeCompanyId = companyId;
   // limpa filtros e estado de tela específicos da empresa anterior — nunca reaproveita entre empresas
   pageFilters = {
-    dashboard: {search:'', supplierId:'', modal:'', tipo:'', stage:''},
-    processos: {search:'', supplierId:'', modal:'', tipo:'', stage:''},
-    finalizados: {search:'', supplierId:'', modal:'', tipo:'', stage:''},
+    dashboard: {search:'', supplierId:'', modal:'', tipo:'', stage:'', despachante:'', agenteCarga:''},
+    processos: {search:'', supplierId:'', modal:'', tipo:'', stage:'', despachante:'', agenteCarga:''},
+    finalizados: {search:'', supplierId:'', modal:'', tipo:'', stage:'', despachante:'', agenteCarga:''},
   };
   empresaManagingId = null;
   currentView = 'dashboard';
@@ -9056,9 +9367,9 @@ async function saveDashboardConfig(){
 
 /* ---------- DASHBOARD ---------- */
 let pageFilters = {
-  dashboard: {search:'', supplierId:'', modal:'', tipo:'', stage:''},
-  processos: {search:'', supplierId:'', modal:'', tipo:'', stage:''},
-  finalizados: {search:'', supplierId:'', modal:'', tipo:'', stage:''},
+  dashboard: {search:'', supplierId:'', modal:'', tipo:'', stage:'', despachante:'', agenteCarga:''},
+  processos: {search:'', supplierId:'', modal:'', tipo:'', stage:'', despachante:'', agenteCarga:''},
+  finalizados: {search:'', supplierId:'', modal:'', tipo:'', stage:'', despachante:'', agenteCarga:''},
   followup: {search:'', supplierId:'', modal:'', tipo:''},
 };
 
@@ -9071,6 +9382,8 @@ function processMatchesFilter(p, f){
   if(f.supplierId && p.supplierId!==f.supplierId) return false;
   if(f.modal && p.modal!==f.modal) return false;
   if(f.tipo && p.tipo!==f.tipo) return false;
+  if(f.despachante && (p.extra||{}).despachante!==f.despachante) return false;
+  if(f.agenteCarga && (p.extra||{}).agenteCarga!==f.agenteCarga) return false;
   if(f.stage && getBucket(p)!==f.stage) return false;
   return true;
 }
@@ -9101,11 +9414,15 @@ function renderFilterBar(pageKey, universe, stageOptions){
   const f = pageFilters[pageKey];
   const cfg = getDashboardConfig();
   const supplierOptions = state.suppliers.map(s=>`<option value="${s.id}" ${f.supplierId===s.id?'selected':''}>${s.name}</option>`).join('');
+  const despachanteOptions = state.partners.filter(pt=>pt.tipo==='Despachante').map(pt=>`<option value="${pt.empresa}" ${f.despachante===pt.empresa?'selected':''}>${pt.empresa}</option>`).join('');
+  const agenteCargaOptions = state.partners.filter(pt=>pt.tipo==='Agente de Cargas').map(pt=>`<option value="${pt.empresa}" ${f.agenteCarga===pt.empresa?'selected':''}>${pt.empresa}</option>`).join('');
 
   const countBase = universe.filter(p=>
     (!f.supplierId || p.supplierId===f.supplierId) &&
     (!f.modal || p.modal===f.modal) &&
-    (!f.tipo || p.tipo===f.tipo)
+    (!f.tipo || p.tipo===f.tipo) &&
+    (!f.despachante || (p.extra||{}).despachante===f.despachante) &&
+    (!f.agenteCarga || (p.extra||{}).agenteCarga===f.agenteCarga)
   );
   const stageCounts = {};
   countBase.forEach(p=>{ const b=getBucket(p); stageCounts[b]=(stageCounts[b]||0)+1; });
@@ -9131,6 +9448,14 @@ function renderFilterBar(pageKey, universe, stageOptions){
         <option value="">Definitiva e Temporária</option>
         <option value="definitiva" ${f.tipo==='definitiva'?'selected':''}>Só Definitiva</option>
         <option value="temporaria" ${f.tipo==='temporaria'?'selected':''}>Só Temporária</option>
+      </select>
+      <select id="${pageKey}-filter-despachante" onchange="applyPageFiltersFull('${pageKey}')">
+        <option value="">Todos os despachantes</option>
+        ${despachanteOptions}
+      </select>
+      <select id="${pageKey}-filter-agentecarga" onchange="applyPageFiltersFull('${pageKey}')">
+        <option value="">Todos os agentes de carga</option>
+        ${agenteCargaOptions}
       </select>
       <button class="btn" onclick="clearPageFilters('${pageKey}')">Limpar filtros</button>
     </div>
@@ -9181,6 +9506,10 @@ function applyPageFiltersFull(pageKey){
   f.supplierId = document.getElementById(pageKey+'-filter-supplier').value;
   f.modal = document.getElementById(pageKey+'-filter-modal').value;
   f.tipo = document.getElementById(pageKey+'-filter-tipo').value;
+  const despEl = document.getElementById(pageKey+'-filter-despachante');
+  if(despEl) f.despachante = despEl.value;
+  const agEl = document.getElementById(pageKey+'-filter-agentecarga');
+  if(agEl) f.agenteCarga = agEl.value;
   renderView();
 }
 function setPageStageFilter(pageKey, stage){
@@ -9188,7 +9517,7 @@ function setPageStageFilter(pageKey, stage){
   renderView();
 }
 function clearPageFilters(pageKey){
-  pageFilters[pageKey] = {search:'', supplierId:'', modal:'', tipo:'', stage:''};
+  pageFilters[pageKey] = {search:'', supplierId:'', modal:'', tipo:'', stage:'', despachante:'', agenteCarga:''};
   const searchEl = document.getElementById(pageKey+'-filter-search');
   if(searchEl) searchEl.value = '';
   renderView();
@@ -12753,6 +13082,7 @@ function partnerTipoToCategoria(tipo){
   if(tipo==='Despachante') return 'despachante';
   if(tipo==='Agente de Cargas') return 'agente_cargas';
   if(tipo==='Recinto Alfandegado') return 'armazenagem';
+  if(tipo==='Transportadora') return 'transportadora_dta';
   return null;
 }
 
@@ -12762,7 +13092,7 @@ function partnerTipoToCategoria(tipo){
    só reconciliadas em state.provisioningRules no Salvar Parceiro. */
 function renderPartnerRulesSection(tipo){
   const categoria = partnerTipoToCategoria(tipo);
-  if(!categoria) return `<div class="form-hint">Este tipo de parceiro não tem regras de Provisionamento (só Despachante, Agente de Cargas e Recinto Alfandegado têm).</div>`;
+  if(!categoria) return `<div class="form-hint">Este tipo de parceiro não tem regras de Provisionamento (só Despachante, Agente de Cargas, Transportadora e Recinto Alfandegado têm).</div>`;
   return `
       <div class="form-hint" style="margin-bottom:8px;">Defina como as datas previstas de pagamento são calculadas pra este parceiro no Provisionamento. Sem regra aqui, vale a regra padrão da empresa.</div>
       <div id="pt-rules-list">${renderPartnerRulesRows(categoria)}</div>
@@ -12773,7 +13103,7 @@ function renderPartnerRulesRows(categoria){
   if(!rows.length) return `<div class="form-hint">Nenhuma regra específica — usando a regra padrão da empresa.</div>`;
   return rows.map((r,idx)=>{
     const modal = r.modal||'';
-    const isAgente = categoria==='agente_cargas';
+    const isSimples = categoria==='agente_cargas' || categoria==='transportadora_dta';
     let condOptions;
     if(categoria==='armazenagem'){
       condOptions = modal==='aereo' ? ['AEREO_DIRETO','AEREO_COM_TRANSFERENCIA'] : modal==='maritimo' ? ['MARITIMO_ZONA_PRIMARIA','MARITIMO_ZONA_SECUNDARIA'] : [];
@@ -12784,7 +13114,7 @@ function renderPartnerRulesRows(categoria){
     }
     return `
     <div class="form-row" style="align-items:flex-end; gap:8px; margin-bottom:8px; flex-wrap:wrap; border-bottom:1px solid var(--border); padding-bottom:8px;">
-      ${!isAgente ? `
+      ${!isSimples ? `
       <div class="form-group" style="min-width:110px; margin-bottom:0;">
         <label>Modal</label>
         <select onchange="updatePartnerRuleField(${idx},'modal',this.value||null); updatePartnerRuleField(${idx},'condicao',null); document.getElementById('pt-rules-list').innerHTML=renderPartnerRulesRows('${categoria}');">
@@ -12820,11 +13150,11 @@ function renderPartnerRulesRows(categoria){
 }
 function addPartnerRuleRow(categoria){
   window.__editingPartnerRules = window.__editingPartnerRules || [];
-  const isAgente = categoria==='agente_cargas';
+  const isSimples = categoria==='agente_cargas' || categoria==='transportadora_dta';
   window.__editingPartnerRules.push({
     id: uid(), categoria,
-    modal: isAgente ? null : null,
-    condicao: isAgente ? 'TODOS_OS_MODAIS' : null,
+    modal: isSimples ? null : null,
+    condicao: isSimples ? 'TODOS_OS_MODAIS' : null,
     dataBase: 'chegada_prevista_brasil', dias: 0, ativa: true, prioridade: 0, descricao: '',
   });
   document.getElementById('pt-rules-list').innerHTML = renderPartnerRulesRows(categoria);
@@ -13581,8 +13911,8 @@ function openProcessModal(id){
                 </label>
               </div>
               <div class="form-group"><label>Previsão de Entrada em Estoque</label><input type="date" id="f-previsao-estoque" value="${p.previsaoEntradaEstoque||''}"></div>
-              <div class="form-group"><label>Data de Embarque Real</label><input type="date" id="f-dataembarquereal" value="${p.dataEmbarqueReal||''}"></div>
-              <div class="form-group"><label>Chegada Prevista</label><input type="date" id="f-chegada" value="${p.chegadaPrevista||''}"></div>
+              <div class="form-group"><label>${isEmbarqueConfirmado(p) ? 'Embarque Confirmado' : 'Embarque Previsto'}</label><input type="date" id="f-dataembarquereal" value="${p.dataEmbarqueReal||''}"><div class="form-hint">Vira "Confirmado" quando a etapa "Embarque confirmado" (Fase 4) é marcada e a data já chegou.</div></div>
+              <div class="form-group"><label>${isChegadaConfirmada(p) ? 'Chegada Confirmada' : 'Chegada Prevista'}</label><input type="date" id="f-chegada" value="${p.chegadaPrevista||''}"><div class="form-hint">${isChegadaConfirmada(p) ? `Chegada ao Brasil confirmada em ${fmtDate(getChegadaBrasilInfo(p).data||(p.extra||{}).dataChegadaBetim)} pela etapa "${p.modal==='aereo'?'Chegada e presença':'Navio Atracado no Porto'}" (Fase 6). Este campo continua guardando a previsão original, editável se precisar ajustar.` : 'Vira "Confirmada" quando a chegada ao Brasil é confirmada na Fase 6.'}</div></div>
               <div class="form-group" id="containers-qty-wrap" style="display:${p.modal==='aereo'?'none':'block'};"><label>Quantidade de Containers</label><input type="number" min="0" id="f-containers" value="${p.containersQty||''}" placeholder="Ex: 2" oninput="onContainersQtyChange(this.value)"></div>
               <div class="form-group" id="container-tamanho-wrap" style="display:${p.modal==='aereo'?'none':'block'};">
                 <label>Tamanho do Container</label>
