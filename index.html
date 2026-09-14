@@ -1018,6 +1018,9 @@ body.dark-mode main.view-dashboard .dashboard-greeting .active-count-label{
 .followup-date-label{font-size:9px; text-transform:uppercase; letter-spacing:0.03em; color:var(--muted); font-weight:600;}
 .followup-date-cell.is-pending{background:#fef3c7; padding:4px 7px; border-radius:7px;}
 .followup-date-cell.is-pending .followup-date-label, .followup-date-cell.is-pending > span:not(.followup-date-label){color:#92400e;}
+.followup-date-cell.is-confirmed{background:var(--ink-green-bg); padding:4px 7px; border-radius:7px;}
+.followup-date-cell.is-confirmed .followup-date-label, .followup-date-cell.is-confirmed > span:not(.followup-date-label){color:var(--ink-green-fg);}
+.followup-temp-tag{display:inline-block; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.02em; color:var(--ink-purple-fg); background:var(--ink-purple-bg); padding:2px 7px; border-radius:999px; vertical-align:1px;}
 .followup-date-cell.is-overdue{background:rgba(219,111,86,0.18); padding:4px 7px; border-radius:7px;}
 .followup-date-cell.is-overdue .followup-date-label, .followup-date-cell.is-overdue > span:not(.followup-date-label){color:#9a3412;}
 .followup-alert-tag{display:block; font-size:9px; font-weight:700; color:#9a3412; text-transform:uppercase; letter-spacing:0.02em; margin-top:1px;}
@@ -3441,7 +3444,8 @@ function renderSectionRectangle(opts){
   const cls = opts.cls || 'is-neutral';
   const clickable = !!opts.onclick;
   const tag = clickable ? 'button' : 'div';
-  return `<${tag} class="section-rectangle ${cls} ${clickable?'is-clickable':''}"
+  const colorStyle = opts.color ? ` style="--rect-color:${opts.color};"` : '';
+  return `<${tag} class="section-rectangle ${cls} ${clickable?'is-clickable':''}"${colorStyle}
     ${clickable?`type="button" onclick="${opts.onclick}"`:''}
     ${opts.ariaExpanded!==undefined?`aria-expanded="${opts.ariaExpanded}"`:''}
     ${opts.ariaControls?`aria-controls="${opts.ariaControls}"`:''}>
@@ -4372,28 +4376,42 @@ function getProcessAlerts(p){
 
   if(p.chegadaPrevista){
     const diasParaChegada = daysBetween(today, p.chegadaPrevista);
+    /* Chegada ao Brasil já confirmada de verdade (etapa/data reais, não a previsão) — usada
+       pelos dois alertas abaixo pra nunca dar a entender que "a carga não chegou" quando na
+       verdade já chegou e só falta um passo administrativo (solicitar DTA / rascunho da DUIMP).
+       Nesse caso o alerta passa a contar os dias a partir da chegada REAL, não da previsão
+       (que pode estar desatualizada). */
+    const chegadaBrasilInfo = getChegadaBrasilInfo(p);
     /* Mesma lógica: acompanha o TICK "Solicitar DTA" (Fase 6), não se a Transportadora (DTA)
        já foi escolhida na Visão Geral. Só existe pro marítimo — no aéreo o item 0 da Fase 6 é
        outra coisa ("Chegada e presença"), sem relação com DTA. */
     if(p.modal!=='aereo'){
       const dtaSolicitada = (p.checklist['fase6']||[])[0];
       if(!dtaSolicitada){
-        if(diasParaChegada<=5 && diasParaChegada>0){
+        if(chegadaBrasilInfo.confirmada){
+          const diasDesdeChegada = daysBetween(chegadaBrasilInfo.data, today);
+          alerts.push(diasDesdeChegada<=0 ? 'Carga chegou ao Brasil e a DTA ainda não foi solicitada' : `Carga chegou ao Brasil há ${diasDesdeChegada} dia${diasDesdeChegada===1?'':'s'} sem solicitar a DTA`);
+          handledPendencies.add('fase6:0');
+        } else if(diasParaChegada<=5 && diasParaChegada>0){
           alerts.push(`Faltam ${diasParaChegada} dia${diasParaChegada===1?'':'s'} para a chegada sem solicitar a DTA`);
           handledPendencies.add('fase6:0');
         } else if(diasParaChegada<=0){
-          alerts.push(diasParaChegada===0 ? 'Chegada é hoje e a DTA ainda não foi solicitada' : `Chegada atrasada há ${Math.abs(diasParaChegada)} dias sem solicitar a DTA`);
+          alerts.push(diasParaChegada===0 ? 'Chegada é hoje e a DTA ainda não foi solicitada' : `Chegada atrasada em relação à previsão há ${Math.abs(diasParaChegada)} dias sem solicitar a DTA`);
           handledPendencies.add('fase6:0');
         }
       }
     }
     const fase5checked = p.checklist['fase5']||[];
     if(!fase5checked[3]){
-      if(diasParaChegada<=5 && diasParaChegada>0){
+      if(chegadaBrasilInfo.confirmada){
+        const diasDesdeChegada = daysBetween(chegadaBrasilInfo.data, today);
+        alerts.push(diasDesdeChegada<=0 ? 'Carga chegou ao Brasil e o rascunho da DUIMP ainda não foi feito' : `Carga chegou ao Brasil há ${diasDesdeChegada} dia${diasDesdeChegada===1?'':'s'} sem rascunho da DUIMP`);
+        handledPendencies.add('fase5:3');
+      } else if(diasParaChegada<=5 && diasParaChegada>0){
         alerts.push(`Faltam ${diasParaChegada} dia${diasParaChegada===1?'':'s'} para a chegada sem rascunho da DUIMP`);
         handledPendencies.add('fase5:3');
       } else if(diasParaChegada<=0){
-        alerts.push(diasParaChegada===0 ? 'Chegada é hoje sem rascunho da DUIMP' : `Chegada atrasada há ${Math.abs(diasParaChegada)} dias sem rascunho da DUIMP`);
+        alerts.push(diasParaChegada===0 ? 'Chegada é hoje sem rascunho da DUIMP' : `Chegada atrasada em relação à previsão há ${Math.abs(diasParaChegada)} dias sem rascunho da DUIMP`);
         handledPendencies.add('fase5:3');
       }
     }
@@ -4405,8 +4423,24 @@ function getProcessAlerts(p){
      "Pendente da fase anterior" e não precisa de handledPendencies. */
   if(p.prontidao && daysBetween(p.prontidao, today) >= 0){
     const diasDesdeProntidao = daysBetween(p.prontidao, today);
-    const hasFatura = p.docs && p.docs['Comercial Invoice (Fatura)'];
-    const hasPacking = p.docs && p.docs['Packing List'];
+    /* Com Referência do Fornecedor preenchida, Fatura e Packing List viram um par por
+       referência (ver syncInvoiceDocSlots/renderDocsTab) — o alerta só some quando TODAS
+       as referências tiverem os dois documentos marcados, não apenas os itens fixos antigos. */
+    const refsComFatura = (p.referenciasFornecedor||[]).filter(r=>(r.ref||'').trim());
+    let hasFatura, hasPacking;
+    if(refsComFatura.length){
+      hasFatura = refsComFatura.every(r=>{
+        const inv = (p.customDocs||[]).find(cd=>cd.linkedRefId===r.id && cd.docKind==='invoice');
+        return inv && p.docs && p.docs['custom:'+inv.id];
+      });
+      hasPacking = refsComFatura.every(r=>{
+        const pack = (p.customDocs||[]).find(cd=>cd.linkedRefId===r.id && cd.docKind==='packing');
+        return pack && p.docs && p.docs['custom:'+pack.id];
+      });
+    } else {
+      hasFatura = p.docs && p.docs['Comercial Invoice (Fatura)'];
+      hasPacking = p.docs && p.docs['Packing List'];
+    }
     if(!hasFatura || !hasPacking){
       alerts.push(diasDesdeProntidao===0 ? 'Prontidão é hoje sem Fatura e/ou Packing List marcados' : `Prontidão chegou há ${diasDesdeProntidao} dias sem Fatura e/ou Packing List marcados`);
     }
@@ -4418,7 +4452,9 @@ function getProcessAlerts(p){
       if(!extra.numeroDUIMP){
         alerts.push(`Já se passaram ${diasDesdeChegada} dias da chegada sem número da DUIMP`);
       }
-      const hasDDR = p.docs && p.docs['DDR (Declaração do Detentor do Registro)'];
+      /* DDR: cobrado pela ETAPA "DDR" (Fase 5), não pelo anexo — ver getDDRStatus(). A ausência
+         de arquivo em Documentos não deixa isso pendente se a etapa já foi confirmada. */
+      const hasDDR = getDDRStatus(p).confirmada;
       if(!hasDDR){
         alerts.push(`Já se passaram ${diasDesdeChegada} dias da chegada sem DDR`);
       }
@@ -4831,6 +4867,19 @@ function detectHistoryChanges(prev, next){
   fieldChange('Canal de conferência definido', svgEditIcon(), (prev.extra||{}).canalDesembaraco, (next.extra||{}).canalDesembaraco);
   fieldChange('Despachante definido', svgEditIcon(), (prev.extra||{}).despachante, (next.extra||{}).despachante);
   fieldChange('Transportadora (DTA) definida', svgEditIcon(), (prev.extra||{}).transportadoraDTA, (next.extra||{}).transportadoraDTA);
+
+  /* DDR recebida via Etapas — confirmação e desmarcação ficam no histórico com data e usuário
+     responsável (ver toggleStageItem). fieldChange() não serve aqui porque também precisa
+     registrar quando a etapa é DESMARCADA (fieldChange só loga quando o valor novo existe). */
+  {
+    const prevDDR = (prev.extra||{}).ddrConfirmadaEm;
+    const nextDDR = (next.extra||{}).ddrConfirmadaEm;
+    if(!prevDDR && nextDDR){
+      pushHistoryEvent(next, svgCheckInline(), 'DDR recebida confirmada via Etapas', `Confirmado por: ${(next.extra||{}).ddrConfirmadaPor||'—'}`);
+    } else if(prevDDR && !nextDDR){
+      pushHistoryEvent(next, svgTrashIcon(), 'DDR recebida — etapa desmarcada', '');
+    }
+  }
 
   /* Pagamentos: cada pagamento marcado como feito (Frete Internacional, DTA, Prestação
      Despachante, ou um pagamento personalizado) gera sua própria linha no histórico — em vez
@@ -5296,7 +5345,7 @@ function formatAndamentoHtml(text){
 const FOLLOWUP_TABLE_HEADERS = ['PROCESSO','FORNECEDOR','Data Pedido','Descrição do Produto','PRONTIDÃO','Embarque','CHEGADA BR','TRANSIT\n(dias)','FREETIME\n(dias)','DEVOLUÇÃO','MODAL','Origem','Status','ANDAMENTO'];
 /* Ordem canônica dos 9 status, do mais inicial ao mais avançado — usada tanto pra escolher
    o status de cada processo quanto pro quadro de contagem no topo da tabela. */
-const FOLLOWUP_STATUS_ORDER = ['Em produção','Aguardando Embarque','Em trânsito','No Porto','Na Movecta','Aguardando Início da DTA','Transporte DTA','Em processo de desembaraço','Aguardando carimbo do estado','Em remoção','Entregue','Finalizado'];
+const FOLLOWUP_STATUS_ORDER = ['Em produção','Aguardando Embarque','Em trânsito','No Porto','Na Movecta','Aguardando Início da DTA','Transporte DTA','Em processo de desembaraço','Aguardando carimbo do estado','Aguardando remoção','Em remoção','Entregue','Finalizado'];
 const FOLLOWUP_FORNECEDOR_POR_LETRA = {C:'CARESTREAM', M:'MORITA', G:'GENORAY'};
 
 /* Linguagem de POSIÇÃO da carga — nunca de pendência/tarefa administrativa. Usada como
@@ -5311,6 +5360,7 @@ const FOLLOWUP_POSICAO_ATUAL = {
   'Transporte DTA': 'Em transporte DTA para o recinto de desembaraço',
   'Em processo de desembaraço': 'No recinto de desembaraço',
   'Aguardando carimbo do estado': 'Aguardando carimbo do estado',
+  'Aguardando remoção': 'Liberada, aguardando início da remoção',
   'Em remoção': 'Em remoção para o destino',
   'Entregue': 'Entrega confirmada no destino',
   'Finalizado': 'Processo finalizado',
@@ -5340,6 +5390,7 @@ function followUpSortKey(p, stage){
     case 'Transporte DTA': return [extra.dataInicioDTA||null, extra.dataAgendamentoDTA||null];
     case 'Em processo de desembaraço': return [extra.dataChegadaBetim||null, extra.dataInicioDTA||null];
     case 'Aguardando carimbo do estado': return [extra.dataDesembaraco||null, null];
+    case 'Aguardando remoção': return [extra.dataLiberacaoSefaz||null, null];
     default: return [null, null];
   }
 }
@@ -5382,8 +5433,11 @@ function getFollowUpGroups(processes){
     .filter(g=>g.items.length>0 || window.__followupShowEmptyStages);
 }
 
-/* Cor por ETAPA — só pro e-mail (a tela interna usa o retângulo de seção já aprovado, que já
-   resolve cor sozinho via DASHBOARD_KPI_ACCENTS). Hex fixo porque e-mail não lê var(--x). */
+/* Cor por ETAPA — fonte única de cor por status, usada tanto pelo e-mail (hex direto, já que
+   e-mail não lê var(--x)) quanto pela tela interna (via opts.color em renderSectionRectangle,
+   sobrescrevendo a cor "de família" da classe .section-rectangle quando duas etapas
+   compartilham a mesma classe — ex: Em Trânsito e Transporte DTA são as duas "is-transit",
+   mas com hex diferente aqui ficam visualmente distintas mesmo assim). */
 const FOLLOWUP_STAGE_COLOR_EMAIL = {
   'Em produção': '#2F668F',
   'Aguardando Embarque': '#B88624',
@@ -5394,6 +5448,7 @@ const FOLLOWUP_STAGE_COLOR_EMAIL = {
   'Transporte DTA': '#5365A2',
   'Em processo de desembaraço': '#C8734F',
   'Aguardando carimbo do estado': '#A86F2A',
+  'Aguardando remoção': '#3E7A78',
   'Em remoção': '#526E86',
   'Entregue': '#21805F',
   'Finalizado': '#1E5C4D',
@@ -5434,7 +5489,8 @@ function getFollowUpStatus(p){
     const idxOf = (label) => fase6Stage.items.indexOf(label);
     const done = (label) => { const i=idxOf(label); return i>=0 && !!fase6[i]; };
 
-    if(done('Desembaraço da DUIMP') && !done('Liberação SEFAZ')) return 'Aguardando carimbo do estado';
+    if(done('Liberação SEFAZ')) return 'Aguardando remoção';
+    if(done('Desembaraço da DUIMP')) return 'Aguardando carimbo do estado';
 
     if(p.modal==='aereo'){
       /* Aéreo não passa por porto/Movecta — vai direto de "chegou no aeroporto" pra
@@ -5458,7 +5514,7 @@ function getFollowUpStatus(p){
   }
 
   const bucket = getBucket(p);
-  if(bucket==='transito') return 'Em trânsito';
+  if(bucket==='transito' || bucket==='transferencia') return 'Em trânsito';
   if(bucket==='aguardando_embarque') return 'Aguardando Embarque';
   return 'Em produção';
 }
@@ -5476,20 +5532,31 @@ function buildAndamentoLines(p){
   add('Data do pedido', p.dataPedido);
 
   if(p.prontidao){
-    add(p.prontidao > today ? 'Prontidão prevista' : 'Prontidão confirmada', p.prontidao);
+    add(p.prontidaoConfirmada ? 'Prontidão confirmada' : 'Prontidão prevista', p.prontidao);
   }
 
   add('Carga embarcada', p.dataEmbarqueReal);
 
-  // "Chegada" no andamento geral agora prioriza o navio atracar no porto (sinal mais cedo e
-  // objetivo de chegada) — antes só contava a chegada no recinto de desembaraço (Zona
-  // Secundária), um marco bem mais tardio. Fallback mantido pra processos antigos.
-  const chegadaReal = extra.dataAtracacaoPorto || extra.dataChegadaBetim;
-  const nomeChegada = p.modal==='aereo' ? 'Chegada em Confins' : 'Chegada no Brasil';
+  // "Chegada" no andamento geral agora prioriza o navio atracar no porto/a 1ª entrada no Brasil
+  // (sinal mais cedo e objetivo de chegada) — antes só contava a chegada no recinto de
+  // desembaraço, um marco bem mais tardio. Fallback mantido pra processos antigos.
+  const chegadaBrasilInfo = getChegadaBrasilInfo(p);
+  const chegadaReal = chegadaBrasilInfo.data || extra.dataChegadaBetim;
+  const nomeChegada = 'Chegada ao Brasil';
   if(chegadaReal){
-    add(`${nomeChegada} confirmada`, chegadaReal);
+    const localTxt = chegadaBrasilInfo.local ? ` (${chegadaBrasilInfo.local})` : '';
+    add(`${nomeChegada} confirmada${localTxt}`, chegadaReal);
   } else if(p.chegadaPrevista){
     add(`${nomeChegada} prevista`, p.chegadaPrevista);
+  }
+  // Chegada no RECINTO de desembaraço — só aparece como linha própria quando é um marco
+  // distinto da chegada ao Brasil acima (ex: aéreo com transferência pra outro aeroporto,
+  // marítimo indo pra Zona Secundária); processos antigos, sem essa distinção, continuam com
+  // uma única linha, sem duplicar.
+  const recintoInfo = getChegadaRecintoInfo(p);
+  if(recintoInfo.data && recintoInfo.data !== chegadaReal){
+    const localTxt = recintoInfo.local ? ` (${recintoInfo.local})` : '';
+    add(`Chegada no recinto de desembaraço confirmada${localTxt}`, recintoInfo.data);
   }
 
   add('DTA iniciada', extra.dataAgendamentoDTA);
@@ -5520,6 +5587,70 @@ function buildAndamentoLines(p){
   return lines.join('\n');
 }
 
+/* "Confirmado" de verdade = a data já chegou E foi marcada explicitamente — só ter o campo de
+   data preenchido não basta (isso deixava processos com embarque/chegada AINDA NO FUTURO já
+   aparecendo como "confirmado" só porque alguém preencheu a data com antecedência). */
+function isEmbarqueConfirmado(p){
+  if(!p.dataEmbarqueReal || p.dataEmbarqueReal > todayStr()) return false;
+  const fase4 = getStagesForProcess(p).find(s=>s.key==='fase4');
+  if(!fase4 || fase4.embarqueConfirmadoItemIndex==null) return false;
+  return !!(p.checklist['fase4']||[])[fase4.embarqueConfirmadoItemIndex];
+}
+/* SEPARAÇÃO CHEGADA AO BRASIL × CHEGADA AO RECINTO DE DESEMBARAÇO — funções centrais, não
+   duplicam dado: leem só os campos que já existem por modal (marítimo: Navio Atracado no Porto
+   / Recinto Zona Primária; aéreo: 1ª entrada no Brasil / Recinto de Desembaraço em Confins).
+   Chegar ao Brasil NÃO é o mesmo que chegar ao recinto onde o desembaraço acontece — a carga
+   pode ficar em transferência entre os dois. Usadas pelos alertas, pelo Andamento e pelo
+   Painel (getBucket), pra nunca ter dois lugares decidindo isso de jeitos diferentes. */
+function getChegadaBrasilInfo(p){
+  const extra = p.extra || {};
+  if(p.modal==='aereo'){
+    const data = extra.dataChegadaPrimeiraEntrada || null;
+    return { confirmada: !!(data && data<=todayStr()), data, local: extra.aeroportoPrimeiraEntrada || '' };
+  }
+  const data = extra.dataAtracacaoPorto || null;
+  return { confirmada: !!(data && data<=todayStr()), data, local: extra.recintoZonaPrimaria || '' };
+}
+function getChegadaRecintoInfo(p){
+  const extra = p.extra || {};
+  const data = extra.dataChegadaBetim || null;
+  const local = p.modal==='aereo' ? 'Aeroporto de Confins' : (extra.recintoAlfandegado || '');
+  return { confirmada: !!(data && data<=todayStr()), data, local };
+}
+/* Chegada no recinto de fato CONFIRMADA (etapa marcada, não só a data preenchida) — mesmo
+   critério que getFollowUpStatus() já usa pra granularidade marítima, reaproveitado aqui pro
+   Painel (getBucket), pra dashboard e Follow-up nunca discordarem sobre onde a carga está. */
+function isChegadaRecintoConfirmada(p){
+  const stages = getStagesForProcess(p);
+  const fase6 = stages.find(s=>s.key==='fase6');
+  if(!fase6) return false;
+  const checklist = p.checklist['fase6']||[];
+  if(p.modal==='aereo'){
+    return fase6.arrivalItemIndex!=null && !!checklist[fase6.arrivalItemIndex];
+  }
+  const idx = fase6.items.indexOf('Chegada no Recinto de Desembaraço');
+  return idx>=0 && !!checklist[idx];
+}
+function isChegadaConfirmada(p){
+  const extra = p.extra||{};
+  const info = getChegadaBrasilInfo(p);
+  if(info.confirmada) return true;
+  /* Fallback pra processos criados antes de existir o campo específico de chegada ao Brasil do
+     modal (marítimo: antes de "Navio Atracado no Porto"; aéreo: antes do campo de 1ª entrada) —
+     comportamento antigo preservado, reconhece pela chegada no recinto mesmo. */
+  return !!(extra.dataChegadaBetim && extra.dataChegadaBetim <= todayStr());
+}
+/* DDR: fonte de verdade é a etapa "DDR" (Fase 5), não o anexo em Documentos — ver
+   toggleStageItem/renderDDRDocRow. Usada pelo alerta de pendência e pela aba Documentos, pra
+   nunca ter dois lugares decidindo se a DDR foi recebida de jeitos diferentes. */
+function getDDRStatus(p){
+  const stages = getStagesForProcess(p);
+  const fase5 = stages.find(s=>s.key==='fase5');
+  const idx = fase5 ? fase5.items.indexOf('DDR') : -1;
+  const confirmada = idx>=0 && !!(p.checklist['fase5']||[])[idx];
+  const extra = p.extra||{};
+  return { confirmada, data: extra.ddrConfirmadaEm||null, por: extra.ddrConfirmadaPor||null };
+}
 function buildFollowUpTableRow(p){
   const extra = p.extra || {};
   const fornecedorCadastrado = state.suppliers.find(s=>s.id===p.supplierId);
@@ -5533,9 +5664,25 @@ function buildFollowUpTableRow(p){
   const descricao = p.produto || '';
 
   const isMaritimo = p.modal!=='aereo';
+
+  const embarqueConfirmadoFlag = isEmbarqueConfirmado(p);
+  const embarquePrevistoData = p.dataEmbarqueReal || p.embarquePrevisto || null;
+  const embarqueLabel = embarqueConfirmadoFlag ? 'Embarque confirmado' : (embarquePrevistoData ? 'Embarque previsto' : '');
+  const embarqueDisplayDate = embarqueConfirmadoFlag ? p.dataEmbarqueReal : embarquePrevistoData;
+
+  const chegadaRealData = extra.dataAtracacaoPorto || extra.dataChegadaBetim || null;
+  const chegadaConfirmada = isChegadaConfirmada(p);
+  const chegadaPrevistaData = chegadaRealData || p.chegadaPrevista || null;
+  const chegadaDisplayDate = chegadaConfirmada ? chegadaRealData : chegadaPrevistaData;
+  const chegadaBR = chegadaDisplayDate ? (fmtDate(chegadaDisplayDate) + (chegadaConfirmada ? '' : ' (prevista)')) : '';
+
+  /* Trânsito: usa as datas reais quando ambas já estão confirmadas; enquanto isso não
+     acontece, estima com as datas previstas disponíveis (embarque real ou previsto × chegada
+     confirmada ou prevista) — antes só aparecia com as duas datas REAIS confirmadas, o que
+     deixava a coluna em branco na maior parte do tempo. */
   let transit = '';
-  if(p.dataEmbarqueReal && extra.dataChegadaBetim){
-    transit = String(daysBetween(p.dataEmbarqueReal, extra.dataChegadaBetim));
+  if(embarqueDisplayDate && chegadaDisplayDate){
+    transit = String(daysBetween(embarqueDisplayDate, chegadaDisplayDate));
   }
 
   const freetime = isMaritimo ? (extra.freetime || '-') : '-';
@@ -5552,11 +5699,6 @@ function buildFollowUpTableRow(p){
     devolucao = '-';
   }
 
-  const chegadaConfirmadaData2 = extra.dataAtracacaoPorto || extra.dataChegadaBetim;
-  const chegadaConfirmada = !!chegadaConfirmadaData2;
-  const chegadaValorBase = chegadaConfirmadaData2 || p.chegadaPrevista;
-  const chegadaBR = chegadaValorBase ? (fmtDate(chegadaValorBase) + (chegadaConfirmada ? '' : ' (prevista)')) : '';
-
   return {
     processo: p.ref || '',
     fornecedor,
@@ -5564,8 +5706,9 @@ function buildFollowUpTableRow(p){
     descricao,
     prontidao: fmtDateOrBlank(p.prontidao),
     embarque: fmtDateOrBlank(p.dataEmbarqueReal),
+    embarqueLabel, embarqueDisplayDate, embarqueConfirmadoFlag,
     chegadaBR,
-    chegadaConfirmada,
+    chegadaConfirmada, chegadaDisplayDate, chegadaLabel: chegadaDisplayDate ? (chegadaConfirmada?'Chegada confirmada':'Chegada prevista') : '',
     transit,
     freetime,
     devolucao,
@@ -5633,6 +5776,7 @@ function followUpStatusColorInfo(status){
     'Transporte DTA': {bg:'var(--ink-purple-bg)', fg:'var(--ink-purple-fg)'},
     'Em processo de desembaraço': {bg:'var(--ink-red-bg)', fg:'var(--ink-red-fg)'},
     'Aguardando carimbo do estado': {bg:'var(--ink-amber-bg)', fg:'var(--ink-amber-fg)'},
+    'Aguardando remoção': {bg:'var(--ink-teal-bg)', fg:'var(--ink-teal-fg)'},
     'Em remoção': {bg:'var(--ink-red-bg)', fg:'var(--ink-red-fg)'},
     'Entregue': {bg:'var(--ink-green-bg)', fg:'var(--ink-green-fg)'},
     'Finalizado': {bg:'var(--ink-green-bg)', fg:'var(--ink-green-fg)'},
@@ -5647,37 +5791,33 @@ function toggleFollowUpNarrative(id){ window.__followupOpenRows[id] = !window.__
 function followUpTableRowHtml(p){
   const r = buildFollowUpTableRow(p);
   const statusInfo = followUpStatusColorInfo(r.status);
-  /* Nomenclatura dinâmica: "previsto" enquanto a etapa não está confirmada, "confirmado"
-     depois — nunca inventa uma data que o processo não tem (embarquePrevisto só aparece
-     quando existir de verdade; sem isso, mostra "—", não uma data chutada). Datas atrasadas
-     continuam aparecendo como "prevista", sem alerta — Follow-up mostra posição da carga,
-     não pendência (isso vive no Painel de Atenção). */
-  const embarqueInfo = p.dataEmbarqueReal
-    ? {label:'Embarque confirmado', value:fmtDate(p.dataEmbarqueReal)}
-    : (p.embarquePrevisto ? {label:'Embarque previsto', value:fmtDate(p.embarquePrevisto)} : {label:'Embarque', value:'—'});
-  const extra = p.extra||{};
-  let chegadaInfo;
-  const chegadaConfirmadaData = extra.dataAtracacaoPorto || extra.dataChegadaBetim;
-  if(chegadaConfirmadaData){
-    chegadaInfo = {label:'Chegada confirmada', value:fmtDate(chegadaConfirmadaData), pending:false};
-  } else if(p.chegadaPrevista){
-    chegadaInfo = {label:'Chegada prevista', value:fmtDate(p.chegadaPrevista), pending:true};
-  } else {
-    chegadaInfo = {label:'Chegada', value:'—', pending:false};
-  }
-  const chegadaCellCls = chegadaInfo.pending ? 'is-pending' : '';
+  /* Nomenclatura dinâmica: "previsto" enquanto a etapa não está confirmada de verdade (data
+     já chegou E foi marcada explicitamente — ver isEmbarqueConfirmado/isChegadaConfirmada),
+     "confirmado" depois. Datas atrasadas continuam aparecendo como "prevista", sem alerta —
+     Follow-up mostra posição da carga, não pendência (isso vive no Painel de Atenção). */
+  const embarqueInfo = r.embarqueDisplayDate
+    ? {label:r.embarqueLabel, value:fmtDate(r.embarqueDisplayDate), pending:!r.embarqueConfirmadoFlag}
+    : {label:'Embarque', value:'—', pending:false};
+  const chegadaInfo = r.chegadaDisplayDate
+    ? {label:r.chegadaLabel, value:fmtDate(r.chegadaDisplayDate), pending:!r.chegadaConfirmada}
+    : {label:'Chegada', value:'—', pending:false};
+  const bothConfirmed = r.embarqueConfirmadoFlag && r.chegadaConfirmada;
+  const embarqueCellCls = bothConfirmed ? 'is-confirmed' : (embarqueInfo.pending ? 'is-pending' : '');
+  const chegadaCellCls = bothConfirmed ? 'is-confirmed' : (chegadaInfo.pending ? 'is-pending' : '');
   const narrativeId = 'followup-narrative-'+p.id;
   const isOpen = !!window.__followupOpenRows[p.id];
   const modalIconHtml = modalIcon(p.modal);
   const originFlag = countryFlag(r.origem) || '';
+  const supplierRecord = state.suppliers.find(s=>s.id===p.supplierId);
+  const fornecedorStyle = (supplierRecord && supplierRecord.color) ? ` style="color:${supplierRecord.color};"` : '';
   return `
     <tr class="followup-tr">
       <td class="followup-td-sticky">${escHtmlSimple(r.processo)}</td>
-      <td class="followup-td-fornecedor">${escHtmlSimple(r.fornecedor)}</td>
-      <td class="followup-td-produto">${escHtmlSimple(r.descricao)}</td>
+      <td class="followup-td-fornecedor"${fornecedorStyle}>${escHtmlSimple(r.fornecedor)}</td>
+      <td class="followup-td-produto">${escHtmlSimple(r.descricao)}${p.tipo==='temporaria'?' <span class="followup-temp-tag">Admissão Temporária</span>':''}</td>
       <td>${r.dataPedido||'—'}</td>
       <td>${r.prontidao||'—'}</td>
-      <td><div class="followup-date-cell"><span class="followup-date-label">${embarqueInfo.label}</span><span>${embarqueInfo.value}</span></div></td>
+      <td><div class="followup-date-cell ${embarqueCellCls}"><span class="followup-date-label">${embarqueInfo.label}</span><span>${embarqueInfo.value}</span></div></td>
       <td><div class="followup-date-cell ${chegadaCellCls}"><span class="followup-date-label">${chegadaInfo.label}</span><span>${chegadaInfo.value}</span></div></td>
       <td>${r.transit?r.transit+'d':'—'}</td>
       <td>${r.freetime && r.freetime!=='-' ? r.freetime+'d' : '—'}</td>
@@ -5690,7 +5830,7 @@ function followUpTableRowHtml(p){
     <tr class="followup-narrative-row" id="${narrativeId}" style="${isOpen?'':'display:none;'}">
       <td colspan="14">
         <div class="followup-narrative-header">
-          <div class="followup-narrative-title">${escHtmlSimple(r.processo)} &middot; ${escHtmlSimple(r.descricao)}</div>
+          <div class="followup-narrative-title">${escHtmlSimple(r.processo)} &middot; ${escHtmlSimple(r.descricao)}${p.tipo==='temporaria'?' <span class="followup-temp-tag">Admissão Temporária</span>':''}</div>
           <div class="followup-narrative-sub">${escHtmlSimple(r.fornecedor)}${r.modal?` · <span class="followup-inline-icon">${modalIconHtml}</span>${escHtmlSimple(r.modal)}`:''}${r.origem?` · ${originFlag?`<span class="followup-inline-icon">${originFlag}</span>`:''}${escHtmlSimple(r.origem)}`:''}</div>
         </div>
         <div class="followup-narrative-andamento-title"><span class="followup-inline-icon">${svgRouteIcon(13)}</span>ANDAMENTO</div>
@@ -5713,6 +5853,7 @@ const FOLLOWUP_STAGE_RECT_CLASS = {
   'Transporte DTA': 'is-transit',
   'Em processo de desembaraço': 'is-customs',
   'Aguardando carimbo do estado': 'is-waiting',
+  'Aguardando remoção': 'is-info',
   'Em remoção': 'is-info',
   'Entregue': 'is-delivered',
   'Finalizado': 'is-delivered',
@@ -5728,38 +5869,17 @@ function followUpStageIcon(stage){
     case 'Transporte DTA': return svgTruckIcon(17);
     case 'Em processo de desembaraço': return svgDocumentIcon(17);
     case 'Aguardando carimbo do estado': return svgClockIcon(17);
+    case 'Aguardando remoção': return svgClockIcon(17);
     case 'Em remoção': return svgTruckIcon(17);
     case 'Entregue': case 'Finalizado': return svgFlagIcon(17);
     default: return svgClockIcon(17);
   }
 }
 
-function renderFollowUpPage(){
-  const active = state.processes.filter(p=>getBucket(p)!=='finalizados');
+function renderFollowUpGroupsHtml(active){
   if(!active.length){
-    return `<div class="empty-state"><h3>Nenhum processo ativo</h3><p>Assim que você tiver processos ativos, o follow-up consolidado aparece aqui.</p></div>`;
+    return `<div class="empty-state"><h3>Nenhum processo encontrado</h3><p>Ajuste os filtros ou a busca acima.</p></div>`;
   }
-
-  const counts = {};
-  FOLLOWUP_STATUS_ORDER.forEach(s=>counts[s]=0);
-  active.forEach(p=>{ const s=getFollowUpStatus(p); counts[s]=(counts[s]||0)+1; });
-  const summaryOpen = window.__followupSummaryOpen;
-
-  const summaryHtml = `
-    ${renderSectionRectangle({icon:svgClockIcon(17), title:`Follow-Up — ${active.length} processo(s)`, cls:'is-neutral', onclick:'toggleFollowUpSummary()', chevron:summaryOpen, ariaExpanded:summaryOpen, ariaControls:'followup-status-summary'})}
-    <div id="followup-status-summary" class="followup-status-summary" style="${summaryOpen?'':'display:none;'}">
-      ${FOLLOWUP_STATUS_ORDER.map(s=>{
-        const info = followUpStatusColorInfo(s);
-        return `<div class="followup-status-chip"><span class="followup-status-dot" style="background:${info.fg};"></span><span>${s}</span><span class="followup-status-count">${counts[s]}</span></div>`;
-      }).join('')}
-    </div>
-  `;
-
-  const toolbar = `<div class="followup-toolbar">
-    <label class="followup-empty-toggle"><input type="checkbox" ${window.__followupShowEmptyStages?'checked':''} onchange="window.__followupShowEmptyStages=this.checked; renderView();"> Exibir etapas sem processos</label>
-    <button class="btn btn-pdf" onclick="openFollowUpAllPreview()">Copiar resumo para e-mail</button>
-  </div>`;
-
   const th = (icon, label) => `<th><span class="followup-th-icon">${icon}</span>${label}</th>`;
   const tableHeadHtml = `<thead><tr>
     <th class="col-processo">Processo</th>
@@ -5782,13 +5902,14 @@ function renderFollowUpPage(){
      proximidade do próximo marco logístico — mesma função usada no relatório de e-mail,
      pra nunca haver duas ordens diferentes entre tela e e-mail. Grupos vazios ficam ocultos
      por padrão (checkbox acima libera "Exibir etapas sem processos"). */
-  const groupsHtml = getFollowUpGroups(active).map(g=>{
+  return getFollowUpGroups(active).map(g=>{
     const cls = FOLLOWUP_STAGE_RECT_CLASS[g.stage] || 'is-neutral';
+    const color = followUpHeaderColorEmail(g.stage);
     if(!g.items.length){
-      return renderSectionRectangle({icon:followUpStageIcon(g.stage), title:`${g.stage} — 0 processo`, cls}) + `<div style="margin-bottom:22px;"></div>`;
+      return renderSectionRectangle({icon:followUpStageIcon(g.stage), title:`${g.stage} — 0 processo`, cls, color}) + `<div style="margin-bottom:22px;"></div>`;
     }
     return `
-      ${renderSectionRectangle({icon:followUpStageIcon(g.stage), title:`${g.stage} — ${g.items.length} processo${g.items.length===1?'':'s'}`, cls})}
+      ${renderSectionRectangle({icon:followUpStageIcon(g.stage), title:`${g.stage} — ${g.items.length} processo${g.items.length===1?'':'s'}`, cls, color})}
       <div class="followup-table-wrap" style="margin-bottom:22px;">
         <table class="followup-table">
           ${tableHeadHtml}
@@ -5797,8 +5918,63 @@ function renderFollowUpPage(){
       </div>
     `;
   }).join('');
+}
 
-  return summaryHtml + toolbar + groupsHtml;
+function followUpFilteredActive(){
+  const f = pageFilters.followup;
+  return state.processes.filter(p=>getBucket(p)!=='finalizados' && processMatchesFilter(p, f));
+}
+
+function renderFollowUpPage(){
+  const allActive = state.processes.filter(p=>getBucket(p)!=='finalizados');
+  if(!allActive.length){
+    return `<div class="empty-state"><h3>Nenhum processo ativo</h3><p>Assim que você tiver processos ativos, o follow-up consolidado aparece aqui.</p></div>`;
+  }
+  const active = followUpFilteredActive();
+
+  const counts = {};
+  FOLLOWUP_STATUS_ORDER.forEach(s=>counts[s]=0);
+  active.forEach(p=>{ const s=getFollowUpStatus(p); counts[s]=(counts[s]||0)+1; });
+  const summaryOpen = window.__followupSummaryOpen;
+
+  const summaryHtml = `
+    ${renderSectionRectangle({icon:svgClockIcon(17), title:`Follow-Up — ${active.length} processo(s)`, cls:'is-neutral', onclick:'toggleFollowUpSummary()', chevron:summaryOpen, ariaExpanded:summaryOpen, ariaControls:'followup-status-summary'})}
+    <div id="followup-status-summary" class="followup-status-summary" style="${summaryOpen?'':'display:none;'}">
+      ${FOLLOWUP_STATUS_ORDER.map(s=>{
+        const info = followUpStatusColorInfo(s);
+        return `<div class="followup-status-chip"><span class="followup-status-dot" style="background:${info.fg};"></span><span>${s}</span><span class="followup-status-count">${counts[s]}</span></div>`;
+      }).join('')}
+    </div>
+  `;
+
+  const f = pageFilters.followup;
+  const supplierOptions = state.suppliers.map(s=>`<option value="${s.id}" ${f.supplierId===s.id?'selected':''}>${s.name}</option>`).join('');
+  const filterBar = `
+    <div class="filter-bar">
+      <select id="followup-filter-supplier" onchange="applyPageFiltersFull('followup')">
+        <option value="">Todos os fornecedores</option>
+        ${supplierOptions}
+      </select>
+      <select id="followup-filter-modal" onchange="applyPageFiltersFull('followup')">
+        <option value="">Todos os modais</option>
+        <option value="maritimo" ${f.modal==='maritimo'?'selected':''}>Marítimo</option>
+        <option value="aereo" ${f.modal==='aereo'?'selected':''}>Aéreo</option>
+      </select>
+      <select id="followup-filter-tipo" onchange="applyPageFiltersFull('followup')">
+        <option value="">Definitiva e Temporária</option>
+        <option value="definitiva" ${f.tipo==='definitiva'?'selected':''}>Só Definitiva</option>
+        <option value="temporaria" ${f.tipo==='temporaria'?'selected':''}>Só Temporária</option>
+      </select>
+      <button class="btn" onclick="clearPageFilters('followup')">Limpar filtros</button>
+    </div>
+  `;
+
+  const toolbar = `<div class="followup-toolbar">
+    <label class="followup-empty-toggle"><input type="checkbox" ${window.__followupShowEmptyStages?'checked':''} onchange="window.__followupShowEmptyStages=this.checked; renderView();"> Exibir etapas sem processos</label>
+    <button class="btn btn-pdf" onclick="openFollowUpAllPreview()">Copiar resumo para e-mail</button>
+  </div>`;
+
+  return summaryHtml + filterBar + toolbar + `<div id="followup-groups">${renderFollowUpGroupsHtml(active)}</div>`;
 }
 
 function generateFollowUpTextForProcess(p){
@@ -5831,6 +6007,7 @@ const FOLLOWUP_STATUS_COLORS_EMAIL = {
   'Transporte DTA': {bg:'#EDE7F8', fg:'#5B3FA0'},
   'Em processo de desembaraço': {bg:'#FBE9E2', fg:'#B8441F'},
   'Aguardando carimbo do estado': {bg:'#FBF0DC', fg:'#A5730F'},
+  'Aguardando remoção': {bg:'#E1F0EF', fg:'#3E7A78'},
   'Em remoção': {bg:'#FBE9E2', fg:'#B8441F'},
   'Entregue': {bg:'#E4F3EC', fg:'#1F7A5C'},
   'Finalizado': {bg:'#E4F3EC', fg:'#1F7A5C'},
@@ -5851,7 +6028,7 @@ function generateFollowUpStatusSummaryHtml(processes){
   FOLLOWUP_STATUS_ORDER.forEach(s=>counts[s]=0);
   processes.forEach(p=>{ const s = getFollowUpStatus(p); counts[s] = (counts[s]||0)+1; });
 
-  const rows = FOLLOWUP_STATUS_ORDER.map(s=>{
+  const rows = FOLLOWUP_STATUS_ORDER.filter(s=>counts[s]>0).map(s=>{
     const c = followUpStatusColorEmail(s);
     return `<tr>
       <td style="padding:7px 16px; font-size:12px; font-family:Arial,Helvetica,sans-serif; border-bottom:1px solid #E2E6EA; color:#1F2937;">
@@ -5882,15 +6059,14 @@ function generateFollowUpStatusSummaryHtml(processes){
 function generateFollowUpEmailProcessBlock(p){
   const r = buildFollowUpTableRow(p);
   const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const extra = p.extra || {};
 
-  const embarqueInfo = p.dataEmbarqueReal
-    ? {label:'Embarque confirmado', value:fmtDate(p.dataEmbarqueReal)}
-    : (p.embarquePrevisto ? {label:'Embarque previsto', value:fmtDate(p.embarquePrevisto)} : null);
-  const chegadaConfirmadaData = extra.dataAtracacaoPorto || extra.dataChegadaBetim;
-  const chegadaInfo = chegadaConfirmadaData
-    ? {label:'Chegada confirmada', value:fmtDate(chegadaConfirmadaData)}
-    : (p.chegadaPrevista ? {label:'Chegada prevista', value:fmtDate(p.chegadaPrevista)} : null);
+  const bothConfirmed = r.embarqueConfirmadoFlag && r.chegadaConfirmada;
+  const embarqueInfo = r.embarqueDisplayDate
+    ? {label:r.embarqueLabel, value:fmtDate(r.embarqueDisplayDate), highlight: bothConfirmed?'green':(r.embarqueConfirmadoFlag?null:'amber')}
+    : null;
+  const chegadaInfo = r.chegadaDisplayDate
+    ? {label:r.chegadaLabel, value:fmtDate(r.chegadaDisplayDate), highlight: bothConfirmed?'green':(r.chegadaConfirmada?null:'amber')}
+    : null;
 
   // Só entram no bloco os campos que o processo realmente tem — nada de "—" ou linha vazia.
   // Datas atrasadas continuam aparecendo normalmente como "prevista" — sem alerta, sem cor de
@@ -5908,15 +6084,22 @@ function generateFollowUpEmailProcessBlock(p){
 
   // Grade interna de 3 colunas (tabela HTML, nunca flex/grid) — em vez de empilhar cada campo
   // numa linha só, o que deixava a coluna esquerda comprida demais e o resto da largura vazio.
+  // Embarque/Chegada ganham a mesma caixinha âmbar ("previsto", ainda não confirmado) ou
+  // verde (os dois já confirmados) usada na tela interna — mesmo formato, mesma lógica.
   let gridHtml = '';
   for(let i=0; i<gridFields.length; i+=3){
     const row = gridFields.slice(i, i+3);
     gridHtml += '<tr>' + row.map((f,idx)=>{
       const isLast = idx===row.length-1;
       const padStyle = idx===0 ? 'padding:0 10px 12px 0;' : (isLast ? 'padding:0 0 12px 10px;' : 'padding:0 10px 12px 10px;');
+      const boxBg = f.highlight==='green' ? 'background-color:#E4F3EC;' : (f.highlight==='amber' ? 'background-color:#FEF3C7;' : '');
+      const boxColor = f.highlight==='green' ? 'color:#1F7A5C;' : (f.highlight==='amber' ? 'color:#92400E;' : 'color:#17263A;');
+      const boxStyle = f.highlight ? `${boxBg} border-radius:7px; padding:4px 7px;` : '';
       return `<td width="33%" valign="top" style="width:33%; ${padStyle}">
-        <p style="margin:0; font-size:11px; line-height:15px; font-weight:bold; color:#65758A; text-transform:uppercase;">${esc(f.label)}</p>
-        <p style="margin:3px 0 0 0; font-size:13px; line-height:18px; color:#17263A; word-break:normal; overflow-wrap:break-word;">${esc(f.value)}</p>
+        <div style="${boxStyle}">
+        <p style="margin:0; font-size:11px; line-height:15px; font-weight:bold; ${f.highlight?boxColor:'color:#65758A;'} text-transform:uppercase;">${esc(f.label)}</p>
+        <p style="margin:3px 0 0 0; font-size:13px; line-height:18px; ${boxColor} word-break:normal; overflow-wrap:break-word;">${esc(f.value)}</p>
+        </div>
       </td>`;
     }).join('') + (row.length<3 ? `<td width="${(3-row.length)*33}%">&nbsp;</td>` : '') + '</tr>';
   }
@@ -5928,14 +6111,16 @@ function generateFollowUpEmailProcessBlock(p){
   const andamentoBody = r.andamento ? formatAndamentoHtml(r.andamento) : 'Sem eventos registrados ainda.';
 
   // Cabeçalho em duas cores independentes: fornecedor à esquerda (estável, não muda com a
-  // etapa), etapa à direita (cor semântica do status). Produto em destaque na linha principal.
+  // etapa), etapa à direita (cor semântica do status). Produto em destaque na linha principal,
+  // com a marca de Admissão Temporária logo depois, quando aplicável.
   // Sem bandeira/ícone/emoji de país — origem só como texto, como pedido.
   const supplierColor = followUpSupplierColorEmail(p);
   const stageColor = followUpHeaderColorEmail(r.status);
+  const tempTag = p.tipo==='temporaria' ? ' <span style="font-size:10px; font-weight:bold; text-transform:uppercase; background-color:rgba(255,255,255,0.18); padding:2px 7px; border-radius:999px;">Admissão Temporária</span>' : '';
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; border-collapse:collapse; background-color:#FFFFFF; border:1px solid #D8E1EA;">
     <tr>
       <td width="72%" valign="middle" style="width:72%; padding:11px 16px; background-color:${supplierColor}; font-family:Arial,Helvetica,sans-serif; color:#FFFFFF;">
-        <p style="margin:0; font-size:15px; line-height:20px; font-weight:bold; color:#FFFFFF;">${esc(r.processo)} &middot; ${esc(r.descricao)} &middot; ${esc(r.fornecedor)}</p>
+        <p style="margin:0; font-size:15px; line-height:20px; font-weight:bold; color:#FFFFFF;">${esc(r.processo)} &middot; ${esc(r.descricao)} &middot; ${esc(r.fornecedor)}${tempTag}</p>
         <p style="margin:3px 0 0 0; font-size:12px; line-height:17px; color:#D7E5F2;">${esc(r.modal)}${r.origem?` &middot; ${esc(r.origem)}`:''}</p>
       </td>
       <td width="28%" align="right" valign="middle" style="width:28%; padding:11px 16px; background-color:${stageColor}; font-family:Arial,Helvetica,sans-serif; color:#FFFFFF;">
@@ -6012,23 +6197,17 @@ function generateFollowUpEmailPlainText(processes){
 
   let text = `COMEX TRACK\nFollow-up de Processos de Importação\n\nEmpresa: ${empresaNome}\nGerado em: ${dataGerado} às ${horaGerado}\n\n`;
   text += `FOLLOW-UP — ${processes.length} PROCESSO(S)\n`;
-  FOLLOWUP_STATUS_ORDER.forEach(s=>{ text += `${s}: ${counts[s]}\n`; });
+  FOLLOWUP_STATUS_ORDER.filter(s=>counts[s]>0).forEach(s=>{ text += `${s}: ${counts[s]}\n`; });
   text += '\n';
 
   getFollowUpGroups(processes).forEach(g=>{
     text += `${g.stage.toUpperCase()} — ${g.items.length} PROCESSO${g.items.length===1?'':'S'}\n\n`;
     g.items.forEach(p=>{
       const r = buildFollowUpTableRow(p);
-      const embarqueInfo = p.dataEmbarqueReal
-        ? {label:'Embarque confirmado', value:fmtDate(p.dataEmbarqueReal)}
-        : (p.embarquePrevisto ? {label:'Embarque previsto', value:fmtDate(p.embarquePrevisto)} : null);
-      const extra = p.extra||{};
-      const chegadaConfirmadaData = extra.dataAtracacaoPorto || extra.dataChegadaBetim;
-      const chegadaInfo = chegadaConfirmadaData
-        ? {label:'Chegada confirmada', value:fmtDate(chegadaConfirmadaData)}
-        : (p.chegadaPrevista ? {label:'Chegada prevista', value:fmtDate(p.chegadaPrevista)} : null);
+      const embarqueInfo = r.embarqueDisplayDate ? {label:r.embarqueLabel, value:fmtDate(r.embarqueDisplayDate)} : null;
+      const chegadaInfo = r.chegadaDisplayDate ? {label:r.chegadaLabel, value:fmtDate(r.chegadaDisplayDate)} : null;
 
-      text += `${r.processo} · ${r.descricao} — ${String(r.status).toUpperCase()}\n`;
+      text += `${r.processo} · ${r.descricao}${p.tipo==='temporaria'?' (Admissão Temporária)':''} — ${String(r.status).toUpperCase()}\n`;
       text += `${r.fornecedor}${r.modal?' · '+r.modal:''}${r.origem?' · '+r.origem:''}\n\n`;
       if(r.dataPedido) text += `Pedido: ${r.dataPedido}\n`;
       if(r.prontidao) text += `Prontidão prevista: ${r.prontidao}\n`;
@@ -7330,7 +7509,14 @@ function getStagesForProcess(p){
 
     if(s.key==='fase6' && isAereo){
       const items = ['Chegada e presença'];
-      const itemFields = {};
+      /* Campo de data pro 1º ponto de entrada no Brasil (ex: Guarulhos) — separado da chegada
+         no recinto de desembaraço (ex: Confins, ver mais abaixo), que pode ser um aeroporto
+         diferente. Aditivo: não desloca nenhum índice existente, só adiciona itemFields[0],
+         que antes não tinha campo nenhum. */
+      const itemFields = {0:[
+        {key:'aeroportoPrimeiraEntrada', label:'Aeroporto de Entrada no Brasil', type:'text'},
+        {key:'dataChegadaPrimeiraEntrada', label:'Data de Chegada', type:'date'},
+      ]};
       const incluirDTA = p.aeroportoDestinoFinal !== true;
       if(incluirDTA){
         items.push('Início DTA');
@@ -7473,6 +7659,7 @@ function svgStatusIcon(key){
   const icons = {
     producao: '<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
     aguardando_embarque: '<path d="M6 2h12M6 22h12"/><path d="M6 2c0 5 4 6 6 8-2 2-6 3-6 8M18 2c0 5-4 6-6 8 2 2 6 3 6 8"/>',
+    transferencia: '<path d="M3 8h13"/><path d="M13 4l4 4-4 4"/><path d="M21 16H8"/><path d="M11 12l-4 4 4 4"/>',
     desembaraco: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3V2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M8 11l2 2 4-4"/><path d="M8 17h6"/>',
     entregue: '<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M9 12.5l2 2 4-4"/>',
   };
@@ -7486,18 +7673,23 @@ function svgStatusIcon(key){
    visual da plataforma. Regras personalizadas (buckets extras criados pelo usuário) não são
    afetadas por essa trava — continuam com o próprio campo de ícone de sempre. */
 function fixedBucketIcon(key){ return svgStatusIcon(key); }
-const FIXED_BUCKET_IDS = ['producao','aguardando_embarque','transito','desembaraco','entregue'];
+/* "transferencia" (Em Transferência Aduaneira) inserido entre "transito" e "desembaraco" —
+   carga já chegou ao Brasil mas ainda não chegou ao recinto onde o desembaraço acontece de
+   fato (ver getBucket/isChegadaRecintoConfirmada). Pedido explícito: não misturar isso com "Em
+   Desembaraço", que antes disparava só com a chegada ao Brasil, adiantado demais. */
+const FIXED_BUCKET_IDS = ['producao','aguardando_embarque','transito','transferencia','desembaraco','entregue'];
 /* Cor de cada estágio fixo do Painel — fonte única de verdade, usada tanto nos cards de KPI
    quanto nos separadores de seção abaixo deles quanto na tela de Personalização (pro círculo
    de ícone ali já aparecer na cor certa também, sem duplicar esse mapeamento em 3 lugares). */
-const DASHBOARD_KPI_ACCENTS = {producao:'var(--ink-blue-fg)', aguardando_embarque:'var(--ink-amber-fg)', transito:'var(--ink-purple-fg)', desembaraco:'var(--ink-red-fg)', entregue:'var(--ink-green-fg)'};
-const DASHBOARD_KPI_ACCENTS_BG = {producao:'var(--ink-blue-bg)', aguardando_embarque:'var(--ink-amber-bg)', transito:'var(--ink-purple-bg)', desembaraco:'var(--ink-red-bg)', entregue:'var(--ink-green-bg)'};
+const DASHBOARD_KPI_ACCENTS = {producao:'var(--ink-blue-fg)', aguardando_embarque:'var(--ink-amber-fg)', transito:'var(--ink-purple-fg)', transferencia:'var(--ink-teal-fg)', desembaraco:'var(--ink-red-fg)', entregue:'var(--ink-green-fg)'};
+const DASHBOARD_KPI_ACCENTS_BG = {producao:'var(--ink-blue-bg)', aguardando_embarque:'var(--ink-amber-bg)', transito:'var(--ink-purple-bg)', transferencia:'var(--ink-teal-bg)', desembaraco:'var(--ink-red-bg)', entregue:'var(--ink-green-bg)'};
 function getDashboardConfig(){
   const dflt = {
     labels: {
       producao: {label:'Em Produção', icon:svgStatusIcon('producao')},
       aguardando_embarque: {label:'Aguardando Embarque', icon:svgStatusIcon('aguardando_embarque')},
       transito: {label:'Em Trânsito', icon:svgStatusIcon('transito')},
+      transferencia: {label:'Em Transferência Aduaneira', icon:svgStatusIcon('transferencia')},
       desembaraco: {label:'Em Desembaraço', icon:svgStatusIcon('desembaraco')},
       entregue: {label:'Entregue', icon:svgStatusIcon('entregue')},
     },
@@ -7528,22 +7720,30 @@ function getBucket(p){
   if(p.tipo==='temporaria') return 'producao';
 
   const stages = getStagesForProcess(p);
-  const fase6 = stages.find(s=>s.key==='fase6');
   const fase7 = stages.find(s=>s.key==='fase7');
-  const chegou = fase6 ? !!(p.checklist['fase6']||[])[fase6.arrivalItemIndex] : false;
+  const chegadaBrasil = isChegadaConfirmada(p);
+  const chegadaRecinto = isChegadaRecintoConfirmada(p);
   const recebido = fase7 ? !!(p.checklist['fase7']||[])[fase7.receiptItemIndex] : false;
 
-  /* Entregue e Em Desembaraço dependem do marco físico real (chegada / recebimento em
-     estoque), não da posição abstrata da etapa. Isso evita que marcar um item qualquer
-     lá na frente (ex: um pagamento da Fase 8) jogue o processo pra Entregue sem a
-     remoção ter de fato acontecido. */
+  /* Entregue, Em Desembaraço e Em Transferência Aduaneira dependem de marcos físicos reais
+     (chegada ao recinto / chegada ao Brasil / recebimento em estoque), não da posição abstrata
+     da etapa. Isso evita que marcar um item qualquer lá na frente (ex: um pagamento da Fase 8)
+     jogue o processo pra Entregue sem a remoção ter de fato acontecido — e evita que o simples
+     atracar no porto (chegada ao Brasil) já jogue pra "Em Desembaraço" sem a carga ter
+     realmente chegado ao recinto onde o desembaraço acontece (pode estar só em transferência —
+     no porto, na Movecta, em DTA). */
   if(recebido) return 'entregue';
-  if(chegou) return 'desembaraco';
+  if(chegadaRecinto) return 'desembaraco';
+  if(chegadaBrasil) return 'transferencia';
 
   const idx = stages.findIndex(s=>s.key===p.status);
   const fase4Idx = stages.findIndex(s=>s.key==='fase4');
   if(idx<=fase4Idx){
-    if(p.prontidao && daysBetween(todayStr(), p.prontidao) <= 0) return 'aguardando_embarque';
+    /* "Aguardando Embarque" só depois que a prontidão for EXPLICITAMENTE confirmada (checkbox
+       "Prontidão confirmada") — não basta a data preenchida ter chegado sozinha. Antes disso,
+       mesmo com a data no passado, o processo continua "Em Produção" (mesmo princípio já
+       usado pro Embarque Confirmado, ver mais abaixo). */
+    if(p.prontidaoConfirmada) return 'aguardando_embarque';
     return 'producao';
   }
   /* Só vira "Em Trânsito" quando o embarque foi EXPLICITAMENTE confirmado (tick "Embarque
@@ -8102,7 +8302,7 @@ async function switchCompany(companyId){
 }
 
 function renderGlobalTopbar(){
-  const searchablePages = {dashboard:1, processos:1, finalizados:1};
+  const searchablePages = {dashboard:1, processos:1, finalizados:1, followup:1};
   const hasSearch = !!searchablePages[currentView];
   const f = hasSearch ? pageFilters[currentView] : null;
   const userInitials = (currentUserRoleLabel||'US').slice(0,2).toUpperCase();
@@ -8669,6 +8869,7 @@ let pageFilters = {
   dashboard: {search:'', supplierId:'', modal:'', tipo:'', stage:''},
   processos: {search:'', supplierId:'', modal:'', tipo:'', stage:''},
   finalizados: {search:'', supplierId:'', modal:'', tipo:'', stage:''},
+  followup: {search:'', supplierId:'', modal:'', tipo:''},
 };
 
 function processMatchesFilter(p, f){
@@ -8754,6 +8955,11 @@ function applyPageSearchFilter(pageKey){
   if(clearBtn) clearBtn.style.display = value ? 'flex' : 'none';
   if(pageKey==='dashboard'){
     refreshDashboardResults();
+    return;
+  }
+  if(pageKey==='followup'){
+    const el = document.getElementById('followup-groups');
+    if(el) el.innerHTML = renderFollowUpGroupsHtml(followUpFilteredActive());
     return;
   }
   const el = document.getElementById(pageKey+'-results');
@@ -8842,7 +9048,7 @@ function refreshDashboardResults(){
    KPI quanto nas seções do corpo e no filtro de etapa, pra manter tudo consistente. */
 function dashboardBucketOrder(cfg){
   cfg = cfg || getDashboardConfig();
-  const ascending = ['producao','aguardando_embarque','transito','desembaraco','entregue', ...cfg.rules.map(r=>'custom:'+r.id)];
+  const ascending = ['producao','aguardando_embarque','transito','transferencia','desembaraco','entregue', ...cfg.rules.map(r=>'custom:'+r.id)];
   return ascending.reverse();
 }
 
@@ -9052,6 +9258,15 @@ function renderDashboardResultsParts(){
         return 0;
       });
       body += band + `<div class="process-list">${sorted.map(transitoCard).join('')}</div>`;
+    } else if(id==='transferencia'){
+      // Mesmo critério do Em Trânsito/Em Desembaraço: quem já chegou ao Brasil há mais tempo
+      // (mais urgência de seguir pro recinto) aparece primeiro.
+      const sorted = list.slice().sort((a,b)=>{
+        const da = getChegadaBrasilInfo(a).data || '9999-99-99';
+        const db = getChegadaBrasilInfo(b).data || '9999-99-99';
+        return da<db ? -1 : (da>db ? 1 : 0);
+      });
+      body += band + `<div class="process-list">${sorted.map(transferenciaCard).join('')}</div>`;
     } else if(id==='desembaraco'){
       // Mesmo critério do Em Trânsito: prazo mais próximo primeiro (vencido/hoje no topo).
       // Aqui o prazo em aberto que importa é a Devolução do Container (é a única data com
@@ -12199,6 +12414,32 @@ function desembaracoCard(p){
   </div>`;
 }
 
+/* EM TRANSFERÊNCIA ADUANEIRA — carga já chegou ao Brasil, mas ainda não chegou ao recinto de
+   desembaraço (ver getBucket/getChegadaBrasilInfo/getChegadaRecintoInfo). Mostra os dois
+   marcos separados e a posição granular real (mesmo texto do Follow-up, FOLLOWUP_POSICAO_ATUAL),
+   nunca linguagem de "carga não chegou" — ela já chegou, só está em trânsito interno. */
+function transferenciaCard(p){
+  const fornecedor = state.suppliers.find(s=>s.id===p.supplierId);
+  const chegadaInfo = getChegadaBrasilInfo(p);
+  const recintoInfo = getChegadaRecintoInfo(p);
+  const infoParts = [];
+  if(chegadaInfo.data) infoParts.push(`<span><b>Chegada ao Brasil:</b> ${fmtDate(chegadaInfo.data)}${chegadaInfo.local?` · ${chegadaInfo.local}`:''}</span>`);
+  if(recintoInfo.local) infoParts.push(`<span><b>Recinto de desembaraço:</b> ${recintoInfo.local}</span>`);
+  const posicao = FOLLOWUP_POSICAO_ATUAL[getFollowUpStatus(p)] || '';
+  return `
+  <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessCardClick('${p.id}')">
+    <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+    ${refBadgeHtml(p)}
+    <div>
+      <h3 style="font-size:15px;font-weight:600;">${p.produto||'Sem descrição'}</h3>
+      <div class="process-meta">${fornecedorNameHtml(fornecedor)} · ${originModalMeta(p)}</div>
+      ${infoParts.length?`<div class="transit-logi">${infoParts.join('')}</div>`:''}
+      <div class="step-note">${posicao}</div>
+      ${renderAlertBanner(p)}
+    </div>
+  </div>`;
+}
+
 function transitoCard(p){
   const embarque = p.dataEmbarqueReal || p.embarquePrevisto;
   const chegada = p.chegadaPrevista;
@@ -12527,21 +12768,38 @@ function removeRefFornecedor(id){
   document.getElementById('ref-fornecedor-list').innerHTML = refFornecedorRowsHtml(p);
   renderDocsTab();
 }
-/* Cria (ou renomeia, se a referência foi editada) um documento personalizado por referência
-   de fatura — nunca remove um espaço já existente automaticamente, mesmo que a referência seja
-   apagada, pra nunca arriscar perder um arquivo já anexado sem confirmação explícita da pessoa
-   (ela pode remover manualmente pelo botão de excluir documento, se quiser). */
+/* Cria (ou renomeia, se a referência foi editada) um par de documentos personalizados por
+   referência de fatura — uma Invoice e um Packing List com a mesma referência, já que todo
+   embarque com fatura própria tem seu packing list correspondente. Nunca remove um espaço já
+   existente automaticamente, mesmo que a referência seja apagada, pra nunca arriscar perder um
+   arquivo já anexado sem confirmação explícita da pessoa (ela pode remover manualmente pelo
+   botão de excluir documento, se quiser). */
 function syncInvoiceDocSlots(p){
   p.customDocs = p.customDocs || [];
   (p.referenciasFornecedor||[]).forEach(r=>{
     const refTrim = (r.ref||'').trim();
     if(!refTrim) return;
-    const nomeEsperado = `Invoice - ${refTrim}`;
-    const existing = p.customDocs.find(cd=>cd.linkedRefId===r.id);
-    if(!existing){
-      p.customDocs.push({ id: uid(), name: nomeEsperado, linkedRefId: r.id });
-    } else if(existing.name !== nomeEsperado){
-      existing.name = nomeEsperado;
+    const nomeInvoice = `Invoice - ${refTrim}`;
+    const nomePacking = `Packing List - ${refTrim}`;
+
+    let invoiceDoc = p.customDocs.find(cd=>cd.linkedRefId===r.id && cd.docKind==='invoice');
+    if(!invoiceDoc){
+      /* Migração leve: espaços criados antes de existir docKind eram só a Invoice — reaproveita
+         o mesmo documento (e o arquivo já anexado) em vez de criar um novo do zero. */
+      const legacy = p.customDocs.find(cd=>cd.linkedRefId===r.id && !cd.docKind);
+      if(legacy){ legacy.docKind = 'invoice'; invoiceDoc = legacy; }
+    }
+    if(!invoiceDoc){
+      p.customDocs.push({ id: uid(), name: nomeInvoice, linkedRefId: r.id, docKind: 'invoice' });
+    } else if(invoiceDoc.name !== nomeInvoice){
+      invoiceDoc.name = nomeInvoice;
+    }
+
+    const packingDoc = p.customDocs.find(cd=>cd.linkedRefId===r.id && cd.docKind==='packing');
+    if(!packingDoc){
+      p.customDocs.push({ id: uid(), name: nomePacking, linkedRefId: r.id, docKind: 'packing' });
+    } else if(packingDoc.name !== nomePacking){
+      packingDoc.name = nomePacking;
     }
   });
 }
@@ -13014,7 +13272,13 @@ function openProcessModal(id){
             ${renderSectionRectangle({icon:svgCalendarIcon(17), title:'Datas Importantes &amp; Carga / Container', cls:'is-neutral'})}
             <div class="process-grid-4">
               <div class="form-group"><label>Data do Pedido</label><input type="date" id="f-datapedido" value="${p.dataPedido||''}"></div>
-              <div class="form-group"><label>Prontidão da Carga</label><input type="date" id="f-prontidao" value="${p.prontidao||''}"></div>
+              <div class="form-group">
+                <label>Prontidão da Carga</label>
+                <input type="date" id="f-prontidao" value="${p.prontidao||''}">
+                <label style="display:flex; align-items:center; gap:6px; margin-top:6px; font-size:11.5px; font-weight:600; color:var(--muted); cursor:pointer;">
+                  <input type="checkbox" id="f-prontidao-confirmada" ${p.prontidaoConfirmada?'checked':''} style="cursor:pointer;"> Prontidão confirmada
+                </label>
+              </div>
               <div class="form-group"><label>Previsão de Entrada em Estoque</label><input type="date" id="f-previsao-estoque" value="${p.previsaoEntradaEstoque||''}"></div>
               <div class="form-group"><label>Data de Embarque Real</label><input type="date" id="f-dataembarquereal" value="${p.dataEmbarqueReal||''}"></div>
               <div class="form-group"><label>Chegada Prevista</label><input type="date" id="f-chegada" value="${p.chegadaPrevista||''}"></div>
@@ -13756,6 +14020,23 @@ function toggleStageItem(stageKey, idx){
     return;
   }
   p.checklist[stageKey][idx] = willBeChecked;
+
+  /* DDR: a etapa "DDR" (Fase 5) é a fonte de verdade do requisito — Documentos só reflete essa
+     confirmação, nunca decide sozinho (ver renderDDRDocRow/getDDRStatus). Ao confirmar/desmarcar
+     aqui, registra quem e quando; detectHistoryChanges lê essa mudança no próximo salvamento e
+     lança o evento no histórico, no mesmo padrão já usado pros outros campos de `extra`. */
+  const stage = stages.find(s=>s.key===stageKey);
+  if(stage && stage.items[idx]==='DDR'){
+    p.extra = p.extra || {};
+    if(willBeChecked){
+      p.extra.ddrConfirmadaEm = todayStr();
+      p.extra.ddrConfirmadaPor = currentUser ? currentUser.email : '';
+    } else {
+      p.extra.ddrConfirmadaEm = '';
+      p.extra.ddrConfirmadaPor = '';
+    }
+  }
+
   window.__openStage = stageKey;
   renderEtapasTab();
 }
@@ -13826,6 +14107,42 @@ function renderDocRow(key, label, p, canEdit, removable){
   `;
 }
 
+/* DDR em Documentos: a confirmação vem da Etapa (getDDRStatus), não de um checkbox próprio
+   aqui — evita duplicar o status ("DDR recebida" × "DDR anexada") como pedido explícito. O
+   anexo continua funcionando normalmente (evidência/arquivo), só não controla mais a marcação. */
+function renderDDRDocRow(p, canEditHere){
+  const key = 'DDR (Declaração do Detentor do Registro)';
+  const keyEsc = key.replace(/'/g,"\\'");
+  const status = getDDRStatus(p);
+  const file = p.docFiles[key];
+  const inputId = 'file-input-'+slugifyDocType(key);
+  const situacaoHtml = status.confirmada
+    ? `<div class="form-hint" style="margin-top:2px;">Situação: Recebida via Etapas${status.data?` — confirmada em ${fmtDate(status.data)}`:''}${status.por?` por ${status.por}`:''}</div>`
+    : `<div class="form-hint" style="margin-top:2px;">Situação: Pendente — confirme a etapa "DDR" na aba Etapas (Fase 5)</div>`;
+  return `
+    <div class="doc-item-block">
+      <div class="doc-item ${status.confirmada?'checked':''}" style="cursor:default;" title="Confirmação controlada pela etapa &quot;DDR&quot; (Fase 5) — não marcável por aqui">
+        <div class="doc-check">${status.confirmada?svgCheckInline():''}</div>
+        <span>${key}</span>
+      </div>
+      ${situacaoHtml}
+      <div class="doc-file-row">
+        ${file ? `
+          <span class="doc-file-name">${svgPaperclipIcon()} ${file.name}</span>
+          <a href="${file.url}" target="_blank" rel="noopener" class="btn" style="padding:4px 9px; font-size:11px;">Ver / Baixar</a>
+          ${canEditHere ? `
+            <label class="btn" style="padding:4px 9px; font-size:11px; cursor:pointer;">Substituir<input type="file" id="${inputId}" style="display:none;" onchange="uploadDocFile(this,'${keyEsc}')"></label>
+            <button class="btn btn-danger" style="padding:4px 9px; font-size:11px;" onclick="deleteDocFile('${keyEsc}')">Excluir</button>
+          ` : ''}
+        ` : (canEditHere ? `
+          <label class="btn" style="padding:5px 11px; font-size:11.5px; cursor:pointer;">+ Anexar arquivo<input type="file" id="${inputId}" style="display:none;" onchange="uploadDocFile(this,'${keyEsc}')"></label>
+          <span class="doc-upload-status" id="status-${slugifyDocType(key)}"></span>
+        ` : `<span class="form-hint">Nenhum arquivo anexado</span>`)}
+      </div>
+    </div>
+  `;
+}
+
 function renderDocsTab(){
   const p = window.__editingProcess;
   p.docFiles = p.docFiles || {};
@@ -13834,8 +14151,30 @@ function renderDocsTab(){
   if(!el) return;
   const canEditHere = canEdit('processos');
 
-  const fixedRows = getDocTypesForProcess(p).map(d=>renderDocRow(d, d, p, canEditHere, false)).join('');
-  const customRows = p.customDocs.map(cd=>renderDocRow('custom:'+cd.id, cd.name, p, canEditHere, true)).join('');
+  /* Quando existem Referências do Fornecedor preenchidas, as Invoices e Packing Lists
+     geradas por referência (syncInvoiceDocSlots) substituem os itens fixos "Comercial
+     Invoice (Fatura)" e "Packing List" na mesma posição — cada fatura aparece junto com
+     seu Packing List logo abaixo, em vez de ficarem soltas no fim da lista de documentos
+     personalizados. Sem referência preenchida, mantém o comportamento padrão (um único
+     item fixo de Fatura e um de Packing List). */
+  const refsComFatura = (p.referenciasFornecedor||[]).filter(r=>(r.ref||'').trim());
+  const linkedDocIds = new Set();
+  const linkedRowsHtml = refsComFatura.map(r=>{
+    const inv = p.customDocs.find(cd=>cd.linkedRefId===r.id && cd.docKind==='invoice');
+    const pack = p.customDocs.find(cd=>cd.linkedRefId===r.id && cd.docKind==='packing');
+    let rows = '';
+    if(inv){ linkedDocIds.add(inv.id); rows += renderDocRow('custom:'+inv.id, inv.name, p, canEditHere, true); }
+    if(pack){ linkedDocIds.add(pack.id); rows += renderDocRow('custom:'+pack.id, pack.name, p, canEditHere, true); }
+    return rows;
+  }).join('');
+
+  const fixedRows = getDocTypesForProcess(p).map(d=>{
+    if(refsComFatura.length && d==='Comercial Invoice (Fatura)') return linkedRowsHtml;
+    if(refsComFatura.length && d==='Packing List') return '';
+    if(d==='DDR (Declaração do Detentor do Registro)') return renderDDRDocRow(p, canEditHere);
+    return renderDocRow(d, d, p, canEditHere, false);
+  }).join('');
+  const customRows = p.customDocs.filter(cd=>!linkedDocIds.has(cd.id)).map(cd=>renderDocRow('custom:'+cd.id, cd.name, p, canEditHere, true)).join('');
   const addRow = canEditHere ? `
     <div style="display:flex; gap:8px; margin-top:10px;">
       <input type="text" id="new-custom-doc-name" placeholder="Ex: Segunda Fatura, Certificado de Origem..." style="flex:1; padding:9px 11px; border:1px solid var(--border-strong); border-radius:6px; font-size:13px;">
@@ -14132,6 +14471,7 @@ function collectProcessFormData(){
     dataPedido: document.getElementById('f-datapedido').value,
     previsaoEntradaEstoque: document.getElementById('f-previsao-estoque').value,
     prontidao: document.getElementById('f-prontidao').value,
+    prontidaoConfirmada: document.getElementById('f-prontidao-confirmada').checked,
     dataEmbarqueReal: document.getElementById('f-dataembarquereal').value,
     chegadaPrevista: document.getElementById('f-chegada').value,
     modal: document.getElementById('f-modal').value,
