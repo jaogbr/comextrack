@@ -2527,6 +2527,7 @@ function attachDataListener(){
       state.processes = d.processes || [];
       state.suppliers = d.suppliers || [];
       state.partners = (d.partners && d.partners.length) ? d.partners : DEFAULT_PARTNERS.map(p=>({...p}));
+      state.provisioningRules = (d.provisioningRules && d.provisioningRules.length) ? d.provisioningRules : DEFAULT_PROVISIONING_RULES.map(r=>({...r}));
       state.dashboardConfig = d.dashboardConfig || null;
       state.ncms = (d.ncms && d.ncms.length) ? d.ncms : DEFAULT_NCMS.map(n=>({...n}));
       state.empresaConfig = d.empresaConfig || { nome:'', estoques:[] };
@@ -2540,7 +2541,7 @@ function attachDataListener(){
          documento antigo (formato de ANTES da Fase 1, ver LEGACY_DATA_DOC_PATH) e copia pro
          caminho novo. Não apaga nem toca no documento antigo — ele continua existindo como
          está, intacto, só deixa de ser lido depois que o documento novo passa a existir. */
-      state = { processes:[], suppliers:[], partners: DEFAULT_PARTNERS.map(p=>({...p})), ncms: DEFAULT_NCMS.map(n=>({...n})), empresaConfig: { nome:'', estoques:[] },
+      state = { processes:[], suppliers:[], partners: DEFAULT_PARTNERS.map(p=>({...p})), provisioningRules: DEFAULT_PROVISIONING_RULES.map(r=>({...r})), ncms: DEFAULT_NCMS.map(n=>({...n})), empresaConfig: { nome:'', estoques:[] },
         finalidades: DEFAULT_FINALIDADES.map(f=>({...f})), codigosImposto: [], tiposItem: DEFAULT_TIPOS_ITEM.map(t=>({...t})) };
       bootstrapMigrateFromLegacyDocument();
     }
@@ -3041,6 +3042,124 @@ const DEFAULT_PARTNERS = [
   {id:'seed-7', tipo:'Agente de Cargas', empresa:'Rentalog', contato:'Mariana Aguiar', phone:'(47) 3046-6990'},
   {id:'seed-8', tipo:'Agente de Cargas', empresa:'Nippon Express', contato:'Tatiana Takao', phone:'(11) 3583-3850'},
 ];
+
+/* REGRAS DE PREVISÃO DE PAGAMENTO (Provisionamento) — pedido explícito: nenhum prazo pode
+   ficar fixo de forma permanente no código. Por isso, igual a DEFAULT_PARTNERS acima, isto é
+   só a SEMENTE inicial — no primeiro carregamento (ver attachDataListener) ela é copiada pra
+   state.provisioningRules, que é dado normal do Firestore dali em diante, editável em Parceiros
+   (regra por parceiro) e em Personalização (regra padrão da empresa, partnerId null). Mudar
+   este array depois que a empresa já tem dado salvo não tem efeito nenhum — é só o ponto de
+   partida de uma empresa nova.
+   categoria: 'despachante' | 'agente_cargas' | 'armazenagem'
+   modal: 'aereo' | 'maritimo' | null (null = qualquer modal)
+   condicao: um de CONDICOES_OPERACIONAIS ou null (null = qualquer condição)
+   dataBase: uma chave de DATA_BASE_OPTIONS
+   partnerId: null nestas (regra padrão da empresa — nível 5 da prioridade, ver
+   resolveProvisioningRule) */
+const DEFAULT_PROVISIONING_RULES = [
+  {id:'seed-rule-1', categoria:'despachante', modal:'aereo', condicao:'AEREO_COM_TRANSFERENCIA', dataBase:'chegada_prevista_1o_aeroporto', dias:7, descricao:'Despachante — aéreo com transferência'},
+  {id:'seed-rule-2', categoria:'despachante', modal:'aereo', condicao:'AEREO_DIRETO', dataBase:'chegada_prevista_1o_aeroporto', dias:4, descricao:'Despachante — aéreo direto'},
+  {id:'seed-rule-3', categoria:'despachante', modal:'maritimo', condicao:null, dataBase:'chegada_prevista_brasil', dias:10, descricao:'Despachante — marítimo'},
+  {id:'seed-rule-4', categoria:'agente_cargas', modal:null, condicao:'TODOS_OS_MODAIS', dataBase:'chegada_prevista_brasil', dias:5, descricao:'Agente de cargas — todos os modais'},
+  {id:'seed-rule-5', categoria:'armazenagem', modal:'maritimo', condicao:'MARITIMO_ZONA_PRIMARIA', dataBase:'chegada_prevista_brasil', dias:15, descricao:'Armazenagem — zona primária'},
+  {id:'seed-rule-6', categoria:'armazenagem', modal:'maritimo', condicao:'MARITIMO_ZONA_SECUNDARIA', dataBase:'chegada_prevista_brasil', dias:20, descricao:'Armazenagem — zona secundária'},
+  {id:'seed-rule-7', categoria:'armazenagem', modal:'aereo', condicao:'AEREO_COM_TRANSFERENCIA', dataBase:'chegada_prevista_1o_aeroporto', dias:12, descricao:'Armazenagem aeroportuária — aéreo com transferência'},
+  {id:'seed-rule-8', categoria:'armazenagem', modal:'aereo', condicao:'AEREO_DIRETO', dataBase:'chegada_prevista_1o_aeroporto', dias:9, descricao:'Armazenagem aeroportuária — aéreo direto'},
+].map(r=>({...r, partnerId:null, ativa:true, prioridade:0, ts:null, userEmail:''}));
+
+const CONDICOES_OPERACIONAIS = ['AEREO_DIRETO','AEREO_COM_TRANSFERENCIA','MARITIMO_ZONA_PRIMARIA','MARITIMO_ZONA_SECUNDARIA','TODOS_OS_MODAIS'];
+const CONDICAO_LABELS = {
+  AEREO_DIRETO: 'Aéreo direto',
+  AEREO_COM_TRANSFERENCIA: 'Aéreo com transferência',
+  MARITIMO_ZONA_PRIMARIA: 'Marítimo — zona primária',
+  MARITIMO_ZONA_SECUNDARIA: 'Marítimo — zona secundária',
+  TODOS_OS_MODAIS: 'Todos os modais',
+};
+const PROVISIONING_CATEGORIA_LABELS = {despachante:'Despachante', agente_cargas:'Agente de Cargas', armazenagem:'Armazenagem'};
+/* Datas-base disponíveis pra regra — a primeira implementação (pedido explícito) só usa as
+   duas primeiras (chegada prevista ao Brasil / ao 1º aeroporto); as demais já ficam no enum
+   pra regra futura poder escolher, sem precisar mexer em código de novo. */
+const DATA_BASE_LABELS = {
+  chegada_prevista_brasil: 'Chegada prevista ao Brasil',
+  chegada_confirmada_brasil: 'Chegada confirmada ao Brasil',
+  chegada_prevista_1o_aeroporto: 'Chegada prevista ao primeiro aeroporto brasileiro',
+  chegada_confirmada_1o_aeroporto: 'Chegada confirmada ao primeiro aeroporto brasileiro',
+  chegada_prevista_recinto: 'Chegada prevista ao recinto de desembaraço',
+  chegada_confirmada_recinto: 'Chegada confirmada ao recinto de desembaraço',
+  embarque_previsto: 'Embarque previsto',
+  embarque_confirmado: 'Embarque confirmado',
+  prontidao_prevista: 'Prontidão prevista',
+  prontidao_confirmada: 'Prontidão confirmada',
+};
+function resolveDataBaseValue(p, key){
+  switch(key){
+    case 'chegada_prevista_brasil': return p.chegadaPrevista || null;
+    case 'chegada_confirmada_brasil': return getChegadaBrasilInfo(p).data || null;
+    case 'chegada_prevista_1o_aeroporto': return p.chegadaPrevista || null;
+    case 'chegada_confirmada_1o_aeroporto': return getChegadaBrasilInfo(p).data || null;
+    case 'chegada_prevista_recinto': return p.chegadaPrevista || null;
+    case 'chegada_confirmada_recinto': return getChegadaRecintoInfo(p).data || null;
+    case 'embarque_previsto': return p.embarquePrevisto || p.dataEmbarqueReal || null;
+    case 'embarque_confirmado': return isEmbarqueConfirmado(p) ? p.dataEmbarqueReal : null;
+    case 'prontidao_prevista': return p.prontidao || null;
+    case 'prontidao_confirmada': return p.prontidaoConfirmada ? p.prontidao : null;
+    default: return null;
+  }
+}
+/* Aéreo direto × aéreo com transferência — hoje ainda decidido pelo flag manual
+   `p.aeroportoDestinoFinal` (a comparação automática de aeroportos é o Bloco B, ainda não
+   implementado). Centralizado aqui de propósito: quando o Bloco B trocar o critério pela
+   comparação automática, só esta função muda — Provisionamento e o resto continuam iguais. */
+function getCondicaoAereo(p){
+  if(p.modal!=='aereo') return null;
+  return p.aeroportoDestinoFinal===true ? 'AEREO_DIRETO' : 'AEREO_COM_TRANSFERENCIA';
+}
+/* Resolve qual regra usar pra uma combinação categoria+modal+condição, na prioridade pedida
+   (mais específica primeiro): parceiro+modal+condição → parceiro+modal → parceiro (só
+   categoria) → padrão da empresa (mesmos 3 níveis de especificidade, mas partnerId null) →
+   null se nada bater (nesse caso não há sugestão automática possível). */
+function resolveProvisioningRule(categoria, modal, condicao, partnerId){
+  const rules = (state.provisioningRules||[]).filter(r=>r.ativa!==false && r.categoria===categoria);
+  const tiers = [
+    r => r.partnerId===partnerId && r.modal===modal && r.condicao===condicao,
+    r => r.partnerId===partnerId && r.modal===modal && !r.condicao,
+    r => r.partnerId===partnerId && !r.modal && !r.condicao,
+    r => !r.partnerId && r.modal===modal && r.condicao===condicao,
+    r => !r.partnerId && r.modal===modal && !r.condicao,
+    r => !r.partnerId && !r.modal && !r.condicao,
+  ];
+  for(const test of tiers){
+    const matches = rules.filter(test);
+    if(matches.length){
+      // Em empate dentro do mesmo nível, a de maior "prioridade" declarada vence.
+      return matches.sort((a,b)=>(b.prioridade||0)-(a.prioridade||0))[0];
+    }
+  }
+  return null;
+}
+/* Calcula a previsão de pagamento pra uma linha do Provisionamento. `overrideKey` é o campo em
+   p.extra que guarda o ajuste manual (ex: 'provDataPagamentoDespachante') — se ele tiver
+   valor, ganha de qualquer regra automática (nível 1 da prioridade, incondicional). */
+function computePrevisaoPagamento(p, categoria, modal, condicao, partnerId, overrideKey){
+  const extra = p.extra||{};
+  if(extra[overrideKey]){
+    return { data: extra[overrideKey], origem:'manual', regraTexto: null, dataBaseLabel: null, dataBaseValor: null };
+  }
+  const rule = resolveProvisioningRule(categoria, modal, condicao, partnerId);
+  if(!rule) return { data:null, origem:'sem-regra', regraTexto:null, dataBaseLabel:null, dataBaseValor:null };
+  const base = resolveDataBaseValue(p, rule.dataBase);
+  if(!base) return { data:null, origem:'auto', regraTexto: describeProvisioningRule(rule), dataBaseLabel: DATA_BASE_LABELS[rule.dataBase], dataBaseValor:null, semDataBase:true };
+  const dt = new Date(base+'T00:00:00');
+  dt.setDate(dt.getDate() + (parseInt(rule.dias)||0));
+  return { data: dt.toISOString().slice(0,10), origem:'auto', regraTexto: describeProvisioningRule(rule), dataBaseLabel: DATA_BASE_LABELS[rule.dataBase], dataBaseValor: base };
+}
+function describeProvisioningRule(rule){
+  const partner = rule.partnerId ? (state.partners.find(pt=>pt.id===rule.partnerId)||{}).empresa : null;
+  const escopo = partner ? partner : 'Regra padrão da empresa';
+  const condTxt = rule.condicao ? CONDICAO_LABELS[rule.condicao] : (rule.modal ? (rule.modal==='aereo'?'Aéreo':'Marítimo') : 'Todos os modais');
+  return `${escopo} · ${condTxt} · ${DATA_BASE_LABELS[rule.dataBase]} + ${rule.dias} dia${rule.dias===1?'':'s'}`;
+}
+
 
 /* NCMs usadas com frequência, já com as alíquotas vigentes (planilha fornecida em 24/08/2026).
    Fonte: base de referência do usuário — se a Receita/CAMEX atualizar, ajuste na aba NCM
@@ -3701,6 +3820,78 @@ function renderDesempenhoTab(){
    atualiza (updateProvPreview) — os campos de input (frete, período, honorários) nunca são
    recriados a cada recálculo, senão o cursor/foco do usuário pularia a cada tecla digitada
    (mesmo padrão já usado no #cost-preview da aba Custos). */
+function getPartnerIdByName(tipo, nome){
+  if(!nome) return null;
+  const pt = state.partners.find(x=>x.tipo===tipo && x.empresa===nome);
+  return pt ? pt.id : null;
+}
+
+/* Linha de "Data prevista de pagamento" do Provisionamento — mostra a sugestão automática
+   (regra resolvida + data-base usada) ou o ajuste manual, com Editar/Restaurar. Nunca aparece
+   como input desabilitado: começa como texto fixo, e "Editar" revela o campo temporariamente
+   (pedido explícito de interface). */
+function renderPrevisaoPagamentoRow(categoria, modal, condicao, partnerId, overrideKey, label){
+  const p = window.__editingProcess;
+  const previsao = computePrevisaoPagamento(p, categoria, modal, condicao, partnerId, overrideKey);
+  const categoriaLabel = PROVISIONING_CATEGORIA_LABELS[categoria] || categoria;
+  const editing = window.__provPrevisaoEditing === overrideKey;
+  const inputId = 'prov-previsao-input-'+overrideKey;
+  let statusHtml;
+  if(editing){
+    statusHtml = `
+      <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
+        <input type="date" id="${inputId}" value="${previsao.data||''}">
+        <button type="button" class="btn btn-primary" style="padding:5px 10px; font-size:11.5px;" onclick="saveProvPrevisao('${overrideKey}','${categoriaLabel}')">Salvar</button>
+        <button type="button" class="btn" style="padding:5px 10px; font-size:11.5px;" onclick="window.__provPrevisaoEditing=null; renderProvisionamentoTab();">Cancelar</button>
+      </div>`;
+  } else if(previsao.origem==='manual'){
+    statusHtml = `
+      <div class="prov-line-value">${fmtDate(previsao.data)}</div>
+      <div class="form-hint" style="margin-top:-2px;">Ajustada manualmente</div>
+      <div style="display:flex; gap:8px; margin-top:4px;">
+        <button type="button" class="prov-edit-btn" onclick="window.__provPrevisaoEditing='${overrideKey}'; renderProvisionamentoTab();">${svgEditIcon()} Editar</button>
+        <button type="button" class="prov-edit-btn" onclick="restoreProvPrevisaoAuto('${overrideKey}','${categoriaLabel}')">${svgRefreshIcon()} Restaurar sugestão automática</button>
+      </div>`;
+  } else if(previsao.data){
+    statusHtml = `
+      <div class="prov-line-value">${fmtDate(previsao.data)}</div>
+      <div class="form-hint" style="margin-top:-2px;">Calculada automaticamente · ${previsao.regraTexto}</div>
+      <button type="button" class="prov-edit-btn" onclick="window.__provPrevisaoEditing='${overrideKey}'; renderProvisionamentoTab();">${svgEditIcon()} Editar</button>`;
+  } else {
+    const motivo = previsao.semDataBase ? `falta preencher "${previsao.dataBaseLabel}"` : 'nenhuma regra configurada pra esta combinação';
+    statusHtml = `
+      <div class="prov-line-value"><span style="color:var(--muted); font-style:italic; font-weight:400;">Sem previsão — ${motivo}</span></div>
+      <button type="button" class="prov-edit-btn" onclick="window.__provPrevisaoEditing='${overrideKey}'; renderProvisionamentoTab();">${svgEditIcon()} Definir manualmente</button>`;
+  }
+  return `
+    <div class="prov-line" style="flex-direction:column; align-items:flex-start;">
+      <div class="prov-line-label">${label}</div>
+      ${statusHtml}
+    </div>`;
+}
+async function saveProvPrevisao(overrideKey, categoriaLabel){
+  const p = window.__editingProcess;
+  const inputEl = document.getElementById('prov-previsao-input-'+overrideKey);
+  const val = inputEl ? inputEl.value : '';
+  if(!val) return;
+  p.extra = p.extra || {};
+  const anterior = p.extra[overrideKey];
+  p.extra[overrideKey] = val;
+  window.__provPrevisaoEditing = null;
+  pushHistoryEvent(p, svgEditIcon(), 'Previsão de pagamento ajustada manualmente', `${categoriaLabel}\nData anterior: ${anterior?fmtDate(anterior):'—'}\nNova data: ${fmtDate(val)}\nUsuário: ${currentUser?currentUser.email:''}`);
+  renderProvisionamentoTab();
+  await autoPersistCurrentProcess();
+}
+async function restoreProvPrevisaoAuto(overrideKey, categoriaLabel){
+  const p = window.__editingProcess;
+  if(!p.extra || !p.extra[overrideKey]) return;
+  if(!confirm('Restaurar a sugestão automática? A data ajustada manualmente será substituída pelo cálculo da regra.')) return;
+  pushHistoryEvent(p, svgRefreshIcon(), 'Previsão de pagamento — sugestão automática restaurada', categoriaLabel||'');
+  delete p.extra[overrideKey];
+  renderProvisionamentoTab();
+  await autoPersistCurrentProcess();
+}
+
 function renderProvisionamentoTab(){
   const container = document.getElementById('provisionamento-content');
   if(!container) return;
@@ -3720,6 +3911,11 @@ function renderProvisionamentoTab(){
   const freteMoeda = extra.provFreteMoeda || 'USD';
   const siscomex = getTaxaSiscomexDespachante(p);
   const icmsAplicavel = p.regime !== 'revenda';
+  const condicaoAereo = getCondicaoAereo(p);
+  const despachantePartnerId = getPartnerIdByName('Despachante', extra.despachante);
+  const agenteCargaPartnerId = getPartnerIdByName('Agente de Cargas', extra.agenteCarga);
+  const zpPartnerId = getPartnerIdByName('Recinto Alfandegado', extra.recintoZonaPrimaria);
+  const zsPartnerId = getPartnerIdByName('Recinto Alfandegado', extra.recintoAlfandegado);
 
   container.innerHTML = `
     <div class="form-hint" style="margin-bottom:16px;">Estimativa dos valores a pagar nesta importação, montada a partir dos dados já cadastrados no processo (Custos, itens, câmbio, alíquotas de NCM) — quase nada aqui precisa ser digitado de novo. Quando a previsão estiver pronta, use "Enviar Provisionamento ao Financeiro" para congelar os valores: depois disso, pagamentos reais na etapa Pagamentos não alteram mais esta previsão.</div>
@@ -3742,10 +3938,12 @@ function renderProvisionamentoTab(){
           <button type="button" class="btn" onclick="toggleProvHonorariosEdit(false)">Cancelar</button>
         </div>
       </div>
-      <div class="prov-line">
-        <div class="prov-line-label">Data prevista de pagamento</div>
-        <input type="date" value="${extra.provDataPagamentoDespachante||''}" onchange="updateExtraField('provDataPagamentoDespachante', this.value)">
-      </div>
+      ${renderPrevisaoPagamentoRow('despachante', isAereo?'aereo':'maritimo', condicaoAereo, despachantePartnerId, 'provDataPagamentoDespachante', 'Data prevista de pagamento')}
+    </div>
+
+    <div class="prov-section" style="margin-top:22px;">
+      ${renderSectionRectangle({icon:svgPersonIcon(17), title:'Agente de Cargas', cls:'is-production'})}
+      ${renderPrevisaoPagamentoRow('agente_cargas', null, 'TODOS_OS_MODAIS', agenteCargaPartnerId, 'provDataPagamentoAgenteCargas', 'Data prevista de pagamento')}
     </div>
 
     <div class="prov-section" style="margin-top:22px;">
@@ -3768,24 +3966,15 @@ function renderProvisionamentoTab(){
       ${renderSectionRectangle({icon:svgBoxIcon(17), title:'Armazenagem', cls:'is-production'})}
       <div id="prov-zona-secundaria-prazo"></div>
       <div id="prov-armazenagem-calc"></div>
-      <div class="prov-line">
-        <div class="prov-line-label">Data prevista de pagamento</div>
-        <input type="date" value="${extra.provDataPagamentoArmazenagemZP||''}" onchange="updateExtraField('provDataPagamentoArmazenagemZP', this.value)">
-      </div>
+      ${renderPrevisaoPagamentoRow('armazenagem', 'maritimo', 'MARITIMO_ZONA_PRIMARIA', zpPartnerId, 'provDataPagamentoArmazenagemZP', 'Data prevista de pagamento')}
       <div id="prov-armazenagem-zs-calc" style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;"></div>
-      <div class="prov-line">
-        <div class="prov-line-label">Data prevista de pagamento</div>
-        <input type="date" value="${extra.provDataPagamentoArmazenagemZS||''}" onchange="updateExtraField('provDataPagamentoArmazenagemZS', this.value)">
-      </div>
+      ${renderPrevisaoPagamentoRow('armazenagem', 'maritimo', 'MARITIMO_ZONA_SECUNDARIA', zsPartnerId, 'provDataPagamentoArmazenagemZS', 'Data prevista de pagamento')}
     </div>
     ` : `
     <div class="prov-section" style="margin-top:22px;">
       ${renderSectionRectangle({icon:svgBoxIcon(17), title:'Armazenagem', cls:'is-production'})}
       <div id="prov-armazenagem-zs-calc"></div>
-      <div class="prov-line">
-        <div class="prov-line-label">Data prevista de pagamento</div>
-        <input type="date" value="${extra.provDataPagamentoArmazenagemZS||''}" onchange="updateExtraField('provDataPagamentoArmazenagemZS', this.value)">
-      </div>
+      ${renderPrevisaoPagamentoRow('armazenagem', 'aereo', condicaoAereo, null, 'provDataPagamentoArmazenagemZS', 'Data prevista de pagamento')}
     </div>
     `}
 
@@ -8160,6 +8349,7 @@ async function persistState(isRetry){
       processes: state.processes,
       suppliers: state.suppliers,
       partners: state.partners,
+      provisioningRules: state.provisioningRules || [],
       dashboardConfig: state.dashboardConfig || null,
       ncms: state.ncms || [],
       empresaConfig: state.empresaConfig || { nome:'', estoques:[] },
@@ -12559,10 +12749,100 @@ function renderDespachantePerformanceHtml(empresaNome){
   return html;
 }
 
+function partnerTipoToCategoria(tipo){
+  if(tipo==='Despachante') return 'despachante';
+  if(tipo==='Agente de Cargas') return 'agente_cargas';
+  if(tipo==='Recinto Alfandegado') return 'armazenagem';
+  return null;
+}
+
+/* Regras de Provisionamento por parceiro (pedido explícito, seção 10) — vivem em
+   state.provisioningRules, filtradas por partnerId. Editadas em memória durante a sessão do
+   modal (window.__editingPartnerRules, mesmo padrão já usado pra Contatos de E-mail acima) e
+   só reconciliadas em state.provisioningRules no Salvar Parceiro. */
+function renderPartnerRulesSection(tipo){
+  const categoria = partnerTipoToCategoria(tipo);
+  if(!categoria) return `<div class="form-hint">Este tipo de parceiro não tem regras de Provisionamento (só Despachante, Agente de Cargas e Recinto Alfandegado têm).</div>`;
+  return `
+      <div class="form-hint" style="margin-bottom:8px;">Defina como as datas previstas de pagamento são calculadas pra este parceiro no Provisionamento. Sem regra aqui, vale a regra padrão da empresa.</div>
+      <div id="pt-rules-list">${renderPartnerRulesRows(categoria)}</div>
+      <button type="button" class="btn" style="margin-top:6px;" onclick="addPartnerRuleRow('${categoria}')">+ Adicionar Regra</button>`;
+}
+function renderPartnerRulesRows(categoria){
+  const rows = window.__editingPartnerRules || [];
+  if(!rows.length) return `<div class="form-hint">Nenhuma regra específica — usando a regra padrão da empresa.</div>`;
+  return rows.map((r,idx)=>{
+    const modal = r.modal||'';
+    const isAgente = categoria==='agente_cargas';
+    let condOptions;
+    if(categoria==='armazenagem'){
+      condOptions = modal==='aereo' ? ['AEREO_DIRETO','AEREO_COM_TRANSFERENCIA'] : modal==='maritimo' ? ['MARITIMO_ZONA_PRIMARIA','MARITIMO_ZONA_SECUNDARIA'] : [];
+    } else if(categoria==='despachante'){
+      condOptions = modal==='aereo' ? ['AEREO_DIRETO','AEREO_COM_TRANSFERENCIA'] : [];
+    } else {
+      condOptions = [];
+    }
+    return `
+    <div class="form-row" style="align-items:flex-end; gap:8px; margin-bottom:8px; flex-wrap:wrap; border-bottom:1px solid var(--border); padding-bottom:8px;">
+      ${!isAgente ? `
+      <div class="form-group" style="min-width:110px; margin-bottom:0;">
+        <label>Modal</label>
+        <select onchange="updatePartnerRuleField(${idx},'modal',this.value||null); updatePartnerRuleField(${idx},'condicao',null); document.getElementById('pt-rules-list').innerHTML=renderPartnerRulesRows('${categoria}');">
+          <option value="" ${!modal?'selected':''}>Qualquer</option>
+          <option value="aereo" ${modal==='aereo'?'selected':''}>Aéreo</option>
+          <option value="maritimo" ${modal==='maritimo'?'selected':''}>Marítimo</option>
+        </select>
+      </div>` : ''}
+      ${condOptions.length ? `
+      <div class="form-group" style="min-width:190px; margin-bottom:0;">
+        <label>Condição</label>
+        <select onchange="updatePartnerRuleField(${idx},'condicao',this.value||null)">
+          <option value="">Qualquer</option>
+          ${condOptions.map(c=>`<option value="${c}" ${r.condicao===c?'selected':''}>${CONDICAO_LABELS[c]}</option>`).join('')}
+        </select>
+      </div>` : ''}
+      <div class="form-group" style="min-width:210px; margin-bottom:0;">
+        <label>Data-base</label>
+        <select onchange="updatePartnerRuleField(${idx},'dataBase',this.value)">
+          ${Object.keys(DATA_BASE_LABELS).map(k=>`<option value="${k}" ${r.dataBase===k?'selected':''}>${DATA_BASE_LABELS[k]}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="width:80px; margin-bottom:0;">
+        <label>+ dias</label>
+        <input type="number" value="${r.dias!=null?r.dias:0}" oninput="updatePartnerRuleField(${idx},'dias',parseInt(this.value)||0)">
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label style="display:flex; align-items:center; gap:4px; cursor:pointer; text-transform:none;"><input type="checkbox" ${r.ativa!==false?'checked':''} onchange="updatePartnerRuleField(${idx},'ativa',this.checked)" style="cursor:pointer;"> Ativa</label>
+      </div>
+      <button type="button" class="btn btn-danger" style="padding:8px 10px;" onclick="removePartnerRuleRow(${idx},'${categoria}')" title="Remover">×</button>
+    </div>`;
+  }).join('');
+}
+function addPartnerRuleRow(categoria){
+  window.__editingPartnerRules = window.__editingPartnerRules || [];
+  const isAgente = categoria==='agente_cargas';
+  window.__editingPartnerRules.push({
+    id: uid(), categoria,
+    modal: isAgente ? null : null,
+    condicao: isAgente ? 'TODOS_OS_MODAIS' : null,
+    dataBase: 'chegada_prevista_brasil', dias: 0, ativa: true, prioridade: 0, descricao: '',
+  });
+  document.getElementById('pt-rules-list').innerHTML = renderPartnerRulesRows(categoria);
+}
+function removePartnerRuleRow(idx, categoria){
+  window.__editingPartnerRules.splice(idx,1);
+  const el = document.getElementById('pt-rules-list');
+  if(el) el.innerHTML = renderPartnerRulesRows(categoria);
+}
+function updatePartnerRuleField(idx, field, val){
+  if(window.__editingPartnerRules && window.__editingPartnerRules[idx]) window.__editingPartnerRules[idx][field] = val;
+}
+
 function openPartnerModal(id){
   const existing = id ? state.partners.find(p=>p.id===id) : null;
   const s = existing || {id:uid()};
   window.__editingPartnerContatos = JSON.parse(JSON.stringify(s.contatosEmail||[]));
+  window.__editingPartnerRules = JSON.parse(JSON.stringify((state.provisioningRules||[]).filter(r=>r.partnerId===s.id)));
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
@@ -12620,6 +12900,10 @@ function openPartnerModal(id){
           <button type="button" class="btn" style="margin-top:6px;" onclick="addPartnerContatoRow()">+ Adicionar Contato</button>
         </div>
         <div class="form-group"><label>Observações</label><textarea id="pt-notes">${s.notes||''}</textarea></div>
+        <div class="form-group" id="pt-rules-wrap">
+          <label>Regras de Provisionamento</label>
+          <div id="pt-rules-body">${renderPartnerRulesSection(s.tipo||PARTNER_TYPES[0])}</div>
+        </div>
       </div>
       <div class="modal-footer">
         <div>${existing && canEdit('parceiros') ?`<button class="btn btn-danger" onclick="deletePartner('${s.id}')">Excluir</button>`:'<span></span>'}</div>
@@ -12668,6 +12952,8 @@ function onPartnerTipoChange(tipo){
   if(honorariosWrap) honorariosWrap.style.display = tipo==='Despachante' ? 'block' : 'none';
   const siscomexWrap = document.getElementById('pt-siscomex-wrap');
   if(siscomexWrap) siscomexWrap.style.display = tipo==='Despachante' ? 'block' : 'none';
+  const rulesWrap = document.getElementById('pt-rules-body');
+  if(rulesWrap) rulesWrap.innerHTML = renderPartnerRulesSection(tipo);
 }
 
 async function savePartner(id){
@@ -12693,6 +12979,20 @@ async function savePartner(id){
   };
   const idx = state.partners.findIndex(p=>p.id===id);
   if(idx>=0) state.partners[idx]=data; else state.partners.push(data);
+
+  /* Reconcilia as regras de Provisionamento editadas nesta sessão do modal — substitui TODAS
+     as regras deste parceiro pelo conjunto atual (removidas ficam removidas, novas entram,
+     editadas atualizam). Regras de OUTROS parceiros nunca são tocadas aqui. */
+  const categoria = partnerTipoToCategoria(data.tipo);
+  const keptRules = (window.__editingPartnerRules||[]).map(r=>({
+    ...r,
+    partnerId: id,
+    categoria: categoria || r.categoria,
+    ts: Date.now(),
+    userEmail: currentUser ? currentUser.email : '',
+  }));
+  state.provisioningRules = (state.provisioningRules||[]).filter(r=>r.partnerId!==id).concat(keptRules);
+
   await persistState();
   closeModal();
   render();
@@ -12702,6 +13002,7 @@ async function deletePartner(id){
   if(!requireEditPermission()) return;
   if(!confirm('Excluir este parceiro?')) return;
   state.partners = state.partners.filter(p=>p.id!==id);
+  state.provisioningRules = (state.provisioningRules||[]).filter(r=>r.partnerId!==id);
   await persistState();
   closeModal();
   render();
