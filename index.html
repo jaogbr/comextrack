@@ -624,6 +624,19 @@ body.dark-mode .process-main h3{color:var(--text);}
 .eye-btn:hover{background:var(--navy-light); border-color:var(--navy-light);}
 body.dark-mode .eye-btn{background:var(--card); border-color:var(--border-strong);}
 body.dark-mode .eye-btn:hover{border-color:var(--ink-blue-fg);}
+
+/* Toggle compacto de "Prontidão confirmada" — antes era um checkbox nativo solto embaixo do
+   campo de data, grande e sem alinhamento com o resto da tela; agora é um chip pequeno,
+   consistente com os outros toggles/badges da plataforma, que fica verde quando marcado. */
+.prontidao-confirm-toggle{
+  display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:4px 10px 4px 8px;
+  border-radius:999px; background:var(--paper); border:1px solid var(--border);
+  font-family:var(--font-text); font-size:11px; font-weight:600; color:var(--muted);
+  cursor:pointer; user-select:none; width:fit-content;
+}
+.prontidao-confirm-toggle input{width:13px; height:13px; margin:0; cursor:pointer; accent-color:var(--ink-green-fg);}
+.prontidao-confirm-toggle:has(input:checked){background:var(--ink-green-bg); border-color:var(--ink-green-fg); color:var(--ink-green-fg);}
+body.dark-mode .prontidao-confirm-toggle{background:rgba(255,255,255,0.04);}
 .process-card, .transit-card{position:relative;}
 
 .view-section-title{font-family:var(--font-text); font-weight:700; font-size:14.5px; margin:18px 0 10px 0; color:var(--navy-fg); text-transform:uppercase; letter-spacing:0.03em;}
@@ -1154,7 +1167,7 @@ body.dark-mode .stage-progress{color:#8C9BB5;}
 .transit-dates{font-family:var(--font-text); font-size:12px; font-weight:450; line-height:1.45; color:var(--muted); margin-top:5px; display:flex; gap:14px; flex-wrap:wrap;}
 .transit-logi{font-family:var(--font-text); font-size:11.5px; font-weight:450; line-height:1.4; color:var(--text); margin-top:4px; display:flex; gap:12px; flex-wrap:wrap;}
 .transit-logi b{color:var(--muted); font-weight:600;}
-.transit-days{text-align:right; white-space:nowrap;}
+.transit-days{text-align:right; white-space:nowrap; padding-top:22px;}
 .transit-days .big{font-family:var(--font-display); font-size:17px; font-weight:700; letter-spacing:-0.25px; font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1, "kern" 1;}
 .transit-days .small{font-family:var(--font-text); font-size:11px; font-weight:450; color:var(--muted);}
 .risk-label{
@@ -1400,6 +1413,7 @@ body.dark-mode .modal-process .modal-footer{background:rgba(255,255,255,0.05); b
 .modal-process .tab-pane.active{padding:20px 24px 22px 24px;}
 
 .process-summary-row{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:16px;}
+.process-summary-row.has-4{grid-template-columns:repeat(4,1fr);}
 .process-summary-card{background:var(--paper); border:1px solid var(--border); border-radius:10px; padding:14px 16px;}
 .modal-process .process-summary-card, .modal-view .process-summary-card{
   background:rgba(255,255,255,0.72); border:1px solid rgba(183,197,214,0.68); border-radius:18px;
@@ -1451,7 +1465,7 @@ body.dark-mode .modal-process .modal-footer{background:rgba(255,255,255,0.05); b
 .process-span-2{grid-column:span 2;}
 .process-span-4{grid-column:span 4;}
 .process-section-title-icon{display:inline-flex; vertical-align:-3px; margin-right:6px;}
-@media (max-width:980px){.process-grid-4{grid-template-columns:repeat(2,1fr);} .process-summary-row{grid-template-columns:1fr;}}
+@media (max-width:980px){.process-grid-4{grid-template-columns:repeat(2,1fr);} .process-summary-row, .process-summary-row.has-4{grid-template-columns:1fr;}}
 @media (max-width:620px){.process-grid-4, .process-grid-2{grid-template-columns:1fr;} .process-span-2, .process-span-4{grid-column:span 1;}}
 
 
@@ -2018,7 +2032,7 @@ body{overflow-x:hidden; max-width:100vw;}
   .process-side{
     white-space:normal; align-items:flex-start; align-self:auto; margin-top:0; text-align:left;
   }
-  .transit-days{white-space:normal; text-align:left;}
+  .transit-days{white-space:normal; text-align:left; padding-top:0;}
 
   /* ITENS DO PROCESSO — a linha de cada item é um grid com 8 colunas de largura fixa
      (pensado pra caber lado a lado numa tela cheia); numa tela de celular isso não cabe de
@@ -2528,6 +2542,8 @@ function attachDataListener(){
       state.suppliers = d.suppliers || [];
       state.partners = (d.partners && d.partners.length) ? d.partners : DEFAULT_PARTNERS.map(p=>({...p}));
       state.provisioningRules = (d.provisioningRules && d.provisioningRules.length) ? d.provisioningRules : DEFAULT_PROVISIONING_RULES.map(r=>({...r}));
+      state.toraTarifas = d.toraTarifas || {...DEFAULT_TORA_TARIFAS};
+      state.freteDtaTarifas = d.freteDtaTarifas || {...DEFAULT_FRETE_DTA_TARIFAS};
       state.dashboardConfig = d.dashboardConfig || null;
       state.ncms = (d.ncms && d.ncms.length) ? d.ncms : DEFAULT_NCMS.map(n=>({...n}));
       state.empresaConfig = d.empresaConfig || { nome:'', estoques:[] };
@@ -2541,7 +2557,7 @@ function attachDataListener(){
          documento antigo (formato de ANTES da Fase 1, ver LEGACY_DATA_DOC_PATH) e copia pro
          caminho novo. Não apaga nem toca no documento antigo — ele continua existindo como
          está, intacto, só deixa de ser lido depois que o documento novo passa a existir. */
-      state = { processes:[], suppliers:[], partners: DEFAULT_PARTNERS.map(p=>({...p})), provisioningRules: DEFAULT_PROVISIONING_RULES.map(r=>({...r})), ncms: DEFAULT_NCMS.map(n=>({...n})), empresaConfig: { nome:'', estoques:[] },
+      state = { processes:[], suppliers:[], partners: DEFAULT_PARTNERS.map(p=>({...p})), provisioningRules: DEFAULT_PROVISIONING_RULES.map(r=>({...r})), toraTarifas: {...DEFAULT_TORA_TARIFAS}, freteDtaTarifas: {...DEFAULT_FRETE_DTA_TARIFAS}, ncms: DEFAULT_NCMS.map(n=>({...n})), empresaConfig: { nome:'', estoques:[] },
         finalidades: DEFAULT_FINALIDADES.map(f=>({...f})), codigosImposto: [], tiposItem: DEFAULT_TIPOS_ITEM.map(t=>({...t})) };
       bootstrapMigrateFromLegacyDocument();
     }
@@ -2697,7 +2713,7 @@ const STAGE_DEFS = [
     extraFields:[{key:'statusDesembaraco', label:'Status Atual do Desembaraço (descreva livremente)', type:'text'}]},
   {key:'fase7', label:'Fase 7 · Remoção e Entrada', cls:'stamp-remocao',
     items:['Agendamento da remoção','Início da remoção','Recebimento em estoque','Nota fiscal','Devolução do vazio'],
-    itemFields:{ 3:[{key:'numeroNF', label:'Número da NF', type:'text'}], 4:[{key:'dataDevolucaoContainer', label:'Data da Devolução', type:'date'}] },
+    itemFields:{ 1:[{key:'dataInicioRemocao', label:'Data de Início', type:'date'}], 2:[{key:'dataRecebimentoEstoque', label:'Data de Recebimento', type:'date'}], 3:[{key:'numeroNF', label:'Número da NF', type:'text'}], 4:[{key:'dataDevolucaoContainer', label:'Data da Devolução', type:'date'}] },
     receiptItemIndex:2},
   {key:'fase8', label:'Fase 8 · Pagamentos', cls:'stamp-pagamentos', type:'payments',
     /* Lista fixa pedida — pagamentos são guardados por CHAVE (não por posição no array), então
@@ -3086,6 +3102,68 @@ const DEFAULT_PARTNERS = [
    dataBase: uma chave de DATA_BASE_OPTIONS
    partnerId: null nestas (regra padrão da empresa — nível 5 da prioridade, ver
    resolveProvisioningRule) */
+/* TARIFAS TORA (CLIA Betim) — proposta LOG.865-25, engenharia reversa validada contra 7
+   NFS-e reais (mai-ago/2026): reproduz as 7 notas ao centavo em modo exato, erro médio de
+   2,1% em modo produção. Fonte: spec-motor-calculo-clia-betim-v2.md.
+   Parametrizável de propósito (não fica fixo no código pra sempre) — semeia
+   state.toraTarifas na 1ª carga (mesmo padrão de DEFAULT_PARTNERS/DEFAULT_PROVISIONING_RULES),
+   dali em diante é dado editável. A proposta é reajustada anualmente (30% dissídio + 70%
+   IPCA, em julho) — por isso guarda vigência e versão junto. */
+const DEFAULT_TORA_TARIFAS = {
+  versao: 'LOG.865-25', vigenteAte: '2026-03-30',
+  ALIQ_ARM_BASE: 0.0022, ALIQ_ARM_DIA: 0.0006,
+  ALIQ_SEG_BASE: 0.0005, ALIQ_SEG_DIA: 0.0001,
+  TAR_CONT40: 487.32, TAR_CONT20: 332.95,
+  TAR_PESAGEM: 38.00, TAR_VARREDURA: 53.21, TAR_LACRE: 9.88, TAR_PALETIZACAO: 21.28,
+  FATOR_CAMARA_FRIA: 1.40, RAZAO_CAMINHOES_POR_CNTR: 2.64,
+  FATURAMENTO_MINIMO: 672.00, ALIQ_ISS: 0.038,
+};
+function getToraTarifas(){ return state.toraTarifas || DEFAULT_TORA_TARIFAS; }
+
+/* TARIFAS FRETE DTA RODOVIÁRIO — Biotech Logística (porto → CLIA Betim). Engenharia reversa
+   de 5 CT-es reais (mai-jul/2026), erro máximo observado de 2,0%. Fonte:
+   spec-frete-dta-biotech.md. Parametrizável e versionado, mesmo padrão de DEFAULT_TORA_TARIFAS.
+   A parcela de Santos vem de UMA ÚNICA observação — tratada como provisória (ver flag na UI).
+   Reajuste visível: a parcela de Guarujá subiu de R$287,40 pra R$292,80 de pedágio entre
+   junho e julho de 2026 (~1,9%) — por isso a vigência/versão fica junto do valor. */
+const DEFAULT_FRETE_DTA_TARIFAS = {
+  versao: 'Biotech mai-jul/2026', vigenteAte: '2026-07-31',
+  FRETE_FIXO_GUARUJA: 12878.48, FRETE_FIXO_SANTOS: 9767.18, FRETE_AD_VALOREM: 0.005844,
+};
+function getFreteDtaTarifas(){ return state.freteDtaTarifas || DEFAULT_FRETE_DTA_TARIFAS; }
+function normalizarPortoDta(v){
+  return (v||'').trim().toUpperCase()
+    .replace(/[ÁÀÂÃ]/g,'A').replace(/[ÉÊ]/g,'E').replace(/[ÍÎ]/g,'I').replace(/[ÓÔÕ]/g,'O').replace(/[ÚÛ]/g,'U').replace(/Ç/g,'C');
+}
+/* Frete DTA rodoviário — só tem fórmula validada pra Biotech Logística (é o transportador dos
+   5 CT-es analisados). Pra qualquer outro transportador (ou sem transportador selecionado),
+   cai pro campo manual de sempre — nunca aplica a tarifa da Biotech a outra empresa. */
+function computeFreteDTABiotech(p){
+  if(p.modal==='aereo') return { status:'nao_aplicavel' };
+  const extra = p.extra || {};
+  const transportadora = (extra.transportadoraDTA||'').trim();
+  if(!transportadora) return { status:'sem_transportadora' };
+  if(!/biotech/i.test(transportadora)) return { status:'nao_biotech', transportadora };
+  const portoNorm = normalizarPortoDta(p.portoDestino);
+  let rota = null;
+  if(portoNorm.includes('GUARUJA')) rota = 'GUARUJA';
+  else if(portoNorm.includes('SANTOS')) rota = 'SANTOS';
+  if(!rota){
+    if(!p.portoDestino) return { status:'sem_porto' };
+    return { status:'rota_nao_coberta', portoDestino: p.portoDestino };
+  }
+  const T = getFreteDtaTarifas();
+  const va = computeValorAduaneiroBreakdown(p);
+  const qtdCte = Math.max(1, parseInt(p.containersQty)||1);
+  const fixoRota = rota==='GUARUJA' ? T.FRETE_FIXO_GUARUJA : T.FRETE_FIXO_SANTOS;
+  const freteFixoAplicado = fixoRota * qtdCte;
+  const freteAdValorem = T.FRETE_AD_VALOREM * va.vaTotalBrl;
+  const total = freteFixoAplicado + freteAdValorem;
+  return { status:'ok', rota, qtdCte, freteFixoAplicado, freteAdValorem, total,
+    vaTotalBrl: va.vaTotalBrl, percentualSobreCif: va.vaTotalBrl>0 ? total/va.vaTotalBrl : 0,
+    flagRotaPoucoObservada: rota==='SANTOS', tarifaVersao: T.versao, tarifaVigenteAte: T.vigenteAte };
+}
+
 const DEFAULT_PROVISIONING_RULES = [
   {id:'seed-rule-1', categoria:'despachante', modal:'aereo', condicao:'AEREO_COM_TRANSFERENCIA', dataBase:'chegada_prevista_1o_aeroporto', dias:7, descricao:'Despachante — aéreo com transferência'},
   {id:'seed-rule-2', categoria:'despachante', modal:'aereo', condicao:'AEREO_DIRETO', dataBase:'chegada_prevista_1o_aeroporto', dias:4, descricao:'Despachante — aéreo direto'},
@@ -4061,12 +4139,7 @@ function renderProvisionamentoTab(){
       ${renderSectionRectangle({icon:svgMoneyIcon(17), title:'Taxas e Despesas', cls:'is-production'})}
       <div id="prov-siscomex-calc"></div>
       ${!isAereo ? `
-      <div class="prov-line">
-        <div class="prov-line-label">Transporte DTA <span style="font-weight:400; text-transform:none; font-style:italic;">— estrutura preparada, fórmula de cálculo definitiva ainda pendente</span></div>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <input type="text" inputmode="decimal" id="prov-dta" value="${extra.provTransporteDtaBrl?fmtNumberBR(extra.provTransporteDtaBrl):''}" oninput="maskCurrencyInput(this);" onchange="updateExtraField('provTransporteDtaBrl', parseBRMasked(this.value)); updateProvPreview();" placeholder="0,00 (opcional por enquanto)">
-        </div>
-      </div>
+      <div id="prov-dta-calc"></div>
       <div class="form-hint">Lavagem de Container agora é preenchida direto na etapa Pagamentos (Fase 8) — só aparece lá quando marcada como "Sim".</div>
       ` : ''}
     </div>
@@ -4103,9 +4176,8 @@ function congelarProvisionamento(){
   const icmsValor = (p.regime!=='revenda') ? (parseFloat(p.icms)||0) : 0;
   const siscomexComputed = getTaxaSiscomexDespachante(p).valor;
   const siscomexEfetivo = effectiveProvValue(p, siscomexComputed, 'provSiscomexOverride');
-  const dtaValor = parseFloat(extra.provTransporteDtaBrl)||0;
-  const lavagemValor = getLavagemContainerValor(p);
-  const armazenagemZP = effectiveProvValue(p, arm.status==='ok' ? arm.total : 0, 'provArmazenagemZPOverride');
+  const freteDtaCong = computeFreteDTABiotech(p);
+  const dtaValor = effectiveProvValue(p, freteDtaCong.status==='ok' ? freteDtaCong.total : 0, 'provTransporteDtaBrl');
   const armazenagemZS = effectiveProvValue(p, armZS.status==='ok' ? armZS.total : 0, 'provArmazenagemZSOverride');
   const totalGeral = honorarios + impostosEfetivo + icmsValor + freteInternacionalBrl + armazenagemZP + armazenagemZS + siscomexEfetivo + dtaValor + lavagemValor;
 
@@ -4208,11 +4280,11 @@ function renderPrazoZonaSecundariaHtml(p){
 }
 
 /* PROVISIONAMENTO — arredondamento pra cima (nunca pra baixo), só usado aqui: lida com
-   ESTIMATIVA, então um valor "quebrado" (ex: R$10.811,28) passa a falsa impressão de
-   precisão centavo a centavo — melhor superestimar um pouco. Arredonda pra cima até a
-   centena mais próxima (10.811,28 → 10.900). Nunca aplicado na aba Custos (valores reais). */
+   ESTIMATIVA, então um valor "quebrado" (ex: R$10.711,00) passa a falsa impressão de
+   precisão centavo a centavo — melhor superestimar um pouco. Arredonda pra cima de 500 em
+   500 (10.711,00 → 11.000,00). Nunca aplicado na aba Custos (valores reais). */
 function roundUpProv(valor){
-  return Math.ceil((valor||0)/100)*100;
+  return Math.ceil((valor||0)/500)*500;
 }
 /* Valor do Despachante no Provisionamento = Honorários + Impostos (II+IPI+PIS+COFINS,
    respeitando o ajuste manual se houver) + Acréscimos — é o total que de fato precisa ser
@@ -4278,17 +4350,22 @@ function updateProvPreview(){
   const icmsValor = (p.regime!=='revenda') ? (parseFloat(p.icms)||0) : 0;
   const siscomexComputed = getTaxaSiscomexDespachante(p).valor;
   const siscomexEfetivo = effectiveProvValue(p, siscomexComputed, 'provSiscomexOverride');
-  const dtaValor = parseFloat(extra.provTransporteDtaBrl)||0;
+  const freteDta = computeFreteDTABiotech(p);
+  const dtaComputed = freteDta.status==='ok' ? freteDta.total : 0;
+  const dtaValor = effectiveProvValue(p, dtaComputed, 'provTransporteDtaBrl');
   const lavagemValor = getLavagemContainerValor(p);
 
   const siscomexEl = document.getElementById('prov-siscomex-calc');
   if(siscomexEl) siscomexEl.innerHTML = renderProvOverridableLine('Taxa SISCOMEX (puxada da aba Custos)', siscomexComputed, 'provSiscomexOverride');
 
+  const dtaEl = document.getElementById('prov-dta-calc');
+  if(dtaEl) dtaEl.innerHTML = renderFreteDtaHtml(freteDta) + renderProvOverridableLine('Transporte DTA — valor usado no total', dtaComputed, 'provTransporteDtaBrl');
+
   const totalEl = document.getElementById('prov-total-body');
   if(totalEl){
     const totalGeral = honorarios + impostosEfetivo + icmsValor + freteInternacionalBrl + armazenagemTotal + armazenagemZSTotal + siscomexEfetivo + dtaValor + lavagemValor;
     totalEl.innerHTML = `<div class="prov-line prov-line-grand-total"><div class="prov-line-label">TOTAL PROVISIONADO</div><div class="prov-line-value">${fmtBRL(roundUpProv(totalGeral))}</div></div>
-      <div class="form-hint" style="margin-top:6px;">Honorários + Impostos (II+IPI+PIS+COFINS+ICMS) + Frete Internacional + Armazenagem + Taxa SISCOMEX + Transporte DTA + Lavagem de Container — arredondado pra cima até a centena mais próxima.</div>`;
+      <div class="form-hint" style="margin-top:6px;">Honorários + Impostos (II+IPI+PIS+COFINS+ICMS) + Frete Internacional + Armazenagem + Taxa SISCOMEX + Transporte DTA + Lavagem de Container — arredondado pra cima de 500 em 500.</div>`;
   }
 }
 
@@ -4376,29 +4453,163 @@ function renderArmazenagemZSHtml(arm){
     </tr>
   `).join('');
 
+  const diasInputHtml = arm.modal!=='aereo' ? `
+    <div class="prov-line" style="margin-top:8px;">
+      <div class="prov-line-label">Dias de armazenagem (estimado)</div>
+      <input type="number" min="1" value="${arm.dias}" style="max-width:90px;" onchange="updateExtraField('toraDiasArmazenagem', this.value); updateProvPreview();">
+    </div>
+    <div class="form-hint" style="margin-top:-6px;">A plataforma normalmente não sabe quantos dias a carga vai ficar parada até o desembaraço sair — esse é um cenário editável, com padrão de 10 dias (tempo padrão de 1 período, o bloco fechado inicial). Os 10 primeiros dias formam um bloco único; a partir do 11º, cada dia avulso é um período novo.</div>
+  ` : '';
+
+  const caminhoesAvisoHtml = (arm.modal!=='aereo' && arm.caminhoesEstimados) ? `
+    <div class="form-hint" style="margin-top:6px;">${svgLightbulbIcon()} Caminhões de retirada estimados (${arm.qtdCaminhoes}, pela razão histórica de containers → caminhões) — o valor real pode variar em até <b>±7%</b>. Se souber a programação de coleta real, informe em "Caminhões de retirada (real)" abaixo pra deixar o cálculo exato.</div>
+  ` : '';
+
+  const sensibilidadeHtml = (arm.modal!=='aereo' && arm.sensibilidade) ? `
+    <details class="prov-details" style="margin-top:8px;">
+      <summary>Quanto custa cada dia a mais parado no recinto?</summary>
+      <table class="prov-mini-table" style="margin-top:6px;">
+        <tr><th>Dias</th>${arm.sensibilidade.map(s=>`<th>${s.dias}</th>`).join('')}</tr>
+        <tr><td>Total</td>${arm.sensibilidade.map(s=>`<td>${fmtBRL(s.total)}</td>`).join('')}</tr>
+      </table>
+      <div class="form-hint" style="margin-top:6px;">Custo por dia adicional a partir do 11º dia: ${fmtBRL(arm.custoPorDiaAdicional)}/dia (${(arm.percentualSobreCif*100).toFixed(2)}% do Valor Aduaneiro sobre o total atual). Útil pra comparar com o custo de antecipar a retirada da carga.</div>
+    </details>
+  ` : '';
+
   return `
     <div class="prov-line">
       <div class="prov-line-label">${arm.modal==='aereo' ? 'Armazenagem (aéreo)' : `Armazenagem — Zona Secundária (${arm.regraLabel})`}</div>
       <div class="prov-line-value">${fmtBRL(arm.total)}</div>
     </div>
-    ${arm.minimoAplicado ? `<div class="prov-warning">ℹ️ Faturamento mínimo por processo (${fmtBRL(arm.valorMinimo)}) aplicado — o cálculo por percentual deu ${fmtBRL(arm.subtotal)}, abaixo do piso.</div>` : ''}
-    ${arm.semContainerTamanho ? `<div class="form-hint">${svgLightbulbIcon()} Preencha o Tamanho do Container (ou aplique um Produto Mestre que já tenha isso definido) para incluir a Movimentação no cálculo.</div>` : ''}
-    <details class="prov-details"><summary>Ver composição</summary>
+    ${arm.minimoAplicado ? `<div class="prov-warning">ℹ️ Faturamento mínimo por processo (${fmtBRL(arm.valorMinimo)}) aplicado — o cálculo deu ${fmtBRL(arm.subtotalBruto)}, abaixo do piso.</div>` : ''}
+    ${diasInputHtml}
+    ${caminhoesAvisoHtml}
+    <details class="prov-details">
+      <summary>Ver composição${arm.modal!=='aereo'?` (${arm.qtdPeriodos} período(s), ${arm.nContainers} container(s))`:''}</summary>
       <table class="prov-mini-table" style="margin-top:6px;">
         <tr><th>Componente</th><th>Valor</th></tr>
         ${componentesHtml}
-        <tr class="total"><td>Total</td><td>${fmtBRL(arm.total)}</td></tr>
+        <tr class="total"><td>Total (com ISS)</td><td>${fmtBRL(arm.total)}</td></tr>
       </table>
       <div class="form-hint" style="margin-top:6px;">
         ${arm.modal==='aereo'
           ? `Calculado sobre o Valor Aduaneiro (CIF) de ${fmtBRL(arm.vaTotalBrl)} — 0,45% fixo, sem depender de recinto cadastrado.`
-          : `Calculado sobre o Valor Aduaneiro de ${fmtBRL(arm.vaTotalBrl)}, considerando só o 1º período (10 dias negociados fixos — estimativa antes do embarque).
-        Tabela oficial da Tora (proposta LOG.865-25) — conferida ao centavo contra uma NFS-e real com câmara fria.
-        <span class="prov-conf-badge" style="position:static;">aproximado</span> = referência aproximada, não fórmula exata (passe o mouse pra ver a composição).
-        <br>Não incluído ainda: carregamento fora do container (carga solta/paletizada) e o acréscimo por carga perigosa — nenhum desses tem o dado de entrada necessário no Provisionamento ainda.`}
+          : `Calculado sobre o Valor Aduaneiro de ${fmtBRL(arm.vaTotalBrl)}. Motor de cálculo validado contra 7 NFS-e reais da Tora (proposta ${arm.tarifaVersao}, vigente até ${fmtDate(arm.tarifaVigenteAte)}) — reproduz as notas ao centavo quando todas as quantidades são conhecidas; com os dados que o Provisionamento normalmente tem, erro médio de 2,1%.
+        <br>Não incluído ainda: carga fora do container (solta/paletizada além do padrão de 1 unidade), carga perigosa (acréscimo por classe ONU) e diferença cambial entre a cotação de registro da DTA/DA e a do faturamento final.`}
       </div>
     </details>
+    ${sensibilidadeHtml}
   `;
+}
+
+/* Frete DTA rodoviário — Biotech Logística (ver computeFreteDTABiotech). Só calcula sozinho
+   quando a Transportadora (DTA) selecionada na Etapas é a Biotech — pra qualquer outra
+   empresa, ou sem transportadora selecionada ainda, mostra por que não calculou e deixa o
+   campo manual normal (não força a tarifa da Biotech em ninguém mais). */
+function renderFreteDtaHtml(fd){
+  if(fd.status==='nao_aplicavel') return '';
+  if(fd.status==='sem_transportadora') return `<div class="form-hint">Selecione a Transportadora (DTA) na aba Etapas (Fase 6) — se for a Biotech Logística, o valor é calculado automaticamente.</div>`;
+  if(fd.status==='nao_biotech') return `<div class="form-hint">Fórmula automática disponível só pra Biotech Logística (transportadora atual: ${fd.transportadora}) — informe o valor manualmente abaixo.</div>`;
+  if(fd.status==='sem_porto') return `<div class="form-hint">Preencha o Porto de Destino (Visão Geral) — Guarujá ou Santos — para calcular o frete DTA da Biotech automaticamente.</div>`;
+  if(fd.status==='rota_nao_coberta') return `<div class="prov-warning">${svgWarnInline()} Porto de Destino "${fd.portoDestino}" não é Guarujá nem Santos — a fórmula da Biotech só cobre essas duas rotas. Informe o valor manualmente abaixo.</div>`;
+
+  const rotaLabel = fd.rota==='GUARUJA' ? 'Guarujá' : 'Santos';
+  return `
+    <div class="form-hint" style="margin-bottom:2px;">${fd.flagRotaPoucoObservada ? `${svgWarnInline()} Rota Santos vem de uma única observação — tratada como provisória. ` : ''}Calculado: ${fmtBRL(fd.freteFixoAplicado)} (parcela fixa × ${fd.qtdCte} CT-e) + ${fmtBRL(fd.freteAdValorem)} (0,5844% sobre o CIF) = ${fmtBRL(fd.total)} — rota ${rotaLabel}, tarifa ${fd.tarifaVersao} vigente até ${fmtDate(fd.tarifaVigenteAte)}.</div>
+  `;
+}
+
+/* Dias úteis — ignora sábado/domingo e os feriados cadastrados em Personalização (Empresa →
+   Feriados). Usado só pela Previsão de Entrada em Estoque por enquanto. n=0 devolve a própria
+   data (usado pra marcos "no mesmo dia"); n>0 sempre avança pelo menos 1 dia de calendário,
+   nunca devolve a data de entrada mesmo se ela já for dia útil. */
+function getFeriadosSet(){
+  const cfg = getEmpresaConfig();
+  return new Set((cfg.feriados||[]).map(f=>f.data).filter(Boolean));
+}
+function addDiasUteis(dateStr, n){
+  if(!dateStr) return null;
+  const feriados = getFeriadosSet();
+  let d = new Date(dateStr+'T00:00:00');
+  let added = 0;
+  while(added < n){
+    d.setDate(d.getDate()+1);
+    const dow = d.getDay();
+    const iso = d.toISOString().slice(0,10);
+    if(dow!==0 && dow!==6 && !feriados.has(iso)) added++;
+  }
+  return d.toISOString().slice(0,10);
+}
+
+/* PREVISÃO DE ENTRADA EM ESTOQUE — data-alvo variável que avança conforme o processo avança,
+   sempre a partir do marco mais confiável disponível (confirmado > previsto), somando dias
+   ÚTEIS (não corridos) pros marcos restantes. Cadeia e prazos vêm da spec-previsao-estoque
+   (validada com os exemplos do próprio documento — inclusive o walkthrough completo do
+   marítimo bate marco a marco). Só começa a aparecer quando existir, no mínimo, Embarque
+   Previsto E Chegada Prevista ao Brasil — antes disso não há base nenhuma pra projetar.
+   Algoritmo: percorre a cadeia em ordem; cada marco usa sua PRÓPRIA data se já estiver
+   confirmada (e essa data vira a base pro próximo cálculo, "recalculado com a data mais
+   recente"); se não estiver confirmada, projeta a partir da base corrente + dias úteis do
+   marco, e essa projeção vira a base do próximo (efeito cascata natural). */
+function computePrevisaoEntradaEstoque(p){
+  const extra = p.extra || {};
+  const isAereo = p.modal==='aereo';
+  const embarquePrevisto = p.dataEmbarqueReal || null; // mesmo campo previsto/confirmado (ver Visão Geral)
+  if(!embarquePrevisto) return { status:'sem_embarque' };
+  const chegadaInfo = getChegadaBrasilInfo(p);
+  const chegadaBase = chegadaInfo.confirmada ? chegadaInfo.data : p.chegadaPrevista;
+  if(!chegadaBase) return { status:'sem_chegada_prevista' };
+
+  let chain;
+  if(!isAereo){
+    chain = [
+      { key:'chegadaBrasil', label:'Chegada ao Brasil', dias:0, getData:()=>chegadaInfo.confirmada?chegadaInfo.data:null },
+      { key:'movecta', label:'Chegada à Movecta', dias:2, getData:()=>extra.dataChegadaZonaPrimaria||null },
+      { key:'dta', label:'Início da DTA', dias:2, getData:()=>extra.dataInicioDTA||null },
+      { key:'recinto', label:'Chegada ao recinto de Betim', dias:1, getData:()=>{ const r=getChegadaRecintoInfo(p); return r.confirmada?r.data:null; } },
+      { key:'duimp', label:'Registro da DUIMP', dias:1, getData:()=>extra.dataRegistroDUIMP||null },
+      { key:'desembaraco', label:'Desembaraço', dias:1, getData:()=>extra.dataDesembaraco||null },
+      { key:'sefaz', label:'Liberação SEFAZ', dias:1, getData:()=>extra.dataLiberacaoSefaz||null },
+      { key:'remocao', label:'Início da remoção', dias:1, getData:()=>extra.dataInicioRemocao||null },
+      { key:'estoque', label:'Entrada em estoque', dias:0, getData:()=>extra.dataRecebimentoEstoque||null },
+    ];
+  } else if(getCondicaoAereo(p)==='AEREO_COM_TRANSFERENCIA'){
+    chain = [
+      { key:'chegada1o', label:'Chegada ao 1º aeroporto no Brasil', dias:0, getData:()=>chegadaInfo.confirmada?chegadaInfo.data:null },
+      { key:'dta', label:'Início da DTA', dias:2, getData:()=>extra.dataInicioDTA||null },
+      { key:'recinto', label:'Chegada ao recinto/aeroporto final', dias:1, getData:()=>{ const r=getChegadaRecintoInfo(p); return r.confirmada?r.data:null; } },
+      { key:'duimp', label:'Registro da DUIMP', dias:1, getData:()=>extra.dataRegistroDUIMP||null },
+      { key:'desembaraco', label:'Desembaraço', dias:1, getData:()=>extra.dataDesembaraco||null },
+      { key:'sefaz', label:'Liberação SEFAZ', dias:1, getData:()=>extra.dataLiberacaoSefaz||null },
+      { key:'remocao', label:'Início da remoção', dias:1, getData:()=>extra.dataInicioRemocao||null },
+      { key:'estoque', label:'Entrada em estoque', dias:0, getData:()=>extra.dataRecebimentoEstoque||null },
+    ];
+  } else {
+    chain = [
+      { key:'chegadaFinal', label:'Chegada ao aeroporto final', dias:0, getData:()=>chegadaInfo.confirmada?chegadaInfo.data:null },
+      { key:'duimp', label:'Registro da DUIMP', dias:3, getData:()=>extra.dataRegistroDUIMP||null },
+      { key:'desembaraco', label:'Desembaraço', dias:1, getData:()=>extra.dataDesembaraco||null },
+      { key:'sefaz', label:'Liberação SEFAZ', dias:1, getData:()=>extra.dataLiberacaoSefaz||null },
+      { key:'remocao', label:'Início da remoção', dias:1, getData:()=>extra.dataInicioRemocao||null },
+      { key:'estoque', label:'Entrada em estoque', dias:0, getData:()=>extra.dataRecebimentoEstoque||null },
+    ];
+  }
+
+  let runningDate = chegadaBase;
+  const marcos = [];
+  chain.forEach((step,i)=>{
+    const confirmada = step.getData();
+    let data;
+    if(confirmada) data = confirmada;
+    else if(i===0) data = chegadaBase;
+    else data = addDiasUteis(runningDate, step.dias);
+    marcos.push({ key:step.key, label:step.label, data, confirmada: !!confirmada });
+    runningDate = data;
+  });
+
+  const ultimo = marcos[marcos.length-1];
+  return { status: ultimo.confirmada ? 'confirmado' : 'previsto', marcos, dataFinal: ultimo.data,
+    chegadaConfirmada: chegadaInfo.confirmada, baseUsada: chegadaInfo.confirmada ? 'Chegada ao Brasil confirmada' : 'Chegada ao Brasil prevista' };
 }
 
 function toggleProvHonorariosEdit(editMode){
@@ -4970,6 +5181,12 @@ function openProcessViewModal(id, event){
   })();
   const fornecedorPlainNameView = fornecedor ? fornecedor.name : 'Fornecedor não definido';
   const headerSubView = [fornecedorPlainNameView, p.origemPais, modalLabel(p.modal)].filter(Boolean).join(' · ');
+  const previsaoEstoqueView = (()=>{
+    const pe = computePrevisaoEntradaEstoque(p);
+    if(pe.status==='sem_embarque' || pe.status==='sem_chegada_prevista') return { value:'Aguardando dados', sub:'Embarque e chegada previstos' };
+    const valor = p.previsaoEntradaEstoque || pe.dataFinal;
+    return { value: fmtDate(valor), sub: p.previsaoEntradaEstoque ? 'Ajustada manualmente' : (pe.status==='confirmado' ? 'Confirmada' : 'Calculada automaticamente') };
+  })();
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -4995,7 +5212,12 @@ function openProcessViewModal(id, event){
       <div class="modal-body">
         <div class="view-readonly-note">Visualização somente leitura</div>
 
-        <div class="process-summary-row">
+        <div class="process-summary-row has-4">
+          <div class="process-summary-card">
+            <div class="process-summary-label">Previsão de Entrada em Estoque</div>
+            <div class="process-summary-value">${previsaoEstoqueView.value}</div>
+            <div class="process-summary-sub">${previsaoEstoqueView.sub}</div>
+          </div>
           <div class="process-summary-card">
             <div class="process-summary-label">Valor FOB (USD)</div>
             <div class="process-summary-value">${p.fob ? fmtUSD(parseFloat(p.fob)) : '—'}</div>
@@ -7549,7 +7771,8 @@ function generateEmailProvisionamentoText(p){
     const prev = computePrevisaoPagamento(p, 'armazenagem', isAereo?'aereo':'maritimo', isAereo?condicaoAereo:'MARITIMO_ZONA_SECUNDARIA', isAereo?null:getPartnerIdByName('Recinto Alfandegado', extra.recintoAlfandegado), 'provDataPagamentoArmazenagemZS');
     custos.push({ tipo: label, valor: roundUpProv(zs.total), data: prev.data });
   }
-  const dtaValor = parseFloat(extra.provTransporteDtaBrl)||0;
+  const freteDtaEmail = computeFreteDTABiotech(p);
+  const dtaValor = effectiveProvValue(p, freteDtaEmail.status==='ok' ? freteDtaEmail.total : 0, 'provTransporteDtaBrl');
   if(dtaValor){
     const prevDta = computePrevisaoPagamento(p, 'transportadora_dta', null, 'TODOS_OS_MODAIS', getPartnerIdByName('Transportadora', extra.transportadoraDTA), 'provDataPagamentoDTA');
     custos.push({ tipo: extra.transportadoraDTA || 'Transporte DTA', valor: roundUpProv(dtaValor), data: prevDta.data });
@@ -7576,6 +7799,16 @@ function generateEmailProvisionamentoText(p){
   const labelCell = `background:${blue}; color:#ffffff; font-weight:bold; padding:8px 10px; ${fontBase} font-size:12px; border:1px solid ${border};`;
   const valueCell = `background:#ffffff; color:${navy}; padding:8px 10px; ${fontBase} font-size:12px; border:1px solid ${border};`;
   const subHeadCell = `background:${blueBg}; color:${navy}; font-weight:bold; padding:6px 10px; ${fontBase} font-size:11px; text-align:center; border:1px solid ${border};`;
+
+  /* Ordena por data prevista de pagamento (a mais próxima primeiro) — pedido explícito, pra
+     ficar fácil ver o que vence antes na lista. Itens sem data calculada (sem regra ainda,
+     como Frete/DTA quando não há data-base preenchida) ficam ao final, não no topo. */
+  custos.sort((a,b)=>{
+    if(!a.data && !b.data) return 0;
+    if(!a.data) return 1;
+    if(!b.data) return -1;
+    return a.data < b.data ? -1 : (a.data > b.data ? 1 : 0);
+  });
 
   const custosRowsHtml = custos.length ? custos.map(c=>`
     <tr>
@@ -8543,72 +8776,93 @@ function computeArmazenagemZonaPrimaria(p){
 const ARMAZENAGEM_ZONA_SECUNDARIA_RULES = {
   tora: {
     label: 'Tora',
-    /* Fonte: proposta comercial vigente da Tora (LOG.865-25, 09/08/2025), tabela "ESTRUTURA
-       DE PREÇO — ARMAZÉM ALFANDEGADO", item 1.1 (Importação Comum — carga em container).
-       Confiança ALTA: além de ser a tabela oficial publicada pelo próprio recinto, bate ao
-       centavo com uma NFS-e real (00000011768) assim que aplicado o adicional de câmara
-       fria de 40% (aquela carga era refrigerada) — as duas cobranças (armazenagem e
-       seguro) fecharam exatas, sem diferença de 1 centavo sequer.
-       Armazenagem: 0,22% sobre o Valor Aduaneiro (CIF), fixo para o 1º período de 10 dias.
-       Seguro: 0,05% sobre o Valor Aduaneiro + II (não só CIF — reaproveita o II já calculado
-       em "Impostos da Importação" do Provisionamento, sem duplicar o cálculo).
-       Câmara fria (+40% sobre armazenagem+seguro): aplicado automaticamente quando o
-       processo está marcado como carga com temperatura controlada.
-       Movimentação: valor oficial por tamanho de container (item 4 da tabela) — só entra no
-       cálculo se o processo (ou o Produto Mestre aplicado) já tiver o tamanho preenchido;
-       sem isso, mostra um aviso em vez de chutar um tamanho.
-       Despesas Acessórias: valor APROXIMADO (não fórmula exata) que junta as tarifas fixas
-       da tabela que tendem a se repetir em qualquer operação — Pesagem (R$38,00/container),
-       Lacre (R$9,88, assumindo 1 por container), Varredura (R$53,21/container) e
-       Movimentação de Container (R$167,23/operação, cobre carregamento/remoção final) — mais
-       Dimensionamento de carga (R$76,01, uma vez por processo). Não inclui pesagem/carga de
-       volumes fora de container, embalagem, retenção, ou qualquer coisa "sob consulta" na
-       tabela — é só uma referência pra não deixar essas despesas de fora do provisionamento,
-       não substitui o fechamento real da nota.
-       Faturamento mínimo: R$672,00 por processo (não por container, diferente da Movecta).
-       Não incluído ainda: carregamento fora do container (carga solta/paletizada) e o
-       acréscimo por carga perigosa (classificação ONU) — nenhum desses tem o dado de
-       entrada necessário no Provisionamento ainda. */
-    getMovimentacaoRatePorContainer(containerTamanho){
-      if(!containerTamanho) return null;
-      // "Contêiner 40' ou veículo grande" cobre 40'/40' HC/45' HC; "20' ou veículo médio" é só o 20'.
-      return containerTamanho.startsWith('20') ? 332.95 : 487.32;
-    },
-    componentes(vaTotalBrl, iiTotalBrl, temperaturaControlada, containerTamanho, containersQty){
-      const fatorCamaraFria = temperaturaControlada ? 1.40 : 1;
-      const armazenagemBase = 0.0022 * vaTotalBrl;
-      const seguroBase = 0.0005 * (vaTotalBrl + iiTotalBrl);
-      const lista = [
-        { chave:'armazenagem', label:'Armazenagem (1º período, 10 dias)', valor: armazenagemBase * fatorCamaraFria, confianca:'alta',
-          detalhe:'0,22% sobre o Valor Aduaneiro — tabela oficial da Tora (proposta LOG.865-25)' + (temperaturaControlada ? ' + 40% de adicional por câmara fria' : '') },
-        { chave:'seguro', label:'Seguro de armazenagem', valor: seguroBase * fatorCamaraFria, confianca:'alta',
-          detalhe:'0,05% sobre o Valor Aduaneiro + II — tabela oficial da Tora (proposta LOG.865-25)' + (temperaturaControlada ? ' + 40% de adicional por câmara fria' : '') },
-      ];
-      const rateMovimentacao = this.getMovimentacaoRatePorContainer(containerTamanho);
+    /* Fonte: spec-motor-calculo-clia-betim-v2.md — engenharia reversa da proposta comercial
+       vigente da Tora (LOG.865-25) confrontada com 7 NFS-e reais emitidas entre mai-ago/2026.
+       Com todas as quantidades informadas, reproduz as 7 notas ao centavo. Com as entradas
+       que o Provisionamento normalmente tem (CIF, II, containers, câmara fria, dias
+       estimados), erro médio de 2,1%, máximo observado 6,4%. Constantes em
+       DEFAULT_TORA_TARIFAS/getToraTarifas() — parametrizadas, não fixas aqui.
+       Quatro pontos que o modelo anterior (mais simples) acertava errado:
+       1) Câmara fria (+40%) incide só sobre armazenagem+seguro+movimentação — pesagem,
+          varredura, lacre e paletização ficam sempre na tarifa cheia.
+       2) Base do seguro é CIF+II; base da armazenagem é só CIF — bases diferentes.
+       3) O ISS entra por fora (gross-up: total = subtotal ÷ (1−0,038)), nunca por dentro
+          (×1,038 dá um resultado parecido e errado) — e o modelo anterior não cobrava ISS
+          nenhum.
+       4) Os primeiros 10 dias formam um bloco único; a partir do 11º dia, CADA dia avulso é
+          um período novo (não blocos de 10) — dia de entrada E de saída contam como cheios.
+          O modelo anterior sempre assumia só o 1º período, subestimando qualquer carga que
+          ficasse parada mais de 10 dias no recinto — exatamente o cenário mais caro. */
+    calcular(vaTotalBrl, iiTotalBrl, temperaturaControlada, containerTamanho, containersQty, diasArmazenagem, opts){
+      const T = getToraTarifas();
+      opts = opts || {};
+      const dias = Math.max(1, parseInt(diasArmazenagem)||10);
+      const diasExcedentes = Math.max(0, dias - 10);
+      const qtdPeriodos = 1 + diasExcedentes;
+      const F = temperaturaControlada ? T.FATOR_CAMARA_FRIA : 1;
+
       const nContainers = Math.max(1, parseInt(containersQty)||1);
-      if(rateMovimentacao!==null){
-        lista.push({ chave:'movimentacao', label:`Movimentação (${nContainers} container${nContainers>1?'s':''} de ${containerTamanho})`, valor: rateMovimentacao * nContainers, confianca:'alta',
-          detalhe:`R$${rateMovimentacao.toFixed(2)} por operação/container — tabela oficial da Tora (proposta LOG.865-25)` });
-      }
-      // Despesas acessórias: soma aproximada de tarifas fixas da tabela (pesagem, lacre,
-      // varredura, movimentação de container) que tendem a acontecer em toda operação,
-      // mais o dimensionamento de carga (uma vez por processo). Ver nota acima — é uma
-      // referência pra não deixar de fora do provisionamento, não um fechamento exato.
-      const PESAGEM = 38.00, LACRE = 9.88, VARREDURA = 53.21, MOV_CONTAINER = 167.23, DIMENSIONAMENTO = 76.01;
-      const acessoriasPorContainer = PESAGEM + LACRE + VARREDURA + MOV_CONTAINER;
-      const acessoriasTotal = acessoriasPorContainer * nContainers + DIMENSIONAMENTO;
-      lista.push({ chave:'acessorias', label:`Despesas Acessórias (aprox., ${nContainers} container${nContainers>1?'s':''})`, valor: acessoriasTotal, confianca:'aproximado',
-        detalhe:`Pesagem (R$${PESAGEM.toFixed(2)}) + Lacre (R$${LACRE.toFixed(2)}) + Varredura (R$${VARREDURA.toFixed(2)}) + Movimentação de Container (R$${MOV_CONTAINER.toFixed(2)}) por container, + Dimensionamento de carga (R$${DIMENSIONAMENTO.toFixed(2)}) uma vez por processo — valor APROXIMADO, não fórmula exata (tabela oficial da Tora, proposta LOG.865-25)` });
-      return lista;
-    },
-    calcular(vaTotalBrl, iiTotalBrl, temperaturaControlada, containerTamanho, containersQty){
-      const componentes = this.componentes(vaTotalBrl, iiTotalBrl, temperaturaControlada, containerTamanho, containersQty);
-      const subtotal = componentes.reduce((s,c)=>s+c.valor, 0);
-      const FATURAMENTO_MINIMO_POR_PROCESSO = 672.00;
-      const total = Math.max(subtotal, FATURAMENTO_MINIMO_POR_PROCESSO);
-      const minimoAplicado = total > subtotal;
-      const semContainerTamanho = !containerTamanho;
-      return { total, subtotal, minimoAplicado, valorMinimo: FATURAMENTO_MINIMO_POR_PROCESSO, componentes, semContainerTamanho };
+      // Descarga sempre cobrada como "contêiner 40'/veículo grande" (RATE=TAR_CONT40), salvo
+      // quando o processo tem 20' explícito — comportamento observado em 7/7 notas reais.
+      const rateDescarga = (containerTamanho && containerTamanho.startsWith('20')) ? T.TAR_CONT20 : T.TAR_CONT40;
+      const qtdDescarga = nContainers;
+
+      // Caminhões de retirada: única quantidade de fato estimada (razão observada 2,0–3,0,
+      // média 2,643) — usa o valor real se informado, senão a razão padrão da tarifa.
+      const caminhoesInformados = opts.caminhoesRetirada!=null && opts.caminhoesRetirada!=='';
+      const qtdCaminhoes = caminhoesInformados ? Math.max(0, parseInt(opts.caminhoesRetirada)||0) : Math.round(T.RAZAO_CAMINHOES_POR_CNTR * nContainers);
+
+      const qtdPesagem = qtdDescarga + qtdCaminhoes;
+      const qtdVarredura = qtdDescarga;
+      const qtdLacre = qtdDescarga + qtdCaminhoes;
+      const qtdPaletizacao = (opts.paletizacao!=null && opts.paletizacao!=='') ? Math.max(0, parseInt(opts.paletizacao)||0) : 1;
+      const desconto = parseFloat(opts.descontoComercial)||0;
+
+      const armazenagem = vaTotalBrl * (T.ALIQ_ARM_BASE + T.ALIQ_ARM_DIA*diasExcedentes) * F;
+      const seguro = (vaTotalBrl + iiTotalBrl) * (T.ALIQ_SEG_BASE + T.ALIQ_SEG_DIA*diasExcedentes) * F;
+      const movimentacao = (rateDescarga*qtdDescarga + T.TAR_CONT20*qtdCaminhoes) * F;
+      const pesagem = T.TAR_PESAGEM*qtdPesagem;
+      const varredura = T.TAR_VARREDURA*qtdVarredura;
+      const lacre = T.TAR_LACRE*qtdLacre;
+      const paletizacao = T.TAR_PALETIZACAO*qtdPaletizacao;
+      const servicosFixos = pesagem + varredura + lacre + paletizacao;
+
+      const subtotalBruto = armazenagem + seguro + movimentacao + servicosFixos - desconto;
+      const subtotal = Math.max(subtotalBruto, T.FATURAMENTO_MINIMO);
+      const minimoAplicado = subtotal > subtotalBruto;
+      const total = subtotal / (1 - T.ALIQ_ISS);
+      const valorIss = total * T.ALIQ_ISS;
+
+      const componentes = [
+        { chave:'armazenagem', label:`Armazenagem (${dias} dias, ${qtdPeriodos} período(s))`, valor: armazenagem, confianca:'formula',
+          detalhe:`${(T.ALIQ_ARM_BASE*100).toFixed(2)}% + ${(T.ALIQ_ARM_DIA*100).toFixed(2)}%/dia excedente sobre o CIF${temperaturaControlada?' × 1,40 (câmara fria)':''} — fórmula validada contra 7 NFS-e reais (LOG.865-25)` },
+        { chave:'seguro', label:'Seguro de armazenagem', valor: seguro, confianca:'formula',
+          detalhe:`${(T.ALIQ_SEG_BASE*100).toFixed(2)}% + ${(T.ALIQ_SEG_DIA*100).toFixed(2)}%/dia excedente sobre CIF+II${temperaturaControlada?' × 1,40 (câmara fria)':''}` },
+        { chave:'movimentacao', label:`Movimentação (${qtdDescarga} descarga + ${qtdCaminhoes} caminhão(ões) de retirada${caminhoesInformados?'':' — estimado'})`, valor: movimentacao, confianca:'formula',
+          detalhe:`R$${rateDescarga.toFixed(2)} × ${qtdDescarga} descarga(s) + R$${T.TAR_CONT20.toFixed(2)} × ${qtdCaminhoes} caminhão(ões)${temperaturaControlada?' × 1,40 (câmara fria)':''}` },
+        { chave:'pesagem', label:`Pesagem (${qtdPesagem}×)`, valor: pesagem, confianca:'formula', detalhe:`R$${T.TAR_PESAGEM.toFixed(2)} × ${qtdPesagem}` },
+        { chave:'varredura', label:`Varredura (${qtdVarredura}×)`, valor: varredura, confianca:'formula', detalhe:`R$${T.TAR_VARREDURA.toFixed(2)} × ${qtdVarredura}` },
+        { chave:'lacre', label:`Lacre (${qtdLacre}×)`, valor: lacre, confianca:'formula', detalhe:`R$${T.TAR_LACRE.toFixed(2)} × ${qtdLacre}` },
+        { chave:'paletizacao', label:`Paletização (${qtdPaletizacao}×)`, valor: paletizacao, confianca:'formula', detalhe:`R$${T.TAR_PALETIZACAO.toFixed(2)} × ${qtdPaletizacao}` },
+        { chave:'iss', label:'ISS (gross-up, embutido por fora)', valor: valorIss, confianca:'formula',
+          detalhe:`ISS de Betim (${(T.ALIQ_ISS*100).toFixed(1)}%) — total = subtotal ÷ (1 − ${T.ALIQ_ISS})` },
+      ];
+      if(desconto>0) componentes.push({ chave:'desconto', label:'Desconto comercial', valor: -desconto, confianca:'formula', detalhe:'Abatido antes do ISS' });
+
+      const custoPorDiaAdicional = vaTotalBrl * (T.ALIQ_ARM_DIA+T.ALIQ_SEG_DIA) * F / (1-T.ALIQ_ISS);
+      const sensibilidade = [10,12,15,20,25,30,45,60].map(d=>{
+        const e = Math.max(0, d-10);
+        const a = vaTotalBrl*(T.ALIQ_ARM_BASE+T.ALIQ_ARM_DIA*e)*F;
+        const s = (vaTotalBrl+iiTotalBrl)*(T.ALIQ_SEG_BASE+T.ALIQ_SEG_DIA*e)*F;
+        const bruto = a+s+movimentacao+servicosFixos-desconto;
+        const sub = Math.max(bruto, T.FATURAMENTO_MINIMO);
+        return { dias:d, total: sub/(1-T.ALIQ_ISS) };
+      });
+
+      return { total, subtotal, subtotalBruto, minimoAplicado, valorMinimo: T.FATURAMENTO_MINIMO, componentes,
+        dias, diasExcedentes, qtdPeriodos, qtdCaminhoes, caminhoesEstimados: !caminhoesInformados,
+        valorIss, percentualSobreCif: vaTotalBrl>0 ? total/vaTotalBrl : 0, custoPorDiaAdicional, sensibilidade,
+        nContainers, semContainerTamanho: false, tarifaVersao: T.versao, tarifaVigenteAte: T.vigenteAte };
     }
   }
 };
@@ -8636,11 +8890,15 @@ function computeArmazenagemZonaSecundaria(p){
   const regra = getArmazenagemZSRule(recintoNome);
   if(!regra) return { status:'sem_regra', recintoNome };
   const va = computeValorAduaneiroBreakdown(p);
-  /* Mesmo raciocínio da Zona Primária: provisionamento é feito antes do embarque, então
-     sempre considera só o 1º período (10 dias, negociados fixos, conforme informado).
-     Reaproveita o II já calculado em Impostos da Importação — não recalcula à parte. */
+  /* Diferente da Zona Primária, a Zona Secundária agora usa uma quantidade real de dias
+     (editável, padrão 10 — tempo padrão de 1 período, o bloco fechado inicial) em vez de assumir sempre
+     o 1º período: é exatamente o que o motor de cálculo da Tora pede (seção 3 da spec), e
+     evita subestimar armazenagens que passam de 10 dias — o cenário mais caro. */
   const iiTotalBrl = computeImpostosImportacao(p).totalII;
-  const calc = regra.calcular(va.vaTotalBrl, iiTotalBrl, !!p.temperaturaControlada, p.containerTamanho, p.containersQty);
+  const extra = p.extra || {};
+  const diasArmazenagem = (extra.toraDiasArmazenagem!=null && extra.toraDiasArmazenagem!=='') ? extra.toraDiasArmazenagem : 10;
+  const opts = { caminhoesRetirada: extra.toraCaminhoesRetirada, paletizacao: extra.toraPaletizacao, descontoComercial: extra.toraDescontoComercial };
+  const calc = regra.calcular(va.vaTotalBrl, iiTotalBrl, !!p.temperaturaControlada, p.containerTamanho, p.containersQty, diasArmazenagem, opts);
   return { status:'ok', recintoNome, regraLabel: regra.label, vaTotalBrl: va.vaTotalBrl, ...calc };
 }
 
@@ -8661,6 +8919,8 @@ async function persistState(isRetry){
       suppliers: state.suppliers,
       partners: state.partners,
       provisioningRules: state.provisioningRules || [],
+      toraTarifas: state.toraTarifas || {...DEFAULT_TORA_TARIFAS},
+      freteDtaTarifas: state.freteDtaTarifas || {...DEFAULT_FRETE_DTA_TARIFAS},
       dashboardConfig: state.dashboardConfig || null,
       ncms: state.ncms || [],
       empresaConfig: state.empresaConfig || { nome:'', estoques:[] },
@@ -8818,7 +9078,7 @@ function renderGlobalTopbar(){
       ${hasSearch ? `
       <div class="global-topbar-search">
         <span class="gts-icon">${svgSearchIcon()}</span>
-        <input type="text" id="${currentView}-filter-search" placeholder="Buscar por produto ou referência..." value="${f.search}" oninput="applyPageSearchFilter('${currentView}')" onkeydown="if(event.key==='Escape'){this.value='';applyPageSearchFilter('${currentView}');}">
+        <input type="text" id="${currentView}-filter-search" placeholder="Buscar por produto, referência, BL/AWB, booking, fatura, DUIMP, SAP, NF ou parceiro..." value="${f.search}" oninput="applyPageSearchFilter('${currentView}')" onkeydown="if(event.key==='Escape'){this.value='';applyPageSearchFilter('${currentView}');}">
         <button type="button" class="gts-clear" id="${currentView}-search-clear" onclick="clearPageSearch('${currentView}')" title="Limpar busca" aria-label="Limpar busca" style="display:${f.search?'flex':'none'};">${svgCloseIcon(13)}</button>
       </div>` : `<div class="global-topbar-spacer"></div>`}
       <div class="global-topbar-actions">
@@ -9376,7 +9636,21 @@ let pageFilters = {
 function processMatchesFilter(p, f){
   if(f.search){
     const q = f.search.toLowerCase();
-    const hay = `${p.produto||''} ${p.ref||''}`.toLowerCase();
+    const extra = p.extra || {};
+    const fornecedor = state.suppliers.find(s=>s.id===p.supplierId);
+    /* Busca ampliada — pedido explícito: não só produto/referência, mas qualquer
+       identificador ou parceiro que a pessoa possa ter na mão pra procurar um processo
+       (número do BL/AWB, da fatura, do booking, da DUIMP, do pedido no SAP, da NF, nome do
+       fornecedor/despachante/agente de cargas/transportadora). */
+    const numerosFatura = (p.referenciasFornecedor||[]).map(r=>r.ref||'').join(' ');
+    const hay = [
+      p.produto, p.ref,
+      fornecedor ? fornecedor.name : '',
+      extra.numeroBL, extra.numeroAWB, extra.numeroBooking,
+      extra.numeroDUIMP, extra.chaveAcessoDUIMP, extra.numeroPedidoSAP, extra.numeroNF,
+      numerosFatura,
+      extra.despachante, extra.agenteCarga, extra.transportadoraDTA,
+    ].filter(Boolean).join(' ').toLowerCase();
     if(!hay.includes(q)) return false;
   }
   if(f.supplierId && p.supplierId!==f.supplierId) return false;
@@ -10559,6 +10833,7 @@ let ncmPageState = { query:'', sortField:'ncm', sortDir:'asc' };
 function getEmpresaConfig(){
   state.empresaConfig = state.empresaConfig || { nome:'', estoques:[] };
   state.empresaConfig.estoques = state.empresaConfig.estoques || [];
+  state.empresaConfig.feriados = state.empresaConfig.feriados || [];
   if(state.empresaConfig.seguroLimiteValor===undefined) state.empresaConfig.seguroLimiteValor = 4000000;
   if(!state.empresaConfig.seguroLimiteMoeda) state.empresaConfig.seguroLimiteMoeda = 'BRL';
   if(state.empresaConfig.taxaSeguroPercentual===undefined) state.empresaConfig.taxaSeguroPercentual = 0.09;
@@ -10803,6 +11078,17 @@ function renderEmpresaOperationalSections(podeEditar){
     </div>
   `).join('') : `<div class="form-hint">Nenhum estoque cadastrado ainda.</div>`;
 
+  const feriados = (cfg.feriados||[]).slice().sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const feriadosHtml = feriados.length ? feriados.map(f=>`
+    <div class="prov-line" data-feriado-id="${f.id}">
+      <div class="prov-line-label" style="display:flex; gap:8px; align-items:center;">
+        <input type="date" value="${f.data||''}" ${podeEditar?'':'disabled'} onchange="updateFeriadoData('${f.id}', this.value)" style="border:1px solid var(--border-strong); border-radius:6px; padding:6px 9px; font-size:13px;">
+        <input type="text" value="${(f.nome||'').replace(/"/g,'&quot;')}" placeholder="Descrição (opcional)" ${podeEditar?'':'disabled'} onchange="updateFeriadoNome('${f.id}', this.value)" style="border:1px solid var(--border-strong); border-radius:6px; padding:6px 9px; font-size:13px;">
+      </div>
+      ${podeEditar?`<button type="button" class="btn btn-danger" style="padding:6px 10px;" onclick="removeFeriado('${f.id}')">Remover</button>`:''}
+    </div>
+  `).join('') : `<div class="form-hint">Nenhum feriado cadastrado ainda.</div>`;
+
   return `
     <div class="prov-section" style="margin-top:22px;">
       ${renderSectionRectangle({icon:svgWarnInline(17), title:'Alerta de Seguro', cls:'is-waiting'})}
@@ -10830,6 +11116,13 @@ function renderEmpresaOperationalSections(podeEditar){
       <div class="form-hint" style="margin-bottom:10px;">Usados para escolher o local de destino no e-mail de Nota Fiscal, e em funcionalidades futuras.</div>
       <div id="estoques-list">${estoquesHtml}</div>
       ${podeEditar?`<button class="btn" style="margin-top:12px;" onclick="addEstoque()">+ Adicionar Estoque</button>`:''}
+    </div>
+
+    <div class="prov-section" style="margin-top:22px;">
+      ${renderSectionRectangle({icon:svgCalendarIcon(17), title:'Feriados', cls:'is-neutral'})}
+      <div class="form-hint" style="margin-bottom:10px;">Usados pelo cálculo de dias úteis da Previsão de Entrada em Estoque (Visão Geral do processo) — sábados e domingos já são ignorados automaticamente, aqui é só pra feriados específicos.</div>
+      <div id="feriados-list">${feriadosHtml}</div>
+      ${podeEditar?`<button class="btn" style="margin-top:12px;" onclick="addFeriado()">+ Adicionar Feriado</button>`:''}
     </div>
   `;
 }
@@ -10926,6 +11219,39 @@ async function removeEstoque(id){
   if(!confirm('Remover este estoque?')) return;
   const cfg = getEmpresaConfig();
   cfg.estoques = cfg.estoques.filter(e=>e.id!==id);
+  await persistState();
+  render();
+}
+
+async function addFeriado(){
+  if(!requireEditPermission()) return;
+  const cfg = getEmpresaConfig();
+  cfg.feriados = cfg.feriados || [];
+  cfg.feriados.push({ id: uid(), data: '', nome: '' });
+  await persistState();
+  render();
+}
+async function updateFeriadoData(id, data){
+  if(!requireEditPermission()) return;
+  const cfg = getEmpresaConfig();
+  const f = (cfg.feriados||[]).find(x=>x.id===id);
+  if(!f) return;
+  f.data = data;
+  await persistState();
+}
+async function updateFeriadoNome(id, nome){
+  if(!requireEditPermission()) return;
+  const cfg = getEmpresaConfig();
+  const f = (cfg.feriados||[]).find(x=>x.id===id);
+  if(!f) return;
+  f.nome = nome.trim();
+  await persistState();
+}
+async function removeFeriado(id){
+  if(!requireEditPermission()) return;
+  if(!confirm('Remover este feriado?')) return;
+  const cfg = getEmpresaConfig();
+  cfg.feriados = (cfg.feriados||[]).filter(f=>f.id!==id);
   await persistState();
   render();
 }
@@ -13906,11 +14232,11 @@ function openProcessModal(id){
               <div class="form-group">
                 <label>Prontidão da Carga</label>
                 <input type="date" id="f-prontidao" value="${p.prontidao||''}">
-                <label style="display:flex; align-items:center; gap:6px; margin-top:6px; font-size:11.5px; font-weight:600; color:var(--muted); cursor:pointer;">
-                  <input type="checkbox" id="f-prontidao-confirmada" ${p.prontidaoConfirmada?'checked':''} style="cursor:pointer;"> Prontidão confirmada
+                <label class="prontidao-confirm-toggle">
+                  <input type="checkbox" id="f-prontidao-confirmada" ${p.prontidaoConfirmada?'checked':''}>
+                  <span>Prontidão confirmada</span>
                 </label>
               </div>
-              <div class="form-group"><label>Previsão de Entrada em Estoque</label><input type="date" id="f-previsao-estoque" value="${p.previsaoEntradaEstoque||''}"></div>
               <div class="form-group"><label>${isEmbarqueConfirmado(p) ? 'Embarque Confirmado' : 'Embarque Previsto'}</label><input type="date" id="f-dataembarquereal" value="${p.dataEmbarqueReal||''}"><div class="form-hint">Vira "Confirmado" quando a etapa "Embarque confirmado" (Fase 4) é marcada e a data já chegou.</div></div>
               <div class="form-group"><label>${isChegadaConfirmada(p) ? 'Chegada Confirmada' : 'Chegada Prevista'}</label><input type="date" id="f-chegada" value="${p.chegadaPrevista||''}"><div class="form-hint">${isChegadaConfirmada(p) ? `Chegada ao Brasil confirmada em ${fmtDate(getChegadaBrasilInfo(p).data||(p.extra||{}).dataChegadaBetim)} pela etapa "${p.modal==='aereo'?'Chegada e presença':'Navio Atracado no Porto'}" (Fase 6). Este campo continua guardando a previsão original, editável se precisar ajustar.` : 'Vira "Confirmada" quando a chegada ao Brasil é confirmada na Fase 6.'}</div></div>
               <div class="form-group" id="containers-qty-wrap" style="display:${p.modal==='aereo'?'none':'block'};"><label>Quantidade de Containers</label><input type="number" min="0" id="f-containers" value="${p.containersQty||''}" placeholder="Ex: 2" oninput="onContainersQtyChange(this.value)"></div>
@@ -13931,6 +14257,39 @@ function openProcessModal(id){
                 ${produtoMestreOverrideHint(p,'containerTipo',p.containerTipo)}
               </div>
             </div>
+          </div>
+
+          <div class="process-section">
+            ${renderSectionRectangle({icon:svgCalendarIcon(17), title:'Previsão de Entrada em Estoque', cls:'is-transit'})}
+            ${(()=>{
+              const pe = computePrevisaoEntradaEstoque(p);
+              const indisponivel = pe.status==='sem_embarque' || pe.status==='sem_chegada_prevista';
+              const temOverrideManual = !!p.previsaoEntradaEstoque;
+              const valorInput = p.previsaoEntradaEstoque || (!indisponivel ? pe.dataFinal : '');
+              const bloqueado = !indisponivel && !temOverrideManual;
+              if(indisponivel){
+                return `<div class="form-group" style="max-width:260px;"><input type="date" id="f-previsao-estoque" value="${valorInput}"></div>
+                  <div class="form-hint">Aguardando definição de Embarque Previsto e Chegada Prevista ao Brasil — depois que os dois existirem, esta data passa a ser calculada automaticamente e recalculada sozinha conforme o processo avança.</div>`;
+              }
+              const marcosHtml = pe.marcos.map(m=>`
+                <div class="prov-line" style="padding:5px 0;">
+                  <div class="prov-line-label" style="text-transform:none; font-weight:${m.confirmada?'600':'400'}; font-size:12.5px;">${m.confirmada?'✓':'○'} ${m.label}</div>
+                  <div class="prov-line-value" style="font-size:12.5px;">${fmtDate(m.data)}${m.confirmada?' <span style="color:var(--ink-green-fg); font-size:10px; font-weight:700;">confirmado</span>':''}</div>
+                </div>`).join('');
+              return `
+                <div class="prov-line">
+                  <div class="prov-line-label">Data prevista</div>
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <input type="date" id="f-previsao-estoque" value="${valorInput}" ${bloqueado?'disabled':''} style="${bloqueado?'opacity:0.7;':''} max-width:170px;">
+                    ${bloqueado?`<button type="button" class="prov-edit-btn" onclick="const inp=document.getElementById('f-previsao-estoque'); inp.disabled=false; inp.style.opacity=1; inp.focus(); this.style.display='none';">${svgEditIcon()} Ajustar manualmente</button>`:''}
+                  </div>
+                </div>
+                <div class="form-hint" style="margin-top:-4px;">${temOverrideManual ? 'Ajustada manualmente — não é mais recalculada sozinha.' : `${pe.status==='confirmado'?'Confirmada':'Calculada'} automaticamente a partir de: ${pe.baseUsada}.`}</div>
+                <details class="prov-details" style="margin-top:8px;">
+                  <summary>Ver projeção completa (${pe.marcos.length} marcos)</summary>
+                  <div style="margin-top:4px;">${marcosHtml}</div>
+                </details>`;
+            })()}
           </div>
 
           <div class="process-section">
@@ -14998,7 +15357,8 @@ function updateCostPreview(){
   const armZSValor = pago('armazenagemZonaSecundaria') ? valorPago('armazenagemZonaSecundaria') : armZSEstimado;
   const armZSTag = pago('armazenagemZonaSecundaria') ? ' <span class="cost-realizado-tag">pago</span>' : '';
 
-  const dtaEstimado = parseFloat((pLike.extra||{}).provTransporteDtaBrl)||0;
+  const freteDtaPLike = !isAereo ? computeFreteDTABiotech(pLike) : { status:'nao_aplicavel' };
+  const dtaEstimado = effectiveProvValue(pLike, freteDtaPLike.status==='ok' ? freteDtaPLike.total : 0, 'provTransporteDtaBrl');
   const dtaValor = !isAereo ? (pago('dta') ? valorPago('dta') : dtaEstimado) : 0;
   const dtaTag = (!isAereo && pago('dta')) ? ' <span class="cost-realizado-tag">pago</span>' : '';
 
