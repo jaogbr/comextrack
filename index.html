@@ -607,7 +607,7 @@ body.dark-mode .process-main h3{color:var(--text);}
 .track-dot.current{background:var(--ink-red); box-shadow:0 0 0 3px var(--ink-red-bg);}
 .track-line{flex:1; height:2px; background:var(--border-strong);}
 .track-line.done{background:var(--ink-green);}
-.step-note{font-size:12px; color:var(--ink-red-fg); margin-top:5px; font-style:italic;}
+.step-note{font-size:12px; color:var(--ink-red-fg); margin-top:5px; font-style:normal;}
 .progress-pct{font-size:10.5px; color:var(--muted); margin-top:4px; font-family:var(--font-text);}
 .alert-banner{
   display:inline-flex; align-items:center; gap:6px;
@@ -637,6 +637,19 @@ body.dark-mode .eye-btn:hover{border-color:var(--ink-blue-fg);}
 .prontidao-confirm-toggle input{width:13px; height:13px; margin:0; cursor:pointer; accent-color:var(--ink-green-fg);}
 .prontidao-confirm-toggle:has(input:checked){background:var(--ink-green-bg); border-color:var(--ink-green-fg); color:var(--ink-green-fg);}
 body.dark-mode .prontidao-confirm-toggle{background:rgba(255,255,255,0.04);}
+
+/* Botão "Acompanhar navio" (MarineTraffic) — vidro discreto, secundário (nunca a ação
+   principal da tela), área clicável mínima de 40px de altura pra acessibilidade. */
+.vessel-track-btn{
+  display:inline-flex; align-items:center; gap:6px; min-height:40px; padding:8px 14px;
+  border-radius:11px; background:rgba(255,255,255,0.55); backdrop-filter:blur(6px);
+  border:1px solid var(--border-strong); font-family:var(--font-text); font-size:12.5px;
+  font-weight:600; color:var(--navy); cursor:pointer; transition:background 0.15s, border-color 0.15s;
+}
+.vessel-track-btn:hover{background:var(--ink-blue-bg); border-color:var(--ink-blue-fg); color:var(--ink-blue-fg);}
+.vessel-track-btn:focus-visible{outline:2px solid var(--ink-blue-fg); outline-offset:2px;}
+body.dark-mode .vessel-track-btn{background:rgba(255,255,255,0.06); color:var(--text);}
+body.dark-mode .vessel-track-btn:hover{background:var(--ink-blue-bg);}
 .process-card, .transit-card{position:relative;}
 
 .view-section-title{font-family:var(--font-text); font-weight:700; font-size:14.5px; margin:18px 0 10px 0; color:var(--navy-fg); text-transform:uppercase; letter-spacing:0.03em;}
@@ -1478,7 +1491,7 @@ body.dark-mode .modal-process .modal-footer{background:rgba(255,255,255,0.05); b
 }
 .form-group input:focus, .form-group select:focus, .form-group textarea:focus{outline:2px solid var(--ink-blue-fg); outline-offset:1px; border-color:var(--ink-blue-fg);}
 .form-group textarea{resize:vertical; min-height:60px;}
-.form-hint{font-size:11px; color:var(--muted); margin-top:4px; font-style:italic; font-weight:300;}
+.form-hint{font-size:11.5px; color:var(--muted); margin-top:4px; font-style:normal; font-weight:400;}
 .modal-process .form-group input,
 .modal-process .form-group select,
 .modal-process .form-group textarea{
@@ -1548,7 +1561,7 @@ body.dark-mode .fixed-field-value{background:var(--card); border-color:var(--bor
 .cost-table td{padding:7px 0; border-bottom:1px solid var(--border);}
 .cost-table td:last-child{text-align:right; font-family:var(--font-text);}
 .cost-table tr.total td{font-weight:700; border-top:2px solid var(--text); border-bottom:none; padding-top:10px;}
-.cost-note{font-size:11.5px; color:var(--muted); margin-top:10px; line-height:1.5; font-style:italic;}
+.cost-note{font-size:11.5px; color:var(--muted); margin-top:10px; line-height:1.5; font-style:normal;}
 .cost-realizado-tag{
   display:inline-block; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em;
   color:var(--ink-green,#15803d); background:var(--ink-green-bg,#E4F3EC); padding:1px 7px; border-radius:999px; margin-left:6px; vertical-align:middle;
@@ -1614,7 +1627,7 @@ body.dark-mode .fixed-field-value{background:var(--card); border-color:var(--bor
 .doc-item-block .doc-item{border:none; border-radius:0; margin:0;}
 .doc-file-row{display:flex; align-items:center; gap:8px; padding:8px 11px; background:var(--paper); flex-wrap:wrap;}
 .doc-file-name{font-size:12px; color:var(--text); font-weight:500;}
-.doc-upload-status{font-size:11.5px; color:var(--muted); font-style:italic;}
+.doc-upload-status{font-size:11.5px; color:var(--muted); font-style:normal;}
 .doc-item{
   display:flex; align-items:center; gap:10px; padding:9px 11px;
   border:1px solid var(--border); border-radius:6px; cursor:pointer;
@@ -1801,7 +1814,7 @@ body.dark-mode input::placeholder, body.dark-mode textarea::placeholder{color:va
 .stage-fill-bar{height:100%; transition:width 0.2s;}
 .stage-block.stage-empty .stage-fill-track{display:none;}
 .stage-body{padding:12px 14px 14px 14px; display:flex; flex-direction:column; gap:8px; background:#fff;}
-.stage-hint{font-size:11.5px; color:var(--muted); margin-top:2px; font-style:italic;}
+.stage-hint{font-size:11.5px; color:var(--muted); margin-top:2px; font-style:normal;}
 
 #loading{padding:60px; text-align:center; color:var(--muted);}
 
@@ -2212,6 +2225,7 @@ body{overflow-x:hidden; max-width:100vw;}
 
 <div id="loading" style="display:none;">Carregando seus processos...</div>
 <div id="app" style="display:none;"></div>
+<div id="vincular-navio-root"></div>
 
 <script>
 const firebaseConfig = {
@@ -2670,6 +2684,9 @@ const STAGE_DEFS = [
         {key:'numeroBooking', label:'Número do Booking', type:'text'},
         {key:'armador', label:'Armador', type:'text'},
         {key:'navio', label:'Navio', type:'text'},
+        {key:'navioIMO', label:'IMO do Navio', type:'text'},
+        {key:'navioMMSI', label:'MMSI do Navio', type:'text'},
+        {key:'navioCallSign', label:'Call Sign do Navio', type:'text'},
         {key:'viagem', label:'Viagem', type:'text'},
         {key:'freetime', label:'Freetime (dias)', type:'number'},
       ],
@@ -3676,6 +3693,10 @@ function svgRouteIcon(size){
   size = size || 13;
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; flex-shrink:0;"><path d="M9 20L3 17V4l6 3m0 13l6-3m-6 3V7m6 10l6 3V7l-6-3m0 13V4m0 0L9 7"/></svg>`;
 }
+function svgExternalLinkIcon(size){
+  size = size || 13;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; flex-shrink:0;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>`;
+}
 function svgClockIcon(size){
   size = size || 13;
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; flex-shrink:0;"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>`;
@@ -4178,6 +4199,8 @@ function congelarProvisionamento(){
   const siscomexEfetivo = effectiveProvValue(p, siscomexComputed, 'provSiscomexOverride');
   const freteDtaCong = computeFreteDTABiotech(p);
   const dtaValor = effectiveProvValue(p, freteDtaCong.status==='ok' ? freteDtaCong.total : 0, 'provTransporteDtaBrl');
+  const lavagemValor = getLavagemContainerValor(p);
+  const armazenagemZP = effectiveProvValue(p, arm.status==='ok' ? arm.total : 0, 'provArmazenagemZPOverride');
   const armazenagemZS = effectiveProvValue(p, armZS.status==='ok' ? armZS.total : 0, 'provArmazenagemZSOverride');
   const totalGeral = honorarios + impostosEfetivo + icmsValor + freteInternacionalBrl + armazenagemZP + armazenagemZS + siscomexEfetivo + dtaValor + lavagemValor;
 
@@ -4193,6 +4216,7 @@ function congelarProvisionamento(){
   p.history = p.history || [];
   p.history.push({ ts: Date.now(), manual:false, icon:svgSendIcon(), title:'Provisionamento enviado ao Financeiro', detail: fmtBRL(totalGeral) });
   renderProvisionamentoTab();
+  if(typeof updateCostPreview==='function') updateCostPreview(); // atualiza a comparação Inicial×Realizado em Custos na hora, sem precisar reabrir o processo
   autoPersistCurrentProcess();
 }
 
@@ -4204,6 +4228,7 @@ function refazerProvisionamento(){
   p.history = p.history || [];
   p.history.push({ ts: Date.now(), manual:false, icon:svgRefreshIcon(), title:'Provisionamento refeito', detail:'' });
   renderProvisionamentoTab();
+  if(typeof updateCostPreview==='function') updateCostPreview();
   autoPersistCurrentProcess();
 }
 
@@ -5096,6 +5121,310 @@ function openProcessCardClick(id){
   openProcessModal(id);
 }
 
+/* =====================================================================================
+   RASTREAMENTO EXTERNO DE NAVIO — MarineTraffic (pedido explícito)
+   Só direciona pro site público deles (perfil direto por IMO/MMSI, ou a home pra busca manual
+   quando só há nome/call sign) — nunca embute mapa/iframe deles na plataforma, nunca alega
+   localização "em tempo real" própria, nunca usa scraping ou API sem credencial. Config
+   central de provedor (VesselTrackingProvider), pra poder trocar/adicionar outro no futuro
+   sem espalhar URL por vários componentes.
+   O endpoint de busca por "keyword" (.../index/search/all?keyword=) que a primeira versão
+   usava está retornando erro direto no site deles ("Oops... something went wrong") —
+   confirmado na prática. Trocado pela rota de detalhes por identificador
+   (/en/ais/details/ships/imo:XXXXXXX), que é a única forma documentada de link direto sem
+   precisar de API paga — confirmada por duas fontes independentes (toolkit de investigação
+   open-source da Bellingcat e o pacote R "fishvice"). MMSI segue a mesma estrutura de URL,
+   com confiança um pouco menor por não ter sido possível confirmar de forma 100% independente.
+   Nome e call sign não têm hoje uma URL de busca direta confiável — nesses casos, abre a home
+   do MarineTraffic pra pessoa buscar manualmente lá (melhor que um link que dá erro). */
+const VESSEL_TRACKING_PROVIDERS = [
+  { id:'marinetraffic', name:'MarineTraffic', enabled:true, priority:1,
+    directUrlTemplates: {
+      imo: 'https://www.marinetraffic.com/en/ais/details/ships/imo:{q}',
+      mmsi: 'https://www.marinetraffic.com/en/ais/details/ships/mmsi:{q}',
+    },
+    fallbackUrl: 'https://www.marinetraffic.com/en/ais/home' },
+];
+function getActiveVesselTrackingProvider(){
+  return VESSEL_TRACKING_PROVIDERS.filter(v=>v.enabled).sort((a,b)=>a.priority-b.priority)[0] || null;
+}
+/* Prioridade de identificação, pedido explícito: IMO > MMSI > Call Sign > Nome — o IMO não
+   muda ao longo da vida do navio (nome pode mudar, e navios diferentes podem ter nomes
+   parecidos), então é o identificador mais confiável pra localizar o navio certo. */
+/* TRECHOS MARÍTIMOS (transbordo) — pedido explícito e deliberadamente enxuto: existe só pra
+   acompanhar QUAL NAVIO está com a carga agora (pro botão de rastreamento seguir o navio
+   certo), sem nenhuma ligação com as datas oficiais de Embarque e Chegada do processo
+   (p.dataEmbarqueReal, p.chegadaPrevista, e os marcos da Fase 6) — essas continuam exatamente
+   como sempre foram, government por sua própria lógica, e um transbordo NUNCA as altera. Se a
+   carga embarcou em 12/05 no navio X, a data de embarque do processo continua 12/05 pra
+   sempre, mesmo que ela passe pro navio Y no meio do caminho.
+   Sem transbordo registrado (a grande maioria dos processos), não existe p.maritimeLegs
+   nenhum — o "trecho" é só um objeto calculado na hora a partir dos campos extra.navio* que já
+   existiam antes dessa funcionalidade (getMaritimeLegs sintetiza isso, sem duplicar dado em
+   lugar nenhum). Só quando alguém registra um transbordo de verdade é que p.maritimeLegs passa
+   a existir de fato, com o navio original virando o trecho 1 e o novo virando o trecho 2. */
+function getMaritimeLegs(p){
+  const stored = p.maritimeLegs || [];
+  if(stored.length) return stored;
+  const extra = p.extra || {};
+  if(!extra.navio && !extra.navioIMO && !extra.navioMMSI && !extra.navioCallSign) return [];
+  return [{ id:'baseline', vesselName:extra.navio, vesselIMO:extra.navioIMO, vesselMMSI:extra.navioMMSI, vesselCallSign:extra.navioCallSign, vesselVoyage:extra.viagem, marineTrafficUrl:extra.marineTrafficUrl, changedAt:null }];
+}
+function getActiveMaritimeLeg(p){
+  const legs = getMaritimeLegs(p);
+  return legs.length ? legs[legs.length-1] : null;
+}
+function obterIdentificadorNavio(p){
+  const leg = p.modal==='maritimo' ? getActiveMaritimeLeg(p) : null;
+  if(!leg) return null;
+  if(leg.vesselIMO) return { tipo:'imo', valor: leg.vesselIMO };
+  if(leg.vesselMMSI) return { tipo:'mmsi', valor: leg.vesselMMSI };
+  if(leg.vesselCallSign) return { tipo:'callsign', valor: leg.vesselCallSign };
+  if(leg.vesselName) return { tipo:'nome', valor: leg.vesselName };
+  return null;
+}
+function abrirMarineTraffic(p){
+  const leg = p.modal==='maritimo' ? getActiveMaritimeLeg(p) : null;
+  if(leg && leg.marineTrafficUrl){
+    window.open(leg.marineTrafficUrl, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  const navio = obterIdentificadorNavio(p);
+  if(!navio){
+    alert('Informe o nome do navio, IMO ou MMSI para acompanhar a embarcação.');
+    return;
+  }
+  const provider = getActiveVesselTrackingProvider();
+  if(!provider) return;
+  const template = provider.directUrlTemplates[navio.tipo];
+  if(template){
+    window.open(template.replace('{q}', encodeURIComponent(navio.valor)), '_blank', 'noopener,noreferrer');
+  } else {
+    alert(`O MarineTraffic não tem uma busca direta confiável por ${navio.tipo==='callsign'?'call sign':'nome'} — abrindo a página inicial deles pra você buscar "${navio.valor}" manualmente. Pra abrir direto da próxima vez, informe o IMO ou MMSI do navio, ou use "Vincular navio do MarineTraffic" depois de encontrá-lo.`);
+    window.open(provider.fallbackUrl, '_blank', 'noopener,noreferrer');
+  }
+}
+/* Mapa MarineTraffic embutido — mecanismo oficial e gratuito deles (marinetraffic.com/en/p/
+   embed-map, confirmado ativo), sem API paga. Só funciona com MMSI (o parâmetro trackvessel
+   não aceita IMO) e só mostra o navio se ele estiver "dentro do alcance do sistema" no
+   momento (sinal AIS ativo) — aviso deles, não nosso. Carregado dentro de um <iframe
+   srcdoc="..."> em vez de injetar o <script> deles direto na página: fica isolado no próprio
+   frame, sem acesso ao DOM/estado da plataforma.
+   trackvessel já filtra pra mostrar só o navio rastreado (confirmado na documentação deles —
+   ao rastrear um MMSI específico, os outros navios ficam escondidos por padrão; só voltam a
+   aparecer se alguém fechar manualmente a caixinha de informações do navio dentro do próprio
+   mapa deles). Zoom mais fechado (8, em vez do 6 inicial) ajuda a manter o foco só no navio. */
+function renderMarineTrafficEmbed(mmsi, heightPx){
+  const h = heightPx || 260;
+  const embedDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;}</style></head><body>`
+    + `<script type="text/javascript">`
+    + `width='100%';height='${h}';border='0';shownames='true';zoom='8';maptype='0';`
+    + `trackvessel='${mmsi}';remember='false';language='pt';showmenu=false;`
+    + `<\/script>`
+    + `<script type="text/javascript" src="https://www.marinetraffic.com/js/embed.js"><\/script>`
+    + `</body></html>`;
+  return `<iframe srcdoc="${embedDoc.replace(/"/g,'&quot;')}" loading="lazy" title="Mapa MarineTraffic" style="width:100%; height:${h}px; border:1px solid var(--border-strong); border-radius:11px; margin-top:8px; display:block;"></iframe>`;
+}
+/* Mostra/oculta o mapa embutido sob demanda — pedido explícito, pra não carregar o iframe (e
+   gastar dados/deixar aberto o tempo todo) sem a pessoa pedir. */
+function toggleVesselMapPreview(mmsi, btn){
+  const container = document.getElementById('vessel-map-container');
+  if(!container) return;
+  if(container.innerHTML){
+    container.innerHTML = '';
+    btn.innerHTML = `${svgShipIcon()} Ver mapa da posição atual`;
+  } else {
+    container.innerHTML = renderMarineTrafficEmbed(mmsi);
+    btn.innerHTML = `${svgShipIcon()} Ocultar mapa`;
+  }
+}
+/* Bloco de rastreamento — só aparece pra marítimo com algum identificador de navio (nunca pra
+   aéreo). Mostra o navio ATIVO (o mais recente, pós-transbordo se houver) e, quando existe
+   mais de um trecho, uma lista compacta dos anteriores — só pra referência de rastreamento,
+   nunca mexendo em Embarque/Chegada do processo. */
+function renderVesselTrackingBlock(p){
+  if(p.modal!=='maritimo') return '';
+  const legs = getMaritimeLegs(p);
+  const navio = obterIdentificadorNavio(p);
+  if(!navio) return '';
+  const legAtivo = legs[legs.length-1];
+  const vinculado = !!legAtivo.marineTrafficUrl;
+  const temLinkDireto = vinculado || navio.tipo==='imo' || navio.tipo==='mmsi';
+  const nomeAtivo = legAtivo.vesselName || 'navio';
+  const label = vinculado ? `Acompanhar ${nomeAtivo} no MarineTraffic` : (temLinkDireto ? `Ver ${nomeAtivo} no MarineTraffic` : 'Buscar navio no MarineTraffic');
+  const canEditHere = canEdit('processos');
+  const hintHtml = vinculado
+    ? `Rastreamento vinculado por ${navio.tipo==='imo'?'IMO':navio.tipo==='mmsi'?'MMSI':navio.tipo==='callsign'?'call sign':'nome'}: ${navio.valor}`
+    : (temLinkDireto
+        ? `Abre direto o perfil do navio no MarineTraffic (por ${navio.tipo==='imo'?'IMO':'MMSI'}). Os dados de localização são consultados diretamente no site deles, não são em tempo real dentro da plataforma.`
+        : `Sem IMO ou MMSI cadastrado, o botão abre a home do MarineTraffic pra você buscar "${navio.valor}" manualmente lá. Para maior precisão, informe o número IMO ou MMSI.`);
+  const trechosAnteriores = legs.slice(0, -1);
+  const historicoHtml = trechosAnteriores.length ? `
+    <details class="prov-details" style="margin-top:4px;">
+      <summary>Navios anteriores neste processo (${trechosAnteriores.length})</summary>
+      <div style="margin-top:4px;">
+        ${trechosAnteriores.map((l,i)=>`<div class="form-hint" style="margin-top:2px;">Trecho ${i+1}: ${l.vesselName||'—'}${l.vesselVoyage?` · Viagem ${l.vesselVoyage}`:''}${l.changedAt?` — até ${fmtDate(l.changedAt)}`:''}</div>`).join('')}
+      </div>
+    </details>` : '';
+  /* Botão de mapa só aparece com MMSI cadastrado no navio ativo — sem isso, fica só o botão
+     que abre em nova aba (o embed oficial deles não aceita IMO). O mapa em si só carrega
+     quando a pessoa clica (toggleVesselMapPreview), nunca sozinho. */
+  const mmsiEsc = (legAtivo.vesselMMSI||'').replace(/'/g,"\\'");
+  const botaoMapaHtml = legAtivo.vesselMMSI
+    ? `<button type="button" class="vessel-track-btn" onclick="toggleVesselMapPreview('${mmsiEsc}', this)">${svgShipIcon()} Ver mapa da posição atual</button>`
+    : `<div class="form-hint" style="margin-top:4px;">${svgLightbulbIcon()} Informe o MMSI do navio pra ver um mapa da posição atual aqui mesmo, sem precisar abrir o MarineTraffic.</div>`;
+  return `
+    <div style="grid-column:1/-1; margin:-4px 0 4px;">
+      ${legs.length>1 ? `<div class="form-hint" style="margin-bottom:2px;">Navio atual (trecho ${legs.length} de ${legs.length}) — a data de embarque e a data de chegada do processo não mudam com a troca de navio.</div>` : ''}
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button type="button" class="vessel-track-btn" onclick="abrirMarineTraffic(state.processes.find(x=>x.id==='${p.id}'))" title="Abrir rastreamento no MarineTraffic">
+          ${svgShipIcon()} ${label} ${svgExternalLinkIcon(12)}
+        </button>
+        ${botaoMapaHtml}
+      </div>
+      <div class="form-hint" style="margin-top:4px;">${hintHtml}</div>
+      <div id="vessel-map-container"></div>
+      ${historicoHtml}
+      ${canEditHere ? `
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;">
+          <button type="button" class="prov-edit-btn" onclick="openVincularNavioModal('${p.id}')">${svgEditIcon()} Vincular navio do MarineTraffic</button>
+          <button type="button" class="prov-edit-btn" onclick="openRegistrarTransbordoModal('${p.id}')">${svgRefreshIcon()} Registrar transbordo (novo navio)</button>
+        </div>` : ''}
+    </div>`;
+}
+function openVincularNavioModal(pid){
+  if(!requireEditPermission()) return;
+  const p = state.processes.find(x=>x.id===pid);
+  if(!p) return;
+  window.__vincularNavioPid = pid;
+  const leg = getActiveMaritimeLeg(p) || {};
+  const esc = s => String(s||'').replace(/"/g,'&quot;');
+  document.getElementById('vincular-navio-root').innerHTML = `
+    <div class="modal-overlay" style="z-index:2200;" onclick="if(event.target===this) closeVincularNavioModal()">
+      <div class="modal" style="max-width:440px; padding:22px;">
+        <h3 style="margin-bottom:6px;">Vincular navio do MarineTraffic</h3>
+        <div class="form-hint" style="margin-bottom:12px;">Depois de identificar o navio correto no site do MarineTraffic, cole a URL do perfil dele aqui — o botão "Acompanhar navio" passa a abrir direto essa página, sem precisar buscar de novo. Isso vale pro navio ATIVO do processo; não muda data de embarque nem de chegada.</div>
+        <div class="form-group"><label>Nome exibido</label><input type="text" id="vn-nome" value="${esc(leg.vesselName)}"></div>
+        <div class="form-row" style="gap:10px;">
+          <div class="form-group" style="flex:1;"><label>IMO</label><input type="text" id="vn-imo" value="${esc(leg.vesselIMO)}" placeholder="7 dígitos"></div>
+          <div class="form-group" style="flex:1;"><label>MMSI</label><input type="text" id="vn-mmsi" value="${esc(leg.vesselMMSI)}" placeholder="9 dígitos"></div>
+        </div>
+        <div class="form-group"><label>URL do perfil no MarineTraffic (opcional)</label><input type="text" id="vn-url" value="${esc(leg.marineTrafficUrl)}" placeholder="https://www.marinetraffic.com/..."></div>
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
+          <button type="button" class="btn" onclick="closeVincularNavioModal()">Cancelar</button>
+          <button type="button" class="btn btn-primary" onclick="salvarVinculoNavio()">Salvar</button>
+        </div>
+      </div>
+    </div>`;
+}
+function closeVincularNavioModal(){
+  const el = document.getElementById('vincular-navio-root');
+  if(el) el.innerHTML = '';
+  window.__vincularNavioPid = null;
+}
+async function salvarVinculoNavio(){
+  if(!requireEditPermission()) return;
+  const p = state.processes.find(x=>x.id===window.__vincularNavioPid);
+  if(!p) return;
+  const nome = document.getElementById('vn-nome').value.trim();
+  const imo = document.getElementById('vn-imo').value.trim();
+  const mmsi = document.getElementById('vn-mmsi').value.trim();
+  const url = document.getElementById('vn-url').value.trim();
+  if(url && !/^https:\/\/([a-z0-9-]+\.)*marinetraffic\.com\//i.test(url)){
+    alert('A URL precisa ser do domínio marinetraffic.com.');
+    return;
+  }
+  if(imo && !/^\d{7}$/.test(imo)){
+    if(!confirm('O IMO normalmente tem 7 dígitos numéricos — o valor informado não segue esse padrão. Salvar assim mesmo?')) return;
+  }
+  if(mmsi && !/^\d{9}$/.test(mmsi)){
+    if(!confirm('O MMSI normalmente tem 9 dígitos numéricos — o valor informado não segue esse padrão. Salvar assim mesmo?')) return;
+  }
+  p.extra = p.extra || {};
+  /* Sem transbordo registrado ainda (p.maritimeLegs vazio): grava direto nos campos extra.navio*
+     de sempre — comportamento idêntico ao de antes dessa funcionalidade de trechos existir.
+     Com transbordo já registrado: atualiza só o ÚLTIMO trecho (o navio ativo), sem tocar nos
+     anteriores nem em nenhuma data oficial do processo. */
+  if((p.maritimeLegs||[]).length){
+    const leg = p.maritimeLegs[p.maritimeLegs.length-1];
+    if(nome) leg.vesselName = nome;
+    if(imo) leg.vesselIMO = imo;
+    if(mmsi) leg.vesselMMSI = mmsi;
+    if(url) leg.marineTrafficUrl = url;
+  } else {
+    if(nome) p.extra.navio = nome;
+    if(imo) p.extra.navioIMO = imo;
+    if(mmsi) p.extra.navioMMSI = mmsi;
+    if(url) p.extra.marineTrafficUrl = url;
+  }
+  const legAtivo = getActiveMaritimeLeg(p);
+  pushHistoryEvent(p, svgShipIcon(), url ? 'Rastreamento MarineTraffic vinculado' : 'Dados do navio atualizados',
+    `Navio: ${legAtivo.vesselName||'—'}${legAtivo.vesselIMO?`\nIMO: ${legAtivo.vesselIMO}`:''}${legAtivo.vesselMMSI?`\nMMSI: ${legAtivo.vesselMMSI}`:''}${url?`\nURL: ${url}`:''}\nUsuário: ${currentUser?currentUser.email:''}`);
+  const pid = p.id;
+  closeVincularNavioModal();
+  await persistState();
+  openProcessViewModal(pid);
+}
+/* Registrar transbordo — troca só o navio ativo (pro rastreamento seguir a carga), nunca
+   Embarque/Chegada do processo. Na primeira vez que é usado, "congela" o navio atual como
+   trecho 1 (snapshot dos campos extra.navio-etc de então) antes de adicionar o novo trecho —
+   a partir daí, os campos extra.navio/navioIMO/marineTrafficUrl deixam de ser lidos
+   diretamente (getMaritimeLegs já prioriza p.maritimeLegs quando ele existe). */
+function openRegistrarTransbordoModal(pid){
+  if(!requireEditPermission()) return;
+  const p = state.processes.find(x=>x.id===pid);
+  if(!p) return;
+  window.__transbordoPid = pid;
+  document.getElementById('vincular-navio-root').innerHTML = `
+    <div class="modal-overlay" style="z-index:2200;" onclick="if(event.target===this) closeTransbordoModal()">
+      <div class="modal" style="max-width:440px; padding:22px;">
+        <h3 style="margin-bottom:6px;">Registrar transbordo</h3>
+        <div class="form-hint" style="margin-bottom:12px;">A carga passou pra outro navio. Isso só troca qual navio o botão de rastreamento acompanha — a data de embarque e a data de chegada do processo continuam exatamente como estão, não mudam com isso.</div>
+        <div class="form-group"><label>Novo navio</label><input type="text" id="tb-nome" placeholder="Nome do novo navio"></div>
+        <div class="form-row" style="gap:10px;">
+          <div class="form-group" style="flex:1;"><label>IMO</label><input type="text" id="tb-imo" placeholder="7 dígitos"></div>
+          <div class="form-group" style="flex:1;"><label>MMSI</label><input type="text" id="tb-mmsi" placeholder="9 dígitos"></div>
+        </div>
+        <div class="form-group"><label>Viagem</label><input type="text" id="tb-viagem"></div>
+        <div class="form-group"><label>Porto do transbordo (opcional)</label><input type="text" id="tb-porto"></div>
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
+          <button type="button" class="btn" onclick="closeTransbordoModal()">Cancelar</button>
+          <button type="button" class="btn btn-primary" onclick="salvarTransbordo()">Confirmar transbordo</button>
+        </div>
+      </div>
+    </div>`;
+}
+function closeTransbordoModal(){
+  const el = document.getElementById('vincular-navio-root');
+  if(el) el.innerHTML = '';
+  window.__transbordoPid = null;
+}
+async function salvarTransbordo(){
+  if(!requireEditPermission()) return;
+  const p = state.processes.find(x=>x.id===window.__transbordoPid);
+  if(!p) return;
+  const nome = document.getElementById('tb-nome').value.trim();
+  if(!nome){ alert('Informe o nome do novo navio.'); return; }
+  const imo = document.getElementById('tb-imo').value.trim();
+  const mmsi = document.getElementById('tb-mmsi').value.trim();
+  const viagem = document.getElementById('tb-viagem').value.trim();
+  const porto = document.getElementById('tb-porto').value.trim();
+  if(!confirm(`Confirmar transbordo pro navio ${nome}? A data de embarque e a data de chegada do processo NÃO mudam com isso.`)) return;
+
+  p.maritimeLegs = getMaritimeLegs(p).map(l=>({...l})); // "congela" o trecho atual (baseline ou já existente) como está
+  const legAnterior = p.maritimeLegs[p.maritimeLegs.length-1];
+  if(legAnterior) legAnterior.changedAt = todayStr();
+  p.maritimeLegs.push({ id: uid(), vesselName:nome, vesselIMO:imo, vesselMMSI:mmsi, vesselCallSign:'', vesselVoyage:viagem, marineTrafficUrl:'', changedAt:null });
+
+  pushHistoryEvent(p, svgShipIcon(), 'Transbordo registrado — navio alterado',
+    `${legAnterior?`Navio anterior: ${legAnterior.vesselName||'—'}\n`:''}Novo navio: ${nome}${imo?`\nIMO: ${imo}`:''}${porto?`\nPorto do transbordo: ${porto}`:''}\nUsuário: ${currentUser?currentUser.email:''}\n(Data de embarque e chegada do processo não foram alteradas.)`);
+
+  const pid = p.id;
+  closeTransbordoModal();
+  await persistState();
+  openProcessViewModal(pid);
+}
+
 function openProcessViewModal(id, event){
   if(event) event.stopPropagation();
   const p = state.processes.find(x=>x.id===id);
@@ -5267,7 +5596,8 @@ function openProcessViewModal(id, event){
           ${viewFieldHtml('Aeroporto de Destino', p.aeroportoDestinoFinal ? 'Mesmo que desembarque' : p.aeroportoDestino, svgPinIcon())}
           ` : `
           ${viewFieldHtml('Transportadora (DTA)', extra.transportadoraDTA, svgTruckIcon())}
-          ${viewFieldHtml('Navio', extra.navio, svgShipIcon())}
+          ${viewFieldHtml('Navio', (getActiveMaritimeLeg(p)||{}).vesselName || extra.navio, svgShipIcon())}
+          ${renderVesselTrackingBlock(p)}
           ${viewFieldHtml('Viagem', extra.viagem, svgRouteIcon())}
           ${viewFieldHtml('Freetime', extra.freetime ? extra.freetime+' dias' : '', svgClockIcon())}
           ${(()=>{
@@ -5864,6 +6194,18 @@ const FOLLOWUP_POSICAO_ATUAL = {
   'Finalizado': 'Processo finalizado',
 };
 
+/* Texto de posição atual COM a data, quando ela é a informação mais relevante do status —
+   pedido explícito: "DTA agendada" mostra a data agendada; "Transporte DTA" mostra a data em
+   que a DTA foi de fato iniciada. Os outros status continuam com o texto fixo de sempre. */
+function getPosicaoAtualTexto(p){
+  const status = getFollowUpStatus(p);
+  const base = FOLLOWUP_POSICAO_ATUAL[status] || '';
+  const extra = p.extra || {};
+  if(status==='Aguardando Início da DTA' && extra.dataAgendamentoDTA) return `DTA agendada para ${fmtDate(extra.dataAgendamentoDTA)}, aguardando início`;
+  if(status==='Transporte DTA' && extra.dataInicioDTA) return `Em transporte DTA para o recinto de desembaraço — iniciada em ${fmtDate(extra.dataInicioDTA)}`;
+  return base;
+}
+
 /* ORDENAÇÃO — grupo por etapa (ordem operacional fixa, FOLLOWUP_STATUS_ORDER), e dentro de
    cada etapa por proximidade do próximo marco logístico relevante. Compartilhada pela tela
    interna e pelo relatório de e-mail, pra nunca haver duas ordens diferentes.
@@ -6083,7 +6425,7 @@ function buildAndamentoLines(p){
   /* Follow-up é acompanhamento de POSIÇÃO da carga, não central de pendências — a última
      linha descreve onde a carga está agora, em linguagem de localização/etapa (nunca
      "Pendente: X", que fala de tarefa administrativa, não de posição operacional). */
-  const posicao = FOLLOWUP_POSICAO_ATUAL[getFollowUpStatus(p)];
+  const posicao = getPosicaoAtualTexto(p);
   if(posicao) lines.push(posicao);
 
   return lines.join('\n');
@@ -8490,7 +8832,7 @@ function getBucket(p){
   return embarqueConfirmado ? 'transito' : 'aguardando_embarque';
 }
 
-function currentStepLabel(p){
+function currentStepLabel(p, forViewer){
   const stages = getStagesForProcess(p);
   /* Procura o item pendente mais antigo em toda a jornada, não só dentro da fase
      "atual" — já que a fase atual pode estar mais adiante por causa de um marco
@@ -8502,7 +8844,12 @@ function currentStepLabel(p){
       if(pend) return `Pendente: ${pend.label}`;
     } else {
       const checked = p.checklist[stage.key]||[];
-      const idx = stage.items.findIndex((_,i)=>!checked[i]);
+      /* Pra quem só tem acesso de visualização (viewer), "Testar NF" é um passo interno de
+         controle de qualidade sem relevância externa — pedido explícito pra não aparecer como
+         pendência nessa visão; pula esse item específico e mostra o próximo pendente de
+         verdade (normalmente Desembaraço da DUIMP ou Liberação SEFAZ, que é o que importa
+         pro viewer). Pra quem edita o processo, nada muda. */
+      const idx = stage.items.findIndex((_,i)=> !checked[i] && !(forViewer && stage.items[i]==='Testar NF'));
       if(idx>=0) return `Pendente: ${stage.items[idx]}`;
     }
   }
@@ -8555,13 +8902,22 @@ function computeCostosComparativo(p){
      ainda, cai pro cálculo ao vivo a partir de Custos, como já era antes. */
   const congelado = p.provisionamentoCongelado ? p.provisionamentoCongelado.snapshot : null;
 
-  const freteInicialBrl = congelado ? (congelado.freteInternacional||0) : (parseFloat(p.frete)||0) * cambio;
+  const freteInicialBrl = congelado ? (congelado.freteInternacional||0) : (()=>{
+    const freteValorInformado = parseFloat((p.extra||{}).provFreteInternacionalUsd)||0;
+    const freteMoeda = (p.extra||{}).provFreteMoeda || 'USD';
+    return freteMoeda==='BRL' ? freteValorInformado : freteValorInformado*cambio;
+  })();
   const freteRealizadoBrl = valorPago('freteInternacional');
 
   const honorariosInicialBrl = congelado ? (congelado.honorarios||0) : getHonorariosDespachante(p).valor;
   const honorariosRealizadoBrl = valorPago('prestacaoDespachante');
 
-  const dtaInicialBrl = congelado ? (congelado.transporteDTA||0) : 0; // sem Provisionamento ainda, fórmula definitiva de cálculo não existe
+  /* Transporte DTA — mesma fórmula (Biotech) já usada no Provisionamento e na lista principal
+     de Custos logo acima (updateCostPreview) — antes ficava travado em 0 aqui porque o
+     comentário "fórmula definitiva não existe" ficou desatualizado depois que a fórmula foi
+     implementada. */
+  const freteDtaInicial = (!isAereo && !congelado) ? computeFreteDTABiotech(p) : { status:'nao_aplicavel' };
+  const dtaInicialBrl = congelado ? (congelado.transporteDTA||0) : effectiveProvValue(p, freteDtaInicial.status==='ok' ? freteDtaInicial.total : 0, 'provTransporteDtaBrl');
   const dtaRealizadoBrl = valorPago('dta');
 
   const armZP = (!isAereo && !congelado) ? computeArmazenagemZonaPrimaria(p) : null;
@@ -9078,7 +9434,7 @@ function renderGlobalTopbar(){
       ${hasSearch ? `
       <div class="global-topbar-search">
         <span class="gts-icon">${svgSearchIcon()}</span>
-        <input type="text" id="${currentView}-filter-search" placeholder="Buscar por produto, referência, BL/AWB, booking, fatura, DUIMP, SAP, NF ou parceiro..." value="${f.search}" oninput="applyPageSearchFilter('${currentView}')" onkeydown="if(event.key==='Escape'){this.value='';applyPageSearchFilter('${currentView}');}">
+        <input type="text" id="${currentView}-filter-search" placeholder="Buscar..." title="Busca por produto, referência, BL/AWB, booking, fatura, DUIMP, SAP, NF ou parceiro" value="${f.search}" oninput="applyPageSearchFilter('${currentView}')" onkeydown="if(event.key==='Escape'){this.value='';applyPageSearchFilter('${currentView}');}">
         <button type="button" class="gts-clear" id="${currentView}-search-clear" onclick="clearPageSearch('${currentView}')" title="Limpar busca" aria-label="Limpar busca" style="display:${f.search?'flex':'none'};">${svgCloseIcon(13)}</button>
       </div>` : `<div class="global-topbar-spacer"></div>`}
       <div class="global-topbar-actions">
@@ -13202,7 +13558,7 @@ function aguardandoEmbarqueCard(p){
   const remText = diasParaEmbarque===null ? 'Sem data definida' : (diasParaEmbarque<0 ? `${Math.abs(diasParaEmbarque)}d de atraso` : (diasParaEmbarque===0 ? 'Embarca hoje' : `em ${diasParaEmbarque}d`));
   const extra = p.extra || {};
   const logiParts = [];
-  if(extra.navio) logiParts.push(`<span><b>Navio:</b> ${extra.navio}</span>`);
+  if(extra.navio){ const navioAtivoNome=(getActiveMaritimeLeg(p)||{}).vesselName||extra.navio; logiParts.push(`<span><b>Navio:</b> ${navioAtivoNome} <a href="#" onclick="event.stopPropagation(); event.preventDefault(); abrirMarineTraffic(state.processes.find(x=>x.id==='${p.id}'));" title="Abrir rastreamento no MarineTraffic" style="color:var(--ink-blue-fg); text-decoration:none; font-weight:700;">${svgExternalLinkIcon(10)}</a></span>`); }
   if(extra.viagem) logiParts.push(`<span><b>Viagem:</b> ${extra.viagem}</span>`);
   if(extra.agenteCarga) logiParts.push(`<span><b>Agente:</b> ${extra.agenteCarga}</span>`);
   return `
@@ -13231,9 +13587,16 @@ function aguardandoEmbarqueCard(p){
 function desembaracoCard(p){
   const fornecedor = state.suppliers.find(s=>s.id===p.supplierId);
   const extra = p.extra || {};
-  const statusText = extra.statusDesembaraco || currentStepLabel(p);
+  const statusText = extra.statusDesembaraco || currentStepLabel(p, currentRole==='viewer');
   const infoParts = [];
-  if(extra.dataChegadaBetim) infoParts.push(`<span><b>Chegada:</b> ${fmtDate(extra.dataChegadaBetim)}</span>`);
+  /* Pedido explícito: mesmo já estando em desembaraço, manter visível quando a carga chegou
+     ao Brasil e quando chegou ao recinto — os dois marcos separados (ver
+     getChegadaBrasilInfo/getChegadaRecintoInfo, mesmo padrão do card de Em Transferência
+     Aduaneira), não só uma "Chegada" genérica. */
+  const chegadaBrasilInfo = getChegadaBrasilInfo(p);
+  const chegadaRecintoInfo = getChegadaRecintoInfo(p);
+  if(chegadaBrasilInfo.data) infoParts.push(`<span><b>Chegada ao Brasil:</b> ${fmtDate(chegadaBrasilInfo.data)}${chegadaBrasilInfo.local?` · ${chegadaBrasilInfo.local}`:''}</span>`);
+  if(chegadaRecintoInfo.data) infoParts.push(`<span><b>Chegada no recinto:</b> ${fmtDate(chegadaRecintoInfo.data)}${chegadaRecintoInfo.local?` · ${chegadaRecintoInfo.local}`:''}</span>`);
   if(extra.numeroDUIMP) infoParts.push(`<span><b>DUIMP:</b> ${extra.numeroDUIMP}</span>`);
   if(extra.canalDesembaraco) infoParts.push(`<span><b>Canal:</b> ${canalBadgeHtml(extra.canalDesembaraco)}</span>`);
   if(extra.despachante) infoParts.push(`<span><b>Despachante:</b> ${extra.despachante}</span>`);
@@ -13270,7 +13633,7 @@ function transferenciaCard(p){
   const infoParts = [];
   if(chegadaInfo.data) infoParts.push(`<span><b>Chegada ao Brasil:</b> ${fmtDate(chegadaInfo.data)}${chegadaInfo.local?` · ${chegadaInfo.local}`:''}</span>`);
   if(recintoInfo.local) infoParts.push(`<span><b>Recinto de desembaraço:</b> ${recintoInfo.local}</span>`);
-  const posicao = FOLLOWUP_POSICAO_ATUAL[getFollowUpStatus(p)] || '';
+  const posicao = getPosicaoAtualTexto(p) || '';
   return `
   <div class="transit-card ${getProcessAlerts(p).length?'has-alert':''}" onclick="openProcessCardClick('${p.id}')">
     <button class="eye-btn" onclick="openProcessViewModal('${p.id}', event)" title="Visualizar processo"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
@@ -13296,7 +13659,7 @@ function transitoCard(p){
   const remText = remDays===null ? '—' : (remDays<0 ? `${Math.abs(remDays)}d atrasado` : `${remDays}d restantes`);
   const extra = p.extra || {};
   const logiParts = [];
-  if(extra.navio) logiParts.push(`<span><b>Navio:</b> ${extra.navio}</span>`);
+  if(extra.navio){ const navioAtivoNome=(getActiveMaritimeLeg(p)||{}).vesselName||extra.navio; logiParts.push(`<span><b>Navio:</b> ${navioAtivoNome} <a href="#" onclick="event.stopPropagation(); event.preventDefault(); abrirMarineTraffic(state.processes.find(x=>x.id==='${p.id}'));" title="Abrir rastreamento no MarineTraffic" style="color:var(--ink-blue-fg); text-decoration:none; font-weight:700;">${svgExternalLinkIcon(10)}</a></span>`); }
   if(extra.viagem) logiParts.push(`<span><b>Viagem:</b> ${extra.viagem}</span>`);
   if(extra.numeroBL) logiParts.push(`<span><b>BL:</b> ${extra.numeroBL}</span>`);
   if(extra.agenteCarga) logiParts.push(`<span><b>Agente:</b> ${extra.agenteCarga}</span>`);
@@ -15339,7 +15702,12 @@ function updateCostPreview(){
   const pago = (key)=> !!(payments[key] && payments[key].checked);
   const valorPago = (key)=> parseFloat(payments[key].valor)||0;
 
-  const freteEstimado = (parseFloat(pLike.frete)||0) * (parseFloat(pLike.cambio)||0);
+  const freteEstimado = (()=>{
+    const freteValorInformado = parseFloat((pLike.extra||{}).provFreteInternacionalUsd)||0;
+    const freteMoeda = (pLike.extra||{}).provFreteMoeda || 'USD';
+    const cambio = parseFloat(pLike.cambio)||0;
+    return freteMoeda==='BRL' ? freteValorInformado : freteValorInformado*cambio;
+  })();
   const freteBrl = pago('freteInternacional') ? valorPago('freteInternacional') : freteEstimado;
   const freteTag = pago('freteInternacional') ? ' <span class="cost-realizado-tag">pago</span>' : '';
 
