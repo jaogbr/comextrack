@@ -2584,6 +2584,7 @@ function attachDataListener(){
     const inicioDtaOrderChanged = migrateInicioDTAOrder();
     const atracacaoOrderChanged = migrateAtracacaoOrder();
     const aereoDtaSplitChanged = migrateAereoDTASplit();
+    const fase1SapCheckChanged = migrateFase1SapCheckInsert();
     const provRulesBackfilled = backfillDefaultProvisioningRules();
     /* Evita rodar o auto-preenchimento de NCM (que dispara um persistState() de fundo) enquanto
        o modal de processo está aberto — evita uma corrida onde esse salvamento de fundo grava
@@ -2592,7 +2593,7 @@ function attachDataListener(){
     if(!window.__editingProcess && hasAnyEditAccess()){
       const ncmChanged = autoFillKnownNcmAliquotas();
       const codigosChanged = seedCodigosImpostoParaNcmsConhecidas();
-      if(ncmChanged || codigosChanged || blOrderChanged || inicioDtaOrderChanged || atracacaoOrderChanged || aereoDtaSplitChanged || provRulesBackfilled) persistState();
+      if(ncmChanged || codigosChanged || blOrderChanged || inicioDtaOrderChanged || atracacaoOrderChanged || aereoDtaSplitChanged || fase1SapCheckChanged || provRulesBackfilled) persistState();
     }
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
@@ -2647,7 +2648,13 @@ auth.onAuthStateChanged(async (user)=>{
 /* ===================== ESTRUTURA DAS FASES ===================== */
 const STAGE_DEFS = [
   {key:'fase1', label:'Fase 1 · Pedido e Aprovação', cls:'stamp-pedido',
-    items:['Enviar PO','Abertura de pasta no sistema']},
+    /* "Verificar cadastro ativo dos itens no SAP" inserida logo depois de "Enviar PO" (pedido
+       explícito) — índice 1, empurrando "Abertura de pasta no sistema" pro índice 2. Como o
+       checklist é tick por ÍNDICE, processos já existentes são migrados por
+       migrateFase1SapCheckInsert() (chamada em attachDataListener), mesmo padrão de
+       migrateInicioDTAOrder()/migrateAtracacaoOrder(). O alerta específico e datado desse item
+       (janela de 5 dias antes da prontidão) mora em getProcessAlerts(). */
+    items:['Enviar PO','Verificar cadastro ativo dos itens no SAP','Abertura de pasta no sistema']},
   {key:'fase2', label:'Fase 2 · Confirmação e Registro', cls:'stamp-producao',
     /* "Abertura do projeto" entra AQUI dentro da Fase 2 (pedido do usuário), depois de
        "Pedido no SAP" — mas vai pro FINAL da lista de itens, não logo depois do Pedido no SAP
@@ -2856,6 +2863,26 @@ function migrateAereoDTASplit(){
       const novoFase6 = [oldFase6[0]===true, iniciouDTA, iniciouDTA]
         .concat(oldFase6.slice(2).map(v=>v===true));
       checklist['fase6'] = novoFase6;
+      p.checklist = checklist;
+      changed = true;
+    }
+  });
+  return changed;
+}
+
+/* MIGRAÇÃO: "Verificar cadastro ativo dos itens no SAP" foi inserida no índice 1 da Fase 1,
+   logo depois de "Enviar PO" — ver comentário em STAGE_DEFS/fase1. Mesmo padrão das migrações
+   acima: idempotente pelo TAMANHO do array (formato antigo tinha 2 itens; um array de 3 —
+   formato novo, já com o item extra — nunca é tocado de novo). */
+function migrateFase1SapCheckInsert(){
+  let changed = false;
+  (state.processes||[]).forEach(p=>{
+    if(!p || p.tipo==='temporaria') return;
+    const checklist = p.checklist || {};
+    const oldFase1 = Array.isArray(checklist['fase1']) ? checklist['fase1'] : null;
+    if(oldFase1 && oldFase1.length===2){
+      const novoFase1 = [oldFase1[0]===true, false, oldFase1[1]===true];
+      checklist['fase1'] = novoFase1;
       p.checklist = checklist;
       changed = true;
     }
@@ -4843,6 +4870,21 @@ function getProcessAlerts(p){
       }
       handledPendencies.add('fase3:0');
     }
+
+    /* Alerta de "Verificar cadastro ativo dos itens no SAP" (Fase 1, índice 1): mesma janela
+       de 5 dias antes da prontidão usada pro Pagamento acima, mesmo pedido explícito — e
+       continua mudando de tom depois que a prontidão passa, mesmo padrão. */
+    const sapCadastroVerificado = (p.checklist['fase1']||[])[1];
+    if(!sapCadastroVerificado && diasParaProntidao<=5){
+      if(diasParaProntidao>0){
+        alerts.push(`Faltam ${diasParaProntidao} dia${diasParaProntidao===1?'':'s'} para a prontidão da carga sem verificar o cadastro ativo dos itens no SAP`);
+      } else if(diasParaProntidao===0){
+        alerts.push('Prontidão da carga é hoje e o cadastro ativo dos itens no SAP ainda não foi verificado');
+      } else {
+        alerts.push(`Prontidão da carga foi há ${Math.abs(diasParaProntidao)} dias e o cadastro ativo dos itens no SAP ainda não foi verificado`);
+      }
+      handledPendencies.add('fase1:1');
+    }
   }
 
   if(p.dataEmbarqueReal){
@@ -5858,6 +5900,7 @@ function renderItensTab(){
         <span style="font-family:var(--font-text); font-weight:700; font-size:11px; text-align:right;">${fmtUSD((parseFloat(it.valorUnitarioUsado)||0)*(parseFloat(it.quantidade)||0))}</span>
         ${canEditHere ? `
           <div style="display:flex; gap:4px;">
+            <button class="btn" style="padding:5px 8px; font-size:11px; display:flex; align-items:center; justify-content:center;" onclick="refreshItemFromBank(${idx})" title="Atualizar do Banco de Itens (traz II, descrição, NCM, fabricante e Ex-Tarifário atualizados)">${svgRefreshIcon()}</button>
             <button class="btn" style="padding:5px 8px; font-size:11px; display:flex; align-items:center; justify-content:center;" onclick="startEditingItem('${it.id}')" title="Editar">${svgEditIcon()}</button>
             <button class="btn btn-danger" style="padding:5px 8px; font-size:11px; display:flex; align-items:center; justify-content:center;" onclick="removeItem(${idx})" title="Excluir">${svgTrashIcon()}</button>
           </div>
@@ -5882,7 +5925,8 @@ function renderItemTotals(){
       <div class="item-total-box"><div class="num">${totalItens}</div><div class="lbl">Itens</div></div>
       <div class="item-total-box"><div class="num">${qtdTotal}</div><div class="lbl">Qtd. Total</div></div>
       <div class="item-total-box"><div class="num">${fmtUSD(valorTotal)}</div><div class="lbl">Valor Total (Produtos)</div></div>
-      ${canEdit('processos') ? `<button class="btn" style="margin-left:auto;" onclick="useItemsTotalAsFOB(${valorTotal})">Usar como FOB (Custos)</button>` : ''}
+      ${canEdit('processos') ? `<button class="btn" style="margin-left:auto;" onclick="refreshAllItemsFromBank()" title="Atualiza todos os itens com os dados mais recentes do Banco de Itens (código II, descrição, NCM, fabricante e Ex-Tarifário)">${svgRefreshIcon()} Atualizar todos do Banco de Itens</button>
+      <button class="btn" onclick="useItemsTotalAsFOB(${valorTotal})">Usar como FOB (Custos)</button>` : ''}
     </div>
   ` : '';
 }
@@ -5892,6 +5936,75 @@ async function updateItemField(idx, field, val){
   p.itens[idx][field] = val;
   renderItemTotals();
   await autoPersistCurrentProcess();
+}
+
+/* Cada item do processo é uma CÓPIA (snapshot) do cadastro do Banco de Itens no momento em
+   que foi adicionado (ver selectItemProduct/quickAddProductAndItem) — não um link vivo. Se o
+   cadastro mestre for editado depois (ex: código II cadastrado mais tarde, que antes não
+   existia), o item já adicionado ao processo não reflete isso sozinho — daí o pedido de uma
+   forma de "puxar" os dados atualizados sem precisar excluir e adicionar de novo.
+   Atualiza descrição, NCM, fabricante, código II e Ex-Tarifário a partir do cadastro atual do
+   PN — só sobrescreve um campo quando o cadastro tem valor pra ele (nunca apaga um valor já
+   preenchido no item por falta de dado no cadastro). Código II é exceção, por ser sempre
+   originado do cadastro (nunca editável diretamente no item): reflete o cadastro tal como
+   está, inclusive voltando a vazio se for removido de lá.
+   Nunca mexe em Valor Unitário Usado nem Quantidade — são específicos deste processo. */
+async function refreshItemFromBank(idx){
+  const p = window.__editingProcess;
+  const it = p.itens[idx];
+  if(!it) return;
+  try{
+    const snap = await db.collection('produtos').doc(it.pn).get();
+    if(!snap.exists){
+      alert(`Produto "${it.pn}" não encontrado no Banco de Itens.`);
+      return;
+    }
+    applyProductDataToItem(it, snap.data());
+    renderItensTab();
+    renderLotesTab(); // NCM pode ter mudado — refaz a checagem de regras de extração
+    renderPreAnaliseTab();
+    await autoPersistCurrentProcess();
+  }catch(e){
+    console.error('Erro ao atualizar item a partir do Banco de Itens', e);
+    alert('Não foi possível atualizar o item a partir do Banco de Itens.');
+  }
+}
+
+/* Mesma atualização de refreshItemFromBank(), só que pra todos os itens do processo de uma
+   vez — busca cada PN distinto uma única vez, mesmo que apareça em mais de um item. */
+async function refreshAllItemsFromBank(){
+  const p = window.__editingProcess;
+  const itens = p.itens || [];
+  if(!itens.length) return;
+  if(!confirm(`Atualizar todos os ${itens.length} item(ns) deste processo com os dados mais recentes do Banco de Itens (código II, descrição, NCM, fabricante e Ex-Tarifário)? Valor unitário usado e quantidade não são alterados.`)) return;
+  try{
+    const pns = Array.from(new Set(itens.map(it=>it.pn).filter(Boolean)));
+    const snaps = await Promise.all(pns.map(pn=>db.collection('produtos').doc(pn).get()));
+    const byPn = {};
+    snaps.forEach(snap=>{ if(snap.exists) byPn[snap.id] = snap.data(); });
+    itens.forEach(it=>{
+      const dados = byPn[it.pn];
+      if(dados) applyProductDataToItem(it, dados);
+    });
+    renderItensTab();
+    renderLotesTab();
+    renderPreAnaliseTab();
+    await autoPersistCurrentProcess();
+  }catch(e){
+    console.error('Erro ao atualizar itens a partir do Banco de Itens', e);
+    alert('Não foi possível atualizar os itens a partir do Banco de Itens.');
+  }
+}
+
+function applyProductDataToItem(it, r){
+  if(r.descricao) it.descricao = r.descricao;
+  if(r.ncm) it.ncm = r.ncm;
+  if(r.fabricante) it.fabricante = r.fabricante;
+  it.codigoII = r.codigoII || '';
+  if(r.valorUnitario) it.valorUnitarioMestre = r.valorUnitario;
+  it.exTarifario = !!r.exTarifario;
+  it.exTarifarioNumero = r.exTarifarioNumero || '';
+  it.exTarifarioVencimento = r.exTarifarioVencimento || '';
 }
 /* Arrastar e soltar pra reordenar os itens do processo (segurar a alcinha e puxar). Reordena
    só o array `p.itens` — não inventa nenhum campo novo, só muda a posição de cada item dentro
