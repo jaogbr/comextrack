@@ -5841,18 +5841,38 @@ function addManualHistoryEvent(text){
   renderHistoryTab();
 }
 
-/* Lê o valor ANTERIOR mais recente de um campo direto do próprio Histórico do processo — o
-   Histórico (detectHistoryChanges/fieldChange) já grava "Anterior: X\nNova: Y" toda vez que
-   um campo rastreado muda, então esta função só EXTRAI o "Anterior:" da última ocorrência
-   daquele título, sem duplicar o dado em nenhum outro lugar. Usada no Andamento (ver
-   buildAndamentoLines) pra mostrar "(alterada — anteriormente X)" nos marcos que já mudaram.
-   Devolve null se o campo nunca mudou (nenhum evento com esse título ainda). */
-function getPreviousValueFromHistory(p, historyTitle){
+/* Reconstrói a CADEIA de valores que um campo já teve, na ordem em que existiram de verdade,
+   a partir do Histórico (detectHistoryChanges/fieldChange já grava "Anterior: X\nNova: Y",
+   ou "Definido: Y" na primeira vez que o campo é preenchido). Devolve só valores já
+   FORMATADOS (dd/mm/aaaa, do jeito que o Histórico guarda) — o valor atual sempre entra por
+   último, mesmo que o Histórico ainda não tenha o evento mais recente registrado (ex: escrita
+   em andamento). Usada no Andamento (ver buildAndamentoLines) pra listar cada valor antigo
+   numa linha própria, marcada "(alterada)", terminando no valor de hoje sem marca. */
+function getValueChainFromHistory(p, historyTitle, currentValueIso){
   const events = (p.history||[]).filter(h=>h.title===historyTitle);
-  if(!events.length) return null;
-  const last = events[events.length-1]; // history é append-only — o último é o mais recente
-  const m = /Anterior: (.+?)(?:\n|$)/.exec(last.detail||'');
-  return m ? m[1] : null;
+  const chain = [];
+  events.forEach(ev=>{
+    const detail = ev.detail || '';
+    const mChange = /Anterior: (.+?)\nNova: (.+)/.exec(detail);
+    const mFirst = /^Definido: (.+)/.exec(detail);
+    if(mChange){
+      if(!chain.length) chain.push(mChange[1]);
+      chain.push(mChange[2]);
+    } else if(mFirst && !chain.length){
+      chain.push(mFirst[1]);
+    }
+  });
+  const currentDisplay = fmtDate(currentValueIso);
+  if(!chain.length || chain[chain.length-1]!==currentDisplay) chain.push(currentDisplay);
+  return chain;
+}
+/* Inverso de fmtDate() — "dd/mm/aaaa" (formato guardado no Histórico) de volta pra
+   "aaaa-mm-dd" (formato usado em todo o resto do app pra ordenar/comparar datas como texto).
+   Só usada pra poder ordenar cronologicamente as linhas de getValueChainFromHistory no
+   Andamento junto com todo o resto. */
+function isoFromDisplayDate(displayDate){
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(displayDate||'');
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : (displayDate||'');
 }
 function editManualHistoryEvent(id){
   const p = window.__editingProcess;
@@ -6530,25 +6550,28 @@ function buildAndamentoLines(p){
      entram depois de todas as datadas, antes da posição atual. */
   const dated = [];
   const undated = [];
-  /* Marcos "previstos" (ainda não confirmados) mostram a anotação "(alterado — anteriormente
-     X)" quando o próprio Histórico do processo (detectHistoryChanges) já registrou uma
-     mudança nesse campo — não duplica o dado em lugar nenhum, só lê o "Anterior:" que o
-     Histórico já grava. Pedido explícito: Prontidão e Chegada Prevista entram nessa regra;
-     outros campos com o mesmo tratamento no Histórico (Embarque Previsto, por ex.) podem
-     entrar aqui do mesmo jeito quando fizer sentido mostrar no Andamento. */
-  const add = (label, dateStr, previousLabelSuffix) => {
-    if(!dateStr) return;
-    dated.push({ text:`${label}: ${fmtDate(dateStr)}${previousLabelSuffix||''}`, date:dateStr });
-  };
-  const changedSuffix = (historyTitle) => {
-    const anterior = getPreviousValueFromHistory(p, historyTitle);
-    return anterior ? ` (alterada — anteriormente ${anterior})` : '';
+  /* Marcos "previstos" que já mudaram de valor mostram uma linha PRA CADA valor que já teve
+     (não só o atual), em ordem cronológica, cada um marcado "(alterada)" — só o valor atual
+     fica sem marca. Ex.: prontidão que foi 22/09 → 29/09 → 30/09 (atual) vira 3 linhas.
+     Reconstrói essa cadeia a partir do próprio Histórico do processo (detectHistoryChanges),
+     que já grava "Anterior: X\nNova: Y" toda vez que o campo muda — não duplica o dado em
+     lugar nenhum, só lê o que já existe. Pedido explícito: Prontidão e Chegada Prevista
+     entram nessa regra; outros campos com o mesmo tratamento no Histórico (Embarque
+     Previsto, por ex.) podem entrar aqui do mesmo jeito quando fizer sentido no Andamento. */
+  const add = (label, dateStr) => { if(dateStr) dated.push({ text:`${label}: ${fmtDate(dateStr)}`, date:dateStr }); };
+  const pushValueChain = (label, historyTitle, currentValueIso) => {
+    if(!currentValueIso) return;
+    const chain = getValueChainFromHistory(p, historyTitle, currentValueIso);
+    chain.forEach((displayVal, i)=>{
+      const isLast = i===chain.length-1;
+      dated.push({ text:`${label}: ${displayVal}${isLast?'':' (alterada)'}`, date: isoFromDisplayDate(displayVal) });
+    });
   };
 
   add('Data do pedido', p.dataPedido);
 
   if(p.prontidao){
-    add(p.prontidaoConfirmada ? 'Prontidão confirmada' : 'Prontidão prevista', p.prontidao, changedSuffix('Prontidão da carga alterada'));
+    pushValueChain(p.prontidaoConfirmada ? 'Prontidão confirmada' : 'Prontidão prevista', 'Prontidão da carga alterada', p.prontidao);
   }
 
   add('Carga embarcada', p.dataEmbarqueReal);
@@ -6563,7 +6586,7 @@ function buildAndamentoLines(p){
     const localTxt = chegadaBrasilInfo.local ? ` (${chegadaBrasilInfo.local})` : '';
     add(`${nomeChegada} confirmada${localTxt}`, chegadaReal);
   } else if(p.chegadaPrevista){
-    add(`${nomeChegada} prevista`, p.chegadaPrevista, changedSuffix('Data prevista de chegada alterada'));
+    pushValueChain(`${nomeChegada} prevista`, 'Data prevista de chegada alterada', p.chegadaPrevista);
   }
   // Chegada no RECINTO de desembaraço — só aparece como linha própria quando é um marco
   // distinto da chegada ao Brasil acima (ex: aéreo com transferência pra outro aeroporto,
