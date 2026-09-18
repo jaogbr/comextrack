@@ -607,7 +607,7 @@ body.dark-mode .process-main h3{color:var(--text);}
 .track-dot.current{background:var(--ink-red); box-shadow:0 0 0 3px var(--ink-red-bg);}
 .track-line{flex:1; height:2px; background:var(--border-strong);}
 .track-line.done{background:var(--ink-green);}
-.step-note{font-size:12px; color:var(--ink-red-fg); margin-top:5px; font-style:normal;}
+.step-note{font-size:12px; color:var(--ink-blue-fg); margin-top:5px; font-style:normal;} /* azul informativo — antes era a mesma cor vermelha do alert-banner, o que fazia a posição/estágio atual parecer um alerta de verdade */
 .progress-pct{font-size:10.5px; color:var(--muted); margin-top:4px; font-family:var(--font-text);}
 .alert-banner{
   display:inline-flex; align-items:center; gap:6px;
@@ -2136,6 +2136,7 @@ body{overflow-x:hidden; max-width:100vw;}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-functions-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
@@ -2253,6 +2254,10 @@ try{
 const auth = firebase.auth();
 const db = firebase.firestore();
 const storage = firebase.storage();
+/* Único ponto de acesso ao backend (Cloud Functions) — toda comunicação com o Portal
+   Único Siscomex passa exclusivamente por aqui (nunca direto do navegador pro Portal
+   Único). Região default (us-central1); não redeployar em outra região sem atualizar aqui. */
+const cloudFunctions = firebase.functions();
 let currentUser = null;
 let currentRole = 'viewer';
 let currentUserCargoId = null;
@@ -5077,9 +5082,11 @@ function getProcessAlerts(p){
       pendentes = s.items.filter(it=>!(p.payments[it.key]||{}).checked).map(it=>it.label);
     } else {
       const checked = p.checklist[s.key]||[];
+      /* "Testar NF" nunca vira alerta pro viewer, mesmo tratamento já dado em
+         currentStepLabel() — é procedimento interno, sem relevância pra quem só visualiza. */
       pendentes = s.items
         .map((label,idx)=>({label,idx}))
-        .filter(({idx})=>!checked[idx] && !handledPendencies.has(s.key+':'+idx))
+        .filter(({idx,label})=>!checked[idx] && !handledPendencies.has(s.key+':'+idx) && !(currentRole==='viewer' && label==='Testar NF'))
         .map(({label})=>label);
     }
     if(pendentes.length){
@@ -14570,6 +14577,7 @@ function openProcessModal(id){
           <button class="tab-btn" data-tab="historico" onclick="switchTab('historico')">Histórico</button>
           <button class="tab-btn" data-tab="emails" onclick="switchTab('emails')">E-mails</button>
           <button class="tab-btn" data-tab="lotes" onclick="switchTab('lotes')">Lotes</button>
+          <button class="tab-btn" data-tab="duimp" onclick="switchTab('duimp')">Portal Único / DUIMP</button>
         </div>
 
         <div class="tab-pane active" id="tab-geral">
@@ -14970,6 +14978,10 @@ function openProcessModal(id){
         <div class="tab-pane" id="tab-lotes">
           <div id="lotes-content"></div>
         </div>
+
+        <div class="tab-pane" id="tab-duimp">
+          <div id="duimp-content"></div>
+        </div>
       </div>
       <div class="modal-footer">
         <div style="display:flex; gap:8px;">
@@ -15000,6 +15012,7 @@ function openProcessModal(id){
   renderLotesTab();
   window.__preAnaliseFilters = { search:'', ncm:'', registroMs:'', situacao:'todos' };
   renderPreAnaliseTab();
+  renderDuimpTab();
   if(!existing) fetchDollarQuoteIfNeeded();
   ensureMasterDataForProcess();
 }
@@ -16463,6 +16476,244 @@ async function deleteSupplier(id){
   await persistState();
   closeModal();
   render();
+}
+
+/* ===================== Integração Portal Único / DUIMP =====================
+   Consulta/sincronização assistida com o Portal Único Siscomex — toda comunicação de rede
+   com o Portal passa pelo backend (Cloud Functions, ver `cloudFunctions` acima); o frontend
+   nunca fala direto com o Portal Único. Primeira versão: só consulta e comparação, nunca
+   registra/retifica/cancela/transmite nada, e nunca move fase/etapa sozinha — isso continua
+   sendo decisão humana na aba Etapas (ver DUIMP_FIELD_TO_EXTRA abaixo — só espelha campos de
+   referência, nunca confirma etapa). */
+let __duimpLinkCache = null;
+
+async function renderDuimpTab(){
+  const p = window.__editingProcess;
+  const el = document.getElementById('duimp-content');
+  if(!el || !p) return;
+  el.innerHTML = `<div class="form-hint">Carregando integração com o Portal Único...</div>`;
+  try{
+    const linkSnap = await db.collection('companies').doc(activeCompanyId).collection('duimp_links').doc(p.id).get();
+    __duimpLinkCache = linkSnap.exists ? linkSnap.data() : null;
+  }catch(e){
+    console.error('Erro ao carregar vínculo DUIMP', e);
+    __duimpLinkCache = null;
+  }
+  renderDuimpCard();
+}
+
+function renderDuimpCard(){
+  const el = document.getElementById('duimp-content');
+  if(!el) return;
+  const p = window.__editingProcess;
+  const link = __duimpLinkCache;
+  const canEditHere = canEdit('processos');
+  const numeroCadastrado = (p.extra||{}).numeroDUIMP || '';
+
+  if(!link){
+    el.innerHTML = `
+      <div class="process-section">
+        ${renderSectionRectangle({icon:svgDocumentIcon(17), title:'Integração Portal Único / DUIMP', cls:'is-neutral'})}
+        <div class="form-hint" style="margin-bottom:10px;">Nenhuma DUIMP vinculada a este processo.</div>
+        ${numeroCadastrado ? `
+          <div class="prov-line"><div class="prov-line-label">Número da DUIMP (cadastrado no processo)</div><div class="prov-line-value">${numeroCadastrado}</div></div>
+          ${canEditHere ? `<button class="btn btn-primary" onclick="vincularDuimpDoProcesso()">Vincular DUIMP nº ${numeroCadastrado}</button>` : ''}
+        ` : `
+          <div class="form-hint">Preencha o "Número da DUIMP" na aba Etapas (Fase 6 · "Registro da DUIMP") antes de vincular — a integração usa sempre o número já cadastrado no processo, nunca digitado à parte aqui.</div>
+          <button class="btn" onclick="switchTab('etapas')" style="margin-top:8px;">Ir para Etapas</button>
+        `}
+      </div>`;
+    return;
+  }
+
+  /* Cores reaproveitadas do mesmo conjunto usado no resto do app (ver renderSectionRectangle
+     no CSS: is-production=azul, is-waiting=âmbar, is-alert=vermelho, is-neutral=neutro) —
+     nenhuma cor nova inventada. */
+  const statusCls = {
+    'Sincronizada': 'is-production', 'Dados divergentes': 'is-waiting', 'Aguardando consulta': 'is-neutral',
+    'Consultando': 'is-neutral', 'Erro na consulta': 'is-alert', 'Acesso não autorizado': 'is-alert',
+    'Credenciais não configuradas': 'is-alert',
+  };
+  const cls = statusCls[link.integrationStatus] || 'is-neutral';
+  const tsMillis = link.lastConsultedAt ? (link.lastConsultedAt.toMillis ? link.lastConsultedAt.toMillis() : link.lastConsultedAt) : null;
+  const ultimaConsulta = tsMillis ? formatHistoryDate(tsMillis) : null;
+  /* O número cadastrado no processo pode ter sido alterado (ex: corrigido) DEPOIS do vínculo
+     — nesse caso o vínculo fica "desatualizado" e avisa, em vez de silenciosamente continuar
+     consultando o número antigo. */
+  const numeroDivergente = numeroCadastrado && link.duimpNumber && numeroCadastrado!==link.duimpNumber;
+
+  el.innerHTML = `
+    <div class="process-section">
+      ${renderSectionRectangle({icon:svgDocumentIcon(17), title:'Integração Portal Único / DUIMP', cls})}
+      <div class="prov-line"><div class="prov-line-label">Número da DUIMP</div><div class="prov-line-value">${link.duimpNumber||'—'}</div></div>
+      <div class="prov-line"><div class="prov-line-label">Versão</div><div class="prov-line-value">Vigente</div></div>
+      <div class="prov-line"><div class="prov-line-label">Situação</div><div class="prov-line-value">${link.integrationStatus||'—'}</div></div>
+      <div class="prov-line"><div class="prov-line-label">Última consulta</div><div class="prov-line-value">${ultimaConsulta||'Nunca consultada'}</div></div>
+      ${link.lastErrorMessage ? `<div class="form-hint" style="color:var(--ink-red-fg);">${svgWarnInline()} ${link.lastErrorMessage}</div>` : ''}
+      ${numeroDivergente ? `<div class="form-hint" style="color:var(--ink-amber-fg);">${svgWarnInline()} O número cadastrado no processo (${numeroCadastrado}) é diferente do vinculado aqui (${link.duimpNumber}). ${canEditHere?`<a class="hint-link" onclick="vincularDuimpDoProcesso()">Atualizar vínculo →</a>`:''}</div>` : ''}
+      <div class="form-hint" style="margin:10px 0;">A confirmação de etapas continua sendo feita manualmente na aba Etapas — esta integração só traz dados oficiais do Portal Único como evidência e sugestão, nunca move fase sozinha.</div>
+      ${canEditHere ? `
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="consultarPortalUnicoDuimp()">${svgRefreshIcon()} Consultar Portal Único</button>
+          <button class="btn" onclick="openDuimpComparisonModal()">Ver comparação</button>
+          <button class="btn btn-danger" onclick="desvincularDuimpPrompt()">Desvincular</button>
+        </div>
+      ` : ''}
+    </div>`;
+}
+
+/* Vincula sempre com o número já cadastrado no processo (extra.numeroDUIMP, preenchido na
+   aba Etapas/Fase 6) — nunca pede pra digitar de novo aqui, pra não correr o risco de um
+   número diferente do que está registrado no processo. Versão sempre "vigente" (null): a
+   primeira versão do spec não pede consulta a uma versão retificada específica. */
+async function vincularDuimpDoProcesso(){
+  if(!requireEditPermission()) return;
+  const p = window.__editingProcess;
+  const numero = (p.extra||{}).numeroDUIMP || '';
+  if(!numero){ alert('Preencha o Número da DUIMP na aba Etapas (Fase 6) antes de vincular.'); return; }
+  try{
+    await cloudFunctions.httpsCallable('vincularDuimpPortalUnico')({
+      companyId: activeCompanyId, processId: p.id, duimpNumber: numero, duimpVersion: null,
+    });
+    await renderDuimpTab();
+  }catch(e){
+    console.error(e);
+    alert(e.message || 'Não foi possível vincular a DUIMP a este processo.');
+  }
+}
+
+async function desvincularDuimpPrompt(){
+  if(!requireEditPermission()) return;
+  if(!confirm('Desvincular esta DUIMP deste processo? O histórico de auditoria é preservado, mas o vínculo, os snapshots e as comparações deixam de ser mostrados aqui.')) return;
+  const p = window.__editingProcess;
+  try{
+    await cloudFunctions.httpsCallable('desvincularDuimpPortalUnico')({ companyId: activeCompanyId, processId: p.id });
+    await renderDuimpTab();
+  }catch(e){
+    console.error(e);
+    alert(e.message || 'Não foi possível desvincular a DUIMP.');
+  }
+}
+
+/* Campos internos que a plataforma já sabe comparar contra o Portal Único — deliberadamente
+   pequeno na primeira versão (item 9 do spec: só campos de baixo risco/referência). Cada
+   `fieldName` casa com o mesmo nome usado em DuimpNormalizedData no backend. */
+function coletarCamposInternosDuimp(p){
+  const extra = p.extra || {};
+  return [
+    { fieldName: 'registrationDate', label: 'Data de Registro', internalValue: extra.dataRegistroDUIMP || '' },
+    { fieldName: 'customsChannel', label: 'Canal Aduaneiro', internalValue: extra.canalDesembaraco || '' },
+    { fieldName: 'totalItems', label: 'Quantidade de Itens', internalValue: (p.itens||[]).length ? String(p.itens.length) : '' },
+  ];
+}
+
+async function consultarPortalUnicoDuimp(){
+  if(!requireEditPermission()) return;
+  const p = window.__editingProcess;
+  const btn = event && event.target ? event.target.closest('button') : null;
+  const original = btn ? btn.innerHTML : null;
+  if(btn){ btn.disabled = true; btn.innerHTML = 'Consultando…'; }
+  try{
+    const result = await cloudFunctions.httpsCallable('consultarDuimpPortalUnico')({
+      companyId: activeCompanyId, processId: p.id, camposInternos: coletarCamposInternosDuimp(p),
+    });
+    await renderDuimpTab();
+    const divergencias = result.data && result.data.divergencias;
+    alert(divergencias>0
+      ? `Consulta concluída. ${divergencias} divergência(s) encontrada(s) — veja em "Ver comparação".`
+      : 'Consulta concluída. Os dados internos batem com o Portal Único.');
+  }catch(e){
+    console.error(e);
+    await renderDuimpTab();
+    alert(e.message || 'Não foi possível consultar o Portal Único agora.');
+  }finally{
+    if(btn){ btn.disabled = false; btn.innerHTML = original; }
+  }
+}
+
+async function openDuimpComparisonModal(){
+  const p = window.__editingProcess;
+  if(!__duimpLinkCache){ alert('Vincule uma DUIMP antes de ver a comparação.'); return; }
+  let comparisons = [];
+  try{
+    const snap = await db.collection('companies').doc(activeCompanyId).collection('duimp_comparisons').doc(p.id).collection('fields').get();
+    snap.forEach(d=>comparisons.push(d.data()));
+  }catch(e){ console.error(e); }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'duimp-comparison-overlay';
+  attachOverlayOutsideClose(overlay, ()=>overlay.remove());
+  const canEditHere = canEdit('processos');
+  const statusLabel = { EQUAL:'Igual', DIFFERENT:'Divergente', INTERNAL_EMPTY:'Não preenchida na plataforma', PORTAL_EMPTY:'Não disponível no Portal' };
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:720px;">
+      <div class="modal-header">
+        <h2>Comparar dados da DUIMP</h2>
+        <button class="modal-close" onclick="document.getElementById('duimp-comparison-overlay').remove()">×</button>
+      </div>
+      <div class="modal-body">
+        ${!comparisons.length ? `<div class="form-hint">Nenhuma comparação disponível ainda — clique em "Consultar Portal Único" primeiro.</div>` : `
+        <table class="cost-table">
+          <thead><tr><th>Campo</th><th>Plataforma</th><th>Portal Único</th><th>Situação</th>${canEditHere?'<th>Ação</th>':''}</tr></thead>
+          <tbody>
+            ${comparisons.map(c=>`
+              <tr>
+                <td>${c.label||c.fieldName}</td>
+                <td>${c.internalValue || '—'}</td>
+                <td>${c.portalValue || '—'}</td>
+                <td>${statusLabel[c.status]||c.status}</td>
+                ${canEditHere ? `<td>
+                  ${(c.status==='DIFFERENT' || c.status==='INTERNAL_EMPTY') && DUIMP_FIELD_TO_EXTRA[c.fieldName] ? `<button class="btn" style="padding:4px 8px; font-size:11px;" onclick="aplicarComparacaoDuimp('${c.fieldName}','PORTAL')">Importar do Portal</button>` : ''}
+                  ${c.selectedValueSource ? `<div class="form-hint" style="margin-top:4px;">Mantido: ${c.selectedValueSource==='PORTAL'?'Portal Único':'Plataforma'}</div>` : ''}
+                </td>` : ''}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`}
+        <div class="form-hint" style="margin-top:10px;">Importar um campo aqui registra a decisão e a origem — não sobrescreve nada automaticamente em consultas futuras sem nova confirmação.</div>
+      </div>
+      <div class="modal-footer">
+        <span></span>
+        <button class="btn" onclick="document.getElementById('duimp-comparison-overlay').remove()">Fechar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+/* Aplica a decisão de um campo: registra no backend (fonte + auditoria) e, se a fonte
+   escolhida foi o Portal Único, espelha o valor no processo (mesmo caminho de sempre — p.extra
+   + autoPersistCurrentProcess), marcando a origem, igual a qualquer outro campo sincronizado
+   (item 11 do spec). Só campos com contraparte editável em p.extra entram aqui — os demais
+   (ex: totalItems) são só informativos, sem botão de importar. */
+const DUIMP_FIELD_TO_EXTRA = {
+  registrationDate: 'dataRegistroDUIMP',
+  customsChannel: 'canalDesembaraco',
+};
+async function aplicarComparacaoDuimp(fieldName, source){
+  if(!requireEditPermission()) return;
+  const p = window.__editingProcess;
+  try{
+    const result = await cloudFunctions.httpsCallable('importarCampoDuimp')({
+      companyId: activeCompanyId, processId: p.id, fieldName, source,
+    });
+    const extraKey = DUIMP_FIELD_TO_EXTRA[fieldName];
+    if(extraKey && result.data && result.data.value!=null){
+      p.extra = p.extra || {};
+      p.extra[extraKey] = result.data.value;
+      p.extra._duimpFieldSources = p.extra._duimpFieldSources || {};
+      p.extra._duimpFieldSources[extraKey] = { source, at: Date.now() };
+      renderEtapasTab();
+      await autoPersistCurrentProcess();
+    }
+    const overlay = document.getElementById('duimp-comparison-overlay');
+    if(overlay) overlay.remove();
+    openDuimpComparisonModal();
+  }catch(e){
+    console.error(e);
+    alert(e.message || 'Não foi possível aplicar esta importação.');
+  }
 }
 
 applyStoredTheme();
