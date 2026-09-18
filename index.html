@@ -1088,7 +1088,7 @@ body.dark-mode .followup-narrative-row td{background:rgba(255,255,255,0.03);}
 .import-status-badge.alterado{background:var(--ink-amber-bg); color:var(--ink-amber-fg);}
 .import-status-badge.inalterado{background:var(--paper); color:var(--muted);}
 
-.item-row{display:grid; grid-template-columns:20px 78px 1fr 60px 100px 42px 112px 68px; gap:6px; align-items:center; background:var(--paper); border:1px solid var(--border); border-radius:6px; padding:9px 9px; margin-bottom:6px;}
+.item-row{display:grid; grid-template-columns:20px 78px 1fr 60px 100px 42px 112px 104px; gap:6px; align-items:center; background:var(--paper); border:1px solid var(--border); border-radius:6px; padding:9px 9px; margin-bottom:6px;} /* última coluna 68px→104px: passou a caber 3 botões de ação (Atualizar/Editar/Excluir), não só 2 */
 .item-drag-handle{
   display:flex; align-items:center; justify-content:center; color:var(--muted); cursor:grab;
   touch-action:none; border-radius:4px; align-self:stretch;
@@ -5056,6 +5056,21 @@ function getProcessAlerts(p){
     alerts.push(`Carga acima de ${limiteFmt} (${valorFmt}) — informe a seguradora`);
   }
 
+  /* Alerta de "Testar NF" (Fase 6, índice 9): só nasce depois que a DUIMP já foi registrada
+     (não faz sentido cobrar teste de uma declaração que ainda não existe) e só depois de 1
+     dia sem confirmar — antes disso fica em silêncio, sem aparecer em posição nem em alerta.
+     Nunca aparece pro perfil viewer (canEdit('processos') falso) — é procedimento interno,
+     pedido explícito. Continua avisando (com "há X dias") enquanto não for testado. */
+  const fase6checked = p.checklist['fase6']||[];
+  const registroDuimpFeito = fase6checked[8];
+  const testarNfFeito = fase6checked[9];
+  if(registroDuimpFeito && !testarNfFeito && extra.dataRegistroDUIMP && canEdit('processos')){
+    const diasDesdeRegistro = daysBetween(extra.dataRegistroDUIMP, today);
+    if(diasDesdeRegistro>=1){
+      alerts.push(`Testar NF pendente — DUIMP registrada há ${diasDesdeRegistro} dia${diasDesdeRegistro===1?'':'s'} sem confirmação do teste`);
+    }
+  }
+
   const prazoZS = prazoPrimeiroPeriodoZonaSecundaria(p);
   if(prazoZS){
     const diasParaPrazoZS = daysBetween(today, prazoZS);
@@ -5082,11 +5097,12 @@ function getProcessAlerts(p){
       pendentes = s.items.filter(it=>!(p.payments[it.key]||{}).checked).map(it=>it.label);
     } else {
       const checked = p.checklist[s.key]||[];
-      /* "Testar NF" nunca vira alerta pro viewer, mesmo tratamento já dado em
-         currentStepLabel() — é procedimento interno, sem relevância pra quem só visualiza. */
+      /* "Testar NF" nunca entra na lista genérica — passou a ter alerta próprio, específico
+         e datado (ver abaixo, logo depois do bloco de p.prontidao), que só nasce 1 dia depois
+         do Registro da DUIMP e nunca aparece pro perfil viewer. Vale pra qualquer perfil. */
       pendentes = s.items
         .map((label,idx)=>({label,idx}))
-        .filter(({idx,label})=>!checked[idx] && !handledPendencies.has(s.key+':'+idx) && !(currentRole==='viewer' && label==='Testar NF'))
+        .filter(({idx,label})=>!checked[idx] && !handledPendencies.has(s.key+':'+idx) && label!=='Testar NF')
         .map(({label})=>label);
     }
     if(pendentes.length){
@@ -5735,6 +5751,8 @@ function detectHistoryChanges(prev, next){
   };
 
   fieldChange('Data prevista de chegada alterada', svgCalendarIcon(), prev.chegadaPrevista, next.chegadaPrevista, fmtDate);
+  fieldChange('Prontidão da carga alterada', svgCalendarIcon(), prev.prontidao, next.prontidao, fmtDate);
+  fieldChange('Embarque previsto alterado', svgCalendarIcon(), prev.embarquePrevisto, next.embarquePrevisto, fmtDate);
   fieldChange('Navio atracado no porto', svgAnchorIcon(), (prev.extra||{}).dataAtracacaoPorto, (next.extra||{}).dataAtracacaoPorto, fmtDate);
   fieldChange('Chegada na Zona Primária confirmada', svgAnchorIcon(), (prev.extra||{}).dataChegadaZonaPrimaria, (next.extra||{}).dataChegadaZonaPrimaria, fmtDate);
   fieldChange('Data de embarque alterada', svgShipIcon(), prev.dataEmbarqueReal, next.dataEmbarqueReal, fmtDate);
@@ -5821,6 +5839,20 @@ function addManualHistoryEvent(text){
   p.history = p.history || [];
   p.history.push({ id: uid(), ts: Date.now(), manual: true, icon:svgEditIcon(), title:'Registro manual', detail: text.trim() });
   renderHistoryTab();
+}
+
+/* Lê o valor ANTERIOR mais recente de um campo direto do próprio Histórico do processo — o
+   Histórico (detectHistoryChanges/fieldChange) já grava "Anterior: X\nNova: Y" toda vez que
+   um campo rastreado muda, então esta função só EXTRAI o "Anterior:" da última ocorrência
+   daquele título, sem duplicar o dado em nenhum outro lugar. Usada no Andamento (ver
+   buildAndamentoLines) pra mostrar "(alterada — anteriormente X)" nos marcos que já mudaram.
+   Devolve null se o campo nunca mudou (nenhum evento com esse título ainda). */
+function getPreviousValueFromHistory(p, historyTitle){
+  const events = (p.history||[]).filter(h=>h.title===historyTitle);
+  if(!events.length) return null;
+  const last = events[events.length-1]; // history é append-only — o último é o mais recente
+  const m = /Anterior: (.+?)(?:\n|$)/.exec(last.detail||'');
+  return m ? m[1] : null;
 }
 function editManualHistoryEvent(id){
   const p = window.__editingProcess;
@@ -6490,13 +6522,33 @@ function getFollowUpStatus(p){
 function buildAndamentoLines(p){
   const extra = p.extra || {};
   const today = todayStr();
-  const lines = [];
-  const add = (label, dateStr) => { if(dateStr) lines.push(`${label}: ${fmtDate(dateStr)}`); };
+  /* `dated` guarda {text,date} pra poder ORDENAR CRONOLOGICAMENTE ao final, pela data real de
+     cada marco — não mais pela ordem em que o código os testa. Um marco fora da sequência
+     "esperada" (ex: DTA iniciada registrada depois da DUIMP, num processo com retrabalho)
+     agora aparece na posição cronológica certa, não na posição de "fluxo padrão" de antes.
+     `undated` é só pra linhas sem data própria pra ordenar (ex: NF, sem campo de data) — essas
+     entram depois de todas as datadas, antes da posição atual. */
+  const dated = [];
+  const undated = [];
+  /* Marcos "previstos" (ainda não confirmados) mostram a anotação "(alterado — anteriormente
+     X)" quando o próprio Histórico do processo (detectHistoryChanges) já registrou uma
+     mudança nesse campo — não duplica o dado em lugar nenhum, só lê o "Anterior:" que o
+     Histórico já grava. Pedido explícito: Prontidão e Chegada Prevista entram nessa regra;
+     outros campos com o mesmo tratamento no Histórico (Embarque Previsto, por ex.) podem
+     entrar aqui do mesmo jeito quando fizer sentido mostrar no Andamento. */
+  const add = (label, dateStr, previousLabelSuffix) => {
+    if(!dateStr) return;
+    dated.push({ text:`${label}: ${fmtDate(dateStr)}${previousLabelSuffix||''}`, date:dateStr });
+  };
+  const changedSuffix = (historyTitle) => {
+    const anterior = getPreviousValueFromHistory(p, historyTitle);
+    return anterior ? ` (alterada — anteriormente ${anterior})` : '';
+  };
 
   add('Data do pedido', p.dataPedido);
 
   if(p.prontidao){
-    add(p.prontidaoConfirmada ? 'Prontidão confirmada' : 'Prontidão prevista', p.prontidao);
+    add(p.prontidaoConfirmada ? 'Prontidão confirmada' : 'Prontidão prevista', p.prontidao, changedSuffix('Prontidão da carga alterada'));
   }
 
   add('Carga embarcada', p.dataEmbarqueReal);
@@ -6511,7 +6563,7 @@ function buildAndamentoLines(p){
     const localTxt = chegadaBrasilInfo.local ? ` (${chegadaBrasilInfo.local})` : '';
     add(`${nomeChegada} confirmada${localTxt}`, chegadaReal);
   } else if(p.chegadaPrevista){
-    add(`${nomeChegada} prevista`, p.chegadaPrevista);
+    add(`${nomeChegada} prevista`, p.chegadaPrevista, changedSuffix('Data prevista de chegada alterada'));
   }
   // Chegada no RECINTO de desembaraço — só aparece como linha própria quando é um marco
   // distinto da chegada ao Brasil acima (ex: aéreo com transferência pra outro aeroporto,
@@ -6527,7 +6579,7 @@ function buildAndamentoLines(p){
 
   if(extra.dataRegistroDUIMP){
     const canal = extra.canalDesembaraco ? ` (Canal ${extra.canalDesembaraco})` : '';
-    lines.push(`DUIMP registrada${canal}: ${fmtDate(extra.dataRegistroDUIMP)}`);
+    dated.push({ text:`DUIMP registrada${canal}: ${fmtDate(extra.dataRegistroDUIMP)}`, date: extra.dataRegistroDUIMP });
   }
 
   add('DUIMP desembaraçada', extra.dataDesembaraco);
@@ -6537,14 +6589,20 @@ function buildAndamentoLines(p){
   const fase7Stage = stages.find(s=>s.key==='fase7');
   const fase7 = (p.checklist||{})['fase7']||[];
   if(fase7Stage && fase7Stage.receiptItemIndex!=null && fase7[fase7Stage.receiptItemIndex]){
-    lines.push('Carga removida e recebida em estoque');
+    if(extra.dataRecebimentoEstoque) dated.push({ text:'Carga removida e recebida em estoque', date: extra.dataRecebimentoEstoque });
+    else undated.push('Carga removida e recebida em estoque');
   }
 
-  if(extra.numeroNF) lines.push(`NF de entrada: ${extra.numeroNF}`);
+  if(extra.numeroNF) undated.push(`NF de entrada: ${extra.numeroNF}`);
+
+  dated.sort((a,b)=> a.date<b.date ? -1 : a.date>b.date ? 1 : 0);
+  const lines = dated.map(d=>d.text).concat(undated);
 
   /* Follow-up é acompanhamento de POSIÇÃO da carga, não central de pendências — a última
      linha descreve onde a carga está agora, em linguagem de localização/etapa (nunca
-     "Pendente: X", que fala de tarefa administrativa, não de posição operacional). */
+     "Pendente: X", que fala de tarefa administrativa, não de posição operacional). Fica
+     sempre por último, fora da ordenação cronológica acima — não é um evento passado, é o
+     status atual. */
   const posicao = getPosicaoAtualTexto(p);
   if(posicao) lines.push(posicao);
 
@@ -8952,7 +9010,7 @@ function getBucket(p){
   return embarqueConfirmado ? 'transito' : 'aguardando_embarque';
 }
 
-function currentStepLabel(p, forViewer){
+function currentStepLabel(p){
   const stages = getStagesForProcess(p);
   /* Procura o item pendente mais antigo em toda a jornada, não só dentro da fase
      "atual" — já que a fase atual pode estar mais adiante por causa de um marco
@@ -8964,12 +9022,12 @@ function currentStepLabel(p, forViewer){
       if(pend) return `Pendente: ${pend.label}`;
     } else {
       const checked = p.checklist[stage.key]||[];
-      /* Pra quem só tem acesso de visualização (viewer), "Testar NF" é um passo interno de
-         controle de qualidade sem relevância externa — pedido explícito pra não aparecer como
-         pendência nessa visão; pula esse item específico e mostra o próximo pendente de
-         verdade (normalmente Desembaraço da DUIMP ou Liberação SEFAZ, que é o que importa
-         pro viewer). Pra quem edita o processo, nada muda. */
-      const idx = stage.items.findIndex((_,i)=> !checked[i] && !(forViewer && stage.items[i]==='Testar NF'));
+      /* "Testar NF" nunca aparece aqui como posição/pendência — passou a ser tratado como
+         alerta próprio (ver getProcessAlerts: só nasce 1 dia depois do Registro da DUIMP, e
+         nunca aparece pro perfil viewer), não como item sequencial que bloqueia a leitura de
+         "qual é o próximo passo". Vale pra qualquer perfil, não só viewer — é procedimento
+         interno de QA, nunca a "posição" oficial do processo. */
+      const idx = stage.items.findIndex((_,i)=> !checked[i] && stage.items[i]!=='Testar NF');
       if(idx>=0) return `Pendente: ${stage.items[idx]}`;
     }
   }
@@ -13707,7 +13765,7 @@ function aguardandoEmbarqueCard(p){
 function desembaracoCard(p){
   const fornecedor = state.suppliers.find(s=>s.id===p.supplierId);
   const extra = p.extra || {};
-  const statusText = extra.statusDesembaraco || currentStepLabel(p, currentRole==='viewer');
+  const statusText = extra.statusDesembaraco || currentStepLabel(p);
   const infoParts = [];
   /* Pedido explícito: mesmo já estando em desembaraço, manter visível quando a carga chegou
      ao Brasil e quando chegou ao recinto — os dois marcos separados (ver
