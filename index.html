@@ -6488,15 +6488,23 @@ function getFollowUpStatus(p){
   const stages = getStagesForProcess(p);
   const checklist = p.checklist || {};
 
+  const fase6Stage = stages.find(s=>s.key==='fase6');
+  const fase6 = checklist['fase6']||[];
+  const sefazLiberada = fase6Stage ? !!fase6[fase6Stage.items.indexOf('Liberação SEFAZ')] : false;
+
   const fase7Stage = stages.find(s=>s.key==='fase7');
   const fase7 = checklist['fase7']||[];
-  if(fase7Stage){
+  /* "Em remoção"/"Entregue" só podem ser o status real DEPOIS que a Liberação SEFAZ (Fase 6)
+     de fato aconteceu — sem essa condição, um item da Fase 7 marcado fora de ordem (ex:
+     "Agendamento da remoção" preenchido de antemão, antes do carimbo do estado sair) fazia o
+     status "pular a fila" e mostrar remoção/entrega numa carga que ainda nem foi liberada
+     pelo Estado. Bug real encontrado (processo C80: Agendamento da remoção marcado sem
+     Liberação SEFAZ, e mesmo assim aparecia "Em remoção"). */
+  if(sefazLiberada && fase7Stage){
     if(fase7Stage.receiptItemIndex!=null && fase7[fase7Stage.receiptItemIndex]) return 'Entregue';
     if(fase7.some(Boolean)) return 'Em remoção';
   }
 
-  const fase6Stage = stages.find(s=>s.key==='fase6');
-  const fase6 = checklist['fase6']||[];
   if(fase6Stage){
     const idxOf = (label) => fase6Stage.items.indexOf(label);
     const done = (label) => { const i=idxOf(label); return i>=0 && !!fase6[i]; };
@@ -6601,11 +6609,13 @@ function buildAndamentoLines(p){
   add('DTA iniciada', extra.dataAgendamentoDTA);
 
   if(extra.dataRegistroDUIMP){
-    const canal = extra.canalDesembaraco ? ` (Canal ${extra.canalDesembaraco})` : '';
-    dated.push({ text:`DUIMP registrada${canal}: ${fmtDate(extra.dataRegistroDUIMP)}`, date: extra.dataRegistroDUIMP });
+    dated.push({ text:`DUIMP registrada: ${fmtDate(extra.dataRegistroDUIMP)}`, date: extra.dataRegistroDUIMP });
   }
 
-  add('DUIMP desembaraçada', extra.dataDesembaraco);
+  if(extra.dataDesembaraco){
+    const canal = extra.canalDesembaraco ? ` (Canal ${extra.canalDesembaraco})` : '';
+    dated.push({ text:`DUIMP desembaraçada${canal}: ${fmtDate(extra.dataDesembaraco)}`, date: extra.dataDesembaraco });
+  }
   add('Liberação do Estado', extra.dataLiberacaoSefaz);
 
   const stages = getStagesForProcess(p);
@@ -7387,7 +7397,14 @@ async function copyFollowUpTableToClipboard(){
 }
 
 function openFollowUpAllPreview(){
-  const active = state.processes.filter(p=>getBucket(p)!=='finalizados');
+  /* Entregue (carga já recebida em estoque) sai do Follow-up junto com Finalizado — mesmo que
+     ainda falte algum item residual (ex: devolução de container, NF) pra fechar o processo
+     por completo, uma vez entregue não faz mais sentido ocupar espaço no acompanhamento de
+     posição de carga em trânsito/desembaraço. */
+  const active = state.processes.filter(p=>{
+    const bucket = getBucket(p);
+    return bucket!=='finalizados' && bucket!=='entregue';
+  });
   openFollowUpTablePreview(active, 'Follow-up Completo para E-mail');
 }
 
@@ -8999,7 +9016,14 @@ function getBucket(p){
   const fase7 = stages.find(s=>s.key==='fase7');
   const chegadaBrasil = isChegadaConfirmada(p);
   const chegadaRecinto = isChegadaRecintoConfirmada(p);
-  const recebido = fase7 ? !!(p.checklist['fase7']||[])[fase7.receiptItemIndex] : false;
+  /* "Recebido" (bucket Entregue) também exige Liberação SEFAZ confirmada — mesmo bug e mesma
+     correção do getFollowUpStatus(): sem essa checagem, um "Recebimento em estoque" marcado
+     fora de ordem (antes do carimbo do estado sair) já jogava o processo pro bucket Entregue
+     indevidamente. */
+  const fase6ForRecebido = stages.find(s=>s.key==='fase6');
+  const fase6ChecklistForRecebido = p.checklist['fase6']||[];
+  const sefazLiberadaForRecebido = fase6ForRecebido ? !!fase6ChecklistForRecebido[fase6ForRecebido.items.indexOf('Liberação SEFAZ')] : false;
+  const recebido = (fase7 && sefazLiberadaForRecebido) ? !!(p.checklist['fase7']||[])[fase7.receiptItemIndex] : false;
 
   /* Entregue, Em Desembaraço e Em Transferência Aduaneira dependem de marcos físicos reais
      (chegada ao recinto / chegada ao Brasil / recebimento em estoque), não da posição abstrata
