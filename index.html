@@ -1088,6 +1088,26 @@ body.dark-mode .followup-narrative-row td{background:rgba(255,255,255,0.03);}
 .import-status-badge.alterado{background:var(--ink-amber-bg); color:var(--ink-amber-fg);}
 .import-status-badge.inalterado{background:var(--paper); color:var(--muted);}
 
+/* ===================== Memória de Cálculo da NF ===================== */
+.memoria-table-wrap{overflow:auto; max-height:70vh; border:1px solid var(--border); border-radius:8px; -webkit-overflow-scrolling:touch;}
+.memoria-table{border-collapse:separate; border-spacing:0; font-size:11.5px; white-space:nowrap;}
+.memoria-table th, .memoria-table td{padding:6px 8px; border-bottom:1px solid var(--border); border-right:1px solid var(--border);}
+.memoria-table thead th{position:sticky; top:0; z-index:2; background:var(--card); font-size:9.5px; text-transform:uppercase; letter-spacing:0.02em; color:var(--muted); font-weight:700; text-align:left; vertical-align:middle;}
+.memoria-table td.memoria-freeze, .memoria-table th.memoria-freeze{position:sticky; left:0; z-index:1; background:var(--card); box-shadow:2px 0 4px rgba(0,0,0,.05);}
+.memoria-table thead th.memoria-freeze{z-index:3;}
+.memoria-table td.memoria-readonly{color:var(--muted); background:var(--paper);}
+.memoria-table td.memoria-readonly .memoria-source-icon{color:var(--ink-blue-fg); margin-left:3px;}
+.memoria-table input.memoria-input{width:100%; min-width:78px; border:1px solid var(--border-strong); border-radius:4px; padding:4px 6px; font-size:11.5px; font-family:var(--font-text); background:var(--bg);}
+.memoria-table input.memoria-input:focus{outline:2px solid var(--accent); outline-offset:-1px;}
+.memoria-col-copy{background:none; border:none; cursor:pointer; color:var(--muted); padding:0 0 0 4px; vertical-align:middle; display:inline-flex;}
+.memoria-col-copy:hover{color:var(--text);}
+.memoria-group-item{background:var(--paper);}
+.memoria-group-aduaneiro{background:var(--ink-blue-bg);}
+.memoria-group-aliquotas{background:var(--ink-purple-bg);}
+.memoria-group-impostos{background:var(--ink-amber-bg);}
+.memoria-group-recebimento{background:var(--ink-teal-bg);}
+.memoria-orphan-row{background:var(--ink-red-bg);}
+
 .item-row{display:grid; grid-template-columns:20px 78px 1fr 60px 100px 42px 112px 104px; gap:6px; align-items:center; background:var(--paper); border:1px solid var(--border); border-radius:6px; padding:9px 9px; margin-bottom:6px;} /* última coluna 68px→104px: passou a caber 3 botões de ação (Atualizar/Editar/Excluir), não só 2 */
 .item-drag-handle{
   display:flex; align-items:center; justify-content:center; color:var(--muted); cursor:grab;
@@ -3623,6 +3643,13 @@ function svgWarnInline(size){
   size = size || 13;
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
 }
+/* Ícone de "copiar" — mesmo desenho já usado nos cabeçalhos de coluna da aba Itens, agora
+   centralizado aqui pra não repetir o SVG inteiro em cada cabeçalho novo (Memória de
+   Cálculo da NF tem quase 30 colunas copiáveis). */
+function svgCopyIcon(size){
+  size = size || 12;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>`;
+}
 /* Idem, pra marcas de "concluído/salvo" inline (substitui o ✓ solto usado antes). */
 function svgCheckInline(size){
   size = size || 12;
@@ -5761,6 +5788,7 @@ function detectHistoryChanges(prev, next){
   fieldChange('Data prevista de chegada alterada', svgCalendarIcon(), prev.chegadaPrevista, next.chegadaPrevista, fmtDate);
   fieldChange('Prontidão da carga alterada', svgCalendarIcon(), prev.prontidao, next.prontidao, fmtDate);
   fieldChange('Embarque previsto alterado', svgCalendarIcon(), prev.embarquePrevisto, next.embarquePrevisto, fmtDate);
+  fieldChange('Câmbio do processo alterado', svgEditIcon(), prev.cambio, next.cambio, v=>`R$ ${fmtNumberBR(v,4)}`);
   fieldChange('Navio atracado no porto', svgAnchorIcon(), (prev.extra||{}).dataAtracacaoPorto, (next.extra||{}).dataAtracacaoPorto, fmtDate);
   fieldChange('Chegada na Zona Primária confirmada', svgAnchorIcon(), (prev.extra||{}).dataChegadaZonaPrimaria, (next.extra||{}).dataChegadaZonaPrimaria, fmtDate);
   fieldChange('Data de embarque alterada', svgShipIcon(), prev.dataEmbarqueReal, next.dataEmbarqueReal, fmtDate);
@@ -6130,6 +6158,358 @@ function useItemsTotalAsFOB(valor){
 
 /* Copia a coluna inteira (uma linha por item, pronto pra colar direto no Excel) sem precisar
    selecionar célula por célula — cada botão 📋 no cabeçalho copia só a coluna dele. */
+/* Ícone de "colar" (seta pra dentro de uma prancheta) — usado no cabeçalho das colunas
+   manuais da Memória, ao lado do ícone de copiar. */
+function svgPasteInline(size){
+  size = size || 12;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11v6"/><path d="m9 14 3 3 3-3"/></svg>`;
+}
+
+/* Mesma máscara de moeda "só dígitos" já usada em todo o app (maskCurrencyInput), mas com
+   número de casas decimais configurável — a taxa do dólar do processo usa 4 casas, não 2. */
+function maskCurrencyInputDecimals(el, decimals){
+  let digits = el.value.replace(/\D/g,'');
+  if(!digits) digits = '0';
+  digits = digits.replace(/^0+(?=\d)/,'');
+  const num = parseInt(digits,10)/Math.pow(10,decimals);
+  el.value = num.toLocaleString('pt-BR', {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
+}
+function parseBRMaskedDecimals(str, decimals){
+  if(str===undefined || str===null || str==='') return 0;
+  const cleaned = String(str).replace(/\./g,'').replace(',','.');
+  return parseFloat(cleaned)||0;
+}
+
+async function updateDuimpMemoriaField(itemId, field, value){
+  const p = window.__editingProcess;
+  const row = getDuimpMemoriaRow(p, itemId);
+  row[field] = (value===''||value===undefined) ? (typeof row[field]==='number'||row[field]===null ? null : '') : value;
+  row.sourceMap = row.sourceMap || {};
+  row.sourceMap[field] = 'MANUAL';
+  renderDuimpMemoriaTab();
+  await autoPersistCurrentProcess();
+}
+
+async function updateDuimpMemoriaStatus(val){
+  if(!requireEditPermission()) return;
+  const p = window.__editingProcess;
+  const m = ensureDuimpMemoria(p);
+  m.status = val;
+  await autoPersistCurrentProcess();
+}
+
+async function setDuimpMemoriaRateioMode(key, mode){
+  if(!requireEditPermission()) return;
+  const p = window.__editingProcess;
+  const m = ensureDuimpMemoria(p);
+  m[`${key==='freight'?'freight':key==='insurance'?'insurance':'additions'}Mode`] = mode;
+  renderDuimpMemoriaTab();
+  await autoPersistCurrentProcess();
+}
+async function setDuimpMemoriaRateioTotal(key, value){
+  const p = window.__editingProcess;
+  const m = ensureDuimpMemoria(p);
+  const field = key==='freight'?'freightTotalBrl':key==='insurance'?'insuranceTotalBrl':'additionsTotalBrl';
+  m[field] = value;
+  renderDuimpMemoriaTab();
+  await autoPersistCurrentProcess();
+}
+async function setDuimpMemoriaRateioAllocation(key, value){
+  const p = window.__editingProcess;
+  const m = ensureDuimpMemoria(p);
+  const field = key==='freight'?'freightAllocation':key==='insurance'?'insuranceAllocation':'additionsAllocation';
+  m[field] = value;
+  renderDuimpMemoriaTab();
+  await autoPersistCurrentProcess();
+}
+
+/* Salvar a taxa do dólar do processo — mesmo campo já usado na aba Custos (p.cambio), pra
+   nunca existir duas taxas independentes sem indicar origem (pedido explícito, seção 5). O
+   Histórico já registra a mudança (fieldChange('Câmbio do processo alterado', ...) em
+   detectHistoryChanges) — aqui só grava quem/quando mexeu por último, pro card de origem. */
+async function saveDuimpMemoriaExchangeRate(){
+  if(!requireEditPermission()) return;
+  const p = window.__editingProcess;
+  const input = document.getElementById('memoria-cambio-input');
+  const novo = parseBRMasked(input.value);
+  if(!novo){ alert('Informe uma taxa do dólar válida.'); return; }
+  const anterior = p.cambio;
+  if(anterior && parseFloat(anterior)!==novo){
+    if(!confirm(`Isto também vai atualizar a taxa geral do processo (usada na aba Custos). Confirmar a troca de R$ ${fmtNumberBR(anterior,4)} para R$ ${fmtNumberBR(novo,4)}?`)) return;
+  }
+  p.cambio = novo;
+  p.cambioManual = true;
+  p.cambioUpdatedAt = Date.now();
+  p.cambioUpdatedBy = (auth.currentUser && (auth.currentUser.displayName || auth.currentUser.email)) || '';
+  renderDuimpMemoriaTab();
+  await autoPersistCurrentProcess();
+}
+
+/* "Recalcular" — os valores calculados já são sempre derivados ao vivo (nunca ficam
+   desatualizados por construção, ver comentário no topo do módulo), então recalcular é
+   só reprocessar rateios e re-renderizar; existe como ação explícita pra dar segurança visual
+   ao usuário (pedido do spec) e pra registrar quando foi conferido. */
+async function recalcularDuimpMemoria(){
+  const p = window.__editingProcess;
+  const m = ensureDuimpMemoria(p);
+  m.recalculatedAt = Date.now();
+  m.recalculatedBy = (auth.currentUser && (auth.currentUser.displayName || auth.currentUser.email)) || '';
+  renderDuimpMemoriaTab();
+  await autoPersistCurrentProcess();
+  const btn = event && event.target ? event.target.closest('button') : null;
+  if(btn){ const original = btn.innerHTML; btn.innerHTML = `${svgCheckInline()} Recalculado`; setTimeout(()=>{ btn.innerHTML = original; }, 1400); }
+}
+
+/* Copiar coluna inteira — mesmo padrão de copyItemColumn: uma linha por item, célula vazia
+   preservada como linha vazia (nunca compacta), sem cabeçalho. Colunas de alíquota copiam só
+   o número (sem "%"), pra colar direto numa fórmula do Excel; readonly de texto copiam o
+   texto puro. */
+async function copyDuimpMemoriaColumn(field){
+  const p = window.__editingProcess;
+  const rows = getDuimpMemoriaRows(p);
+  if(!rows.length) return;
+  const col = DUIMP_MEMORIA_COLUMNS.find(c=>c.key===field);
+  const linhas = rows.map(r=>{
+    const v = r[field];
+    if(v==null || v==='') return '';
+    if(col && col.fmt==='usd') return fmtNumberBR(v);
+    if(col && col.fmt==='brl') return fmtNumberBR(v);
+    if(col && col.fmt==='pct') return fmtNumberBR(v);
+    return String(v);
+  });
+  const texto = linhas.join('\n');
+  try{ await navigator.clipboard.writeText(texto); }
+  catch(e){
+    const ta = document.createElement('textarea');
+    ta.value = texto; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(e2){ console.error('Não foi possível copiar', e2); }
+    document.body.removeChild(ta);
+  }
+  const btn = event && event.target ? event.target.closest('button') : null;
+  if(btn){ const original = btn.innerHTML; btn.innerHTML = svgCheckInline(); setTimeout(()=>{ btn.innerHTML = original; }, 1200); }
+}
+
+/* Normalização de números colados (seção 17): aceita "1.234,56", "1234,56", "1234.56",
+   "R$ 1.234,56", "14,00%" — decide o separador decimal pelo ÚLTIMO símbolo (, ou .) que
+   aparece na string; o outro, se houver, é separador de milhar e é descartado. Devolve null
+   (não 0) pra string vazia, pra nunca fingir "zero conferido" onde não há dado. Nunca usada
+   em colunas de identificador (NCM, Código SAP) — essas colam como texto puro, preservando
+   zeros à esquerda. */
+function parseFlexibleNumber(raw){
+  if(raw==null) return null;
+  let s = String(raw).trim();
+  if(!s || /^em branco$/i.test(s)) return null;
+  s = s.replace(/[R$US\s%]/g,'');
+  if(!s) return null;
+  const lastComma = s.lastIndexOf(',');
+  const lastDot = s.lastIndexOf('.');
+  if(lastComma>-1 && lastDot>-1){
+    if(lastComma>lastDot) s = s.replace(/\./g,'').replace(',','.');
+    else s = s.replace(/,/g,'');
+  } else if(lastComma>-1){
+    s = s.replace(/\./g,'').replace(',','.');
+  } else if(lastDot>-1){
+    const afterDot = s.length - lastDot - 1;
+    const dotsCount = (s.match(/\./g)||[]).length;
+    if(dotsCount===1 && afterDot===3) s = s.replace(/\./g,'');
+    // senão, já está no formato decimal com ponto — mantém
+  }
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+
+/* Colar UMA coluna do Excel na Memória (seção 15) — só pra colunas manuais; readonly
+   redireciona pra aba Itens/NCM, nunca aceita colagem (seção 4, "para alterar, direcionar o
+   usuário"). Sempre mostra pré-visualização antes de aplicar — nunca aplica silenciosamente,
+   ainda mais quando a quantidade de linhas coladas diverge da quantidade de itens. */
+async function pasteDuimpMemoriaColumn(field){
+  if(!requireEditPermission()) return;
+  const p = window.__editingProcess;
+  const rows = getDuimpMemoriaRows(p);
+  const col = DUIMP_MEMORIA_COLUMNS.find(c=>c.key===field);
+  if(!col || col.type==='readonly'){ alert('Esta coluna vem automaticamente da aba Itens ou do cadastro de NCM — para alterar, edite lá.'); return; }
+  if(!rows.length){ alert('Não há itens na memória ainda.'); return; }
+  let texto = '';
+  try{ texto = await navigator.clipboard.readText(); }
+  catch(e){ alert('Não foi possível ler a área de transferência. Copie a coluna no Excel e tente novamente (o navegador pode pedir permissão de acesso à área de transferência).'); return; }
+  const linhasColadas = texto.replace(/\r/g,'').split('\n');
+  while(linhasColadas.length && linhasColadas[linhasColadas.length-1]==='') linhasColadas.pop();
+  if(!linhasColadas.length){ alert('Nada para colar — copie a coluna no Excel primeiro.'); return; }
+  openDuimpMemoriaPastePreview(col, rows, linhasColadas);
+}
+
+function openDuimpMemoriaPastePreview(col, rows, linhasColadas){
+  window.__memoriaPastePreview = { col, rows, linhasColadas };
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'memoria-paste-overlay';
+  attachOverlayOutsideClose(overlay, ()=>overlay.remove());
+  const diff = linhasColadas.length - rows.length;
+  const nAplicar = Math.min(linhasColadas.length, rows.length);
+  const previewRows = rows.slice(0, nAplicar).map((r,i)=>({ item:r.itemNumber, desc:r.descricao, valor: linhasColadas[i]==='' ? 'em branco' : linhasColadas[i] }));
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:560px;">
+      <div class="modal-header"><h2>Colar do Excel — ${col.label}</h2><button class="modal-close" onclick="document.getElementById('memoria-paste-overlay').remove()">×</button></div>
+      <div class="modal-body">
+        <div class="form-hint" style="margin-bottom:10px;">Coluna destino: <strong>${col.label}</strong> · Linhas detectadas: <strong>${linhasColadas.length}</strong> · Itens na memória: <strong>${rows.length}</strong></div>
+        ${diff!==0 ? `<div class="form-hint" style="color:var(--ink-amber-fg); margin-bottom:10px;">${svgWarnInline()} A coluna copiada tem ${linhasColadas.length} linha(s), mas a memória tem ${rows.length} item(ns) — só as ${nAplicar} primeiras linhas em comum serão aplicadas.</div>` : ''}
+        <table class="cost-table">
+          <thead><tr><th>Item</th><th>Descrição</th><th>Valor colado</th></tr></thead>
+          <tbody>${previewRows.slice(0,20).map(pr=>`<tr><td>${pr.item}</td><td>${pr.desc}</td><td>${pr.valor}</td></tr>`).join('')}</tbody>
+        </table>
+        ${previewRows.length>20 ? `<div class="form-hint" style="margin-top:6px;">+ ${previewRows.length-20} linha(s) não mostradas na prévia.</div>` : ''}
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="document.getElementById('memoria-paste-overlay').remove()">Cancelar</button>
+        <button class="btn btn-primary" onclick="applyDuimpMemoriaColumnPaste()">Aplicar ${nAplicar} valor(es)</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+async function applyDuimpMemoriaColumnPaste(){
+  const data = window.__memoriaPastePreview;
+  if(!data) return;
+  const { col, rows, linhasColadas } = data;
+  const p = window.__editingProcess;
+  const n = Math.min(linhasColadas.length, rows.length);
+  for(let i=0;i<n;i++){
+    const row = getDuimpMemoriaRow(p, rows[i].itemId);
+    const raw = linhasColadas[i];
+    row[col.key] = col.type==='manual-money' ? (raw===''?null:parseFlexibleNumber(raw)) : raw;
+    row.sourceMap = row.sourceMap || {};
+    row.sourceMap[col.key] = 'COLADO_EXCEL';
+  }
+  pushHistoryEvent(p, svgPasteInline(), `Coluna "${col.label}" colada do Excel`, `Linhas aplicadas: ${n}`);
+  window.__memoriaPastePreview = null;
+  document.getElementById('memoria-paste-overlay').remove();
+  renderHistoryTab();
+  renderDuimpMemoriaTab();
+  await autoPersistCurrentProcess();
+}
+
+/* Aliases de cabeçalho (seção 16/17) — nomes comuns que a planilha do usuário (ou qualquer
+   outra) pode usar pra cada coluna, normalizados em minúsculo/sem espaço duplo. Cabeçalho não
+   reconhecido não quebra nada — só fica sem sugestão de coluna, e o usuário escolhe no
+   mapeamento (ou deixa como "— ignorar —"). */
+const DUIMP_MEMORIA_HEADER_ALIASES = {
+  'codigo sap':'sapCode', 'cod sap':'sapCode', 'cod. sap':'sapCode', 'sap':'sapCode', 'cod produto':'sapCode',
+  'descricao':'descricao', 'descrição':'descricao', 'descricao do produto':'descricao', 'descrição do produto':'descricao', 'descricao item':'descricao', 'descrição item':'descricao',
+  'ncm':'ncm',
+  'qtd':'quantidade', 'qtd.':'quantidade', 'qtde':'quantidade', 'quantidade':'quantidade',
+  'frete':'freteBrl', 'frete brl':'freteBrl', 'frete (brl)':'freteBrl', 'frete em reais':'freteBrl', 'frete reais':'freteBrl',
+  'seguro':'seguroBrl', 'seguro brl':'seguroBrl', 'seguro (brl)':'seguroBrl', 'seguro em reais':'seguroBrl',
+  'acrescimos':'acrescimosBrl', 'acréscimos':'acrescimosBrl', 'acresc.':'acrescimosBrl', 'acresc':'acrescimosBrl',
+  'tx sisco':'taxaSiscomexBrl', 'taxa siscomex':'taxaSiscomexBrl', 'tx siscomex':'taxaSiscomexBrl', 'siscomex':'taxaSiscomexBrl',
+  'desp. ad.':'despesasAduaneirasBrl', 'desp ad':'despesasAduaneirasBrl', 'despesas aduaneiras':'despesasAduaneirasBrl', 'desp adu':'despesasAduaneirasBrl',
+  'valor i.i':'valorII', 'valor ii':'valorII', 'ii (%)':'valorII', 'vl. i.i':'valorII',
+  'valor ipi':'valorIPI', 'vl. ipi':'valorIPI',
+  'valor pis':'valorPIS', 'vl. pis':'valorPIS',
+  'valor cofins':'valorCOFINS', 'vl. cofins':'valorCOFINS', 'cofins':'valorCOFINS',
+  'valor icms':'valorICMS', 'vl. icms':'valorICMS', 'icms':'valorICMS',
+};
+function normalizeHeaderKey(h){ return String(h||'').trim().toLowerCase().replace(/\s+/g,' '); }
+function guessMemoriaColumnFromHeader(h){ return DUIMP_MEMORIA_HEADER_ALIASES[normalizeHeaderKey(h)] || null; }
+
+/* Colar TABELA completa do Excel (seção 16) — lê texto colado (tabulação entre colunas,
+   quebra de linha entre linhas, exatamente o que o Excel gera ao copiar um intervalo), monta
+   o grid, tenta reconhecer cada cabeçalho por alias, e deixa o usuário confirmar/corrigir
+   cada coluna antes de aplicar. Nunca aplica campo não reconhecido/não confirmado, nunca
+   apaga dado de coluna que não veio na colagem. */
+function openDuimpMemoriaPasteAllModal(){
+  if(!requireEditPermission()) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'memoria-paste-all-overlay';
+  attachOverlayOutsideClose(overlay, ()=>overlay.remove());
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:680px;">
+      <div class="modal-header"><h2>Colar tabela do Excel</h2><button class="modal-close" onclick="document.getElementById('memoria-paste-all-overlay').remove()">×</button></div>
+      <div class="modal-body">
+        <div class="form-hint" style="margin-bottom:8px;">Selecione e copie um intervalo de células no Excel (cabeçalho na primeira linha) e cole aqui com Ctrl/Cmd+V.</div>
+        <textarea id="memoria-paste-all-textarea" rows="6" style="width:100%; font-family:monospace; font-size:11.5px; padding:8px; border:1px solid var(--border-strong); border-radius:6px;" placeholder="Cole aqui..." oninput="previewDuimpMemoriaPasteAll()"></textarea>
+        <div id="memoria-paste-all-mapping" style="margin-top:12px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="document.getElementById('memoria-paste-all-overlay').remove()">Cancelar</button>
+        <button class="btn btn-primary" id="memoria-paste-all-apply" style="display:none;" onclick="applyDuimpMemoriaPasteAll()">Aplicar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('memoria-paste-all-textarea').focus();
+}
+
+function previewDuimpMemoriaPasteAll(){
+  const ta = document.getElementById('memoria-paste-all-textarea');
+  const mapEl = document.getElementById('memoria-paste-all-mapping');
+  const applyBtn = document.getElementById('memoria-paste-all-apply');
+  const texto = ta.value.replace(/\r/g,'');
+  if(!texto.trim()){ mapEl.innerHTML=''; applyBtn.style.display='none'; window.__memoriaPasteAllData=null; return; }
+  let linhas = texto.split('\n');
+  while(linhas.length && linhas[linhas.length-1]==='') linhas.pop();
+  const grid = linhas.map(l=>l.split('\t'));
+  const headers = grid[0]||[];
+  const dataRows = grid.slice(1);
+  const mapping = headers.map(h=>({ header:h, field: guessMemoriaColumnFromHeader(h) }));
+  window.__memoriaPasteAllData = { headers, dataRows, mapping };
+
+  const p = window.__editingProcess;
+  const rows = getDuimpMemoriaRows(p);
+  const diff = dataRows.length - rows.length;
+
+  mapEl.innerHTML = `
+    <div class="form-hint" style="margin-bottom:6px;">${dataRows.length} linha(s) detectada(s) · ${headers.length} coluna(s) · ${rows.length} item(ns) na memória.</div>
+    ${diff!==0 ? `<div class="form-hint" style="color:var(--ink-amber-fg); margin-bottom:6px;">${svgWarnInline()} Quantidade de linhas diferente da quantidade de itens — só as ${Math.min(dataRows.length, rows.length)} primeiras em comum serão aplicadas.</div>` : ''}
+    <table class="cost-table">
+      <thead><tr><th>Coluna do Excel</th><th>Coluna da memória</th></tr></thead>
+      <tbody>${mapping.map((m,i)=>`
+        <tr>
+          <td>${m.header || '(sem cabeçalho)'}</td>
+          <td>
+            <select onchange="window.__memoriaPasteAllData.mapping[${i}].field=this.value||null">
+              <option value="">— ignorar —</option>
+              ${DUIMP_MEMORIA_COLUMNS.filter(c=>c.type!=='readonly').map(c=>`<option value="${c.key}" ${m.field===c.key?'selected':''}>${c.label}</option>`).join('')}
+            </select>
+          </td>
+        </tr>`).join('')}</tbody>
+    </table>`;
+  applyBtn.style.display = '';
+}
+
+async function applyDuimpMemoriaPasteAll(){
+  const data = window.__memoriaPasteAllData;
+  if(!data) return;
+  const p = window.__editingProcess;
+  const rows = getDuimpMemoriaRows(p);
+  const colsAplicadas = [];
+  data.mapping.forEach((m, colIdx)=>{
+    if(!m.field) return;
+    const col = DUIMP_MEMORIA_COLUMNS.find(c=>c.key===m.field);
+    if(!col || col.type==='readonly') return; // nunca aplica em coluna automática, mesmo se mapeada por engano
+    const n = Math.min(data.dataRows.length, rows.length);
+    for(let i=0;i<n;i++){
+      const raw = (data.dataRows[i][colIdx]||'').trim();
+      const row = getDuimpMemoriaRow(p, rows[i].itemId);
+      row[m.field] = col.type==='manual-money' ? (raw===''?null:parseFlexibleNumber(raw)) : raw;
+      row.sourceMap = row.sourceMap || {};
+      row.sourceMap[m.field] = 'COLADO_EXCEL';
+    }
+    colsAplicadas.push(`${col.label} (${n})`);
+  });
+  if(colsAplicadas.length){
+    pushHistoryEvent(p, svgPasteInline(), 'Tabela colada do Excel na Memória de Cálculo', colsAplicadas.join(', '));
+    renderHistoryTab();
+  }
+  window.__memoriaPasteAllData = null;
+  document.getElementById('memoria-paste-all-overlay').remove();
+  renderDuimpMemoriaTab();
+  await autoPersistCurrentProcess();
+}
+
+/* Copia uma coluna inteira da tabela de Itens — uma linha de texto por item, na mesma ordem
+   da tela, sem cabeçalho, pronta pra colar direto no Excel. */
 async function copyItemColumn(field){
   const p = window.__editingProcess;
   const itens = p.itens || [];
@@ -6160,6 +6540,403 @@ async function copyItemColumn(field){
     setTimeout(()=>{ btn.innerHTML = original; }, 1200);
   }
 }
+
+/* ===================== Memória de Cálculo da NF =====================
+   Reproduz a estrutura/nomenclatura da planilha de referência (CUSTO-DE-IMPORTACAO) numa
+   tabela real dentro do processo — editável, copiável por coluna e capaz de receber dados
+   colados do Excel. NUNCA duplica o cadastro da aba Itens: Item, Código SAP, Descrição, NCM
+   e Quantidade são sempre lidos AO VIVO de p.itens a cada render (nunca copiados pra dentro
+   da memória) — assim não existe risco de ficar desatualizado nem de duplicar dado, e
+   "atualizar quando os itens mudarem" acontece sozinho, sem precisar de um passo de
+   sincronização manual. Alíquotas também são sempre lidas ao vivo da aba NCM (mesma função
+   getEffectiveAliquotas já usada na Pré-Análise Tributária — nunca duplicada/travada aqui).
+   Só o que é genuinamente MANUAL (frete, seguro, acréscimos, taxa Siscomex, despesas
+   aduaneiras, valores de imposto, unidade, código de recebimento) fica guardado em
+   p.duimpMemoria.rows, indexado por itemId — nunca por posição/índice visível, pra
+   sobreviver a reordenação/remoção de itens sem embaralhar dado.
+   Por serem sempre derivados, os valores calculados (USD a partir do câmbio, valor
+   aduaneiro, etc.) estão sempre "recalculados" por construção — o botão "Recalcular" existe
+   pra reafirmar isso pro usuário (e reprocessar rateios), não porque algo fica desatualizado
+   entre uma edição e outra. */
+
+function ensureDuimpMemoria(p){
+  p.duimpMemoria = p.duimpMemoria || {};
+  const m = p.duimpMemoria;
+  m.status = m.status || 'RASCUNHO'; // RASCUNHO | EM_REVISAO | VALIDADA
+  m.rows = m.rows || [];
+  m.freightMode = m.freightMode || 'manual'; // manual (por item) | rateado (total do processo)
+  m.freightTotalBrl = m.freightTotalBrl!=null ? m.freightTotalBrl : null;
+  m.freightAllocation = m.freightAllocation || 'valor'; // valor | quantidade
+  m.insuranceMode = m.insuranceMode || 'manual';
+  m.insuranceTotalBrl = m.insuranceTotalBrl!=null ? m.insuranceTotalBrl : null;
+  m.insuranceAllocation = m.insuranceAllocation || 'valor';
+  m.additionsMode = m.additionsMode || 'manual';
+  m.additionsTotalBrl = m.additionsTotalBrl!=null ? m.additionsTotalBrl : null;
+  m.additionsAllocation = m.additionsAllocation || 'valor';
+  return m;
+}
+
+function getDuimpMemoriaRow(p, itemId){
+  const m = ensureDuimpMemoria(p);
+  let row = m.rows.find(r=>r.itemId===itemId);
+  if(!row){
+    row = { itemId, freteBrl:null, seguroBrl:null, acrescimosBrl:null,
+      taxaSiscomexBrl:null, despesasAduaneirasBrl:null, valorII:null, valorIPI:null, valorPIS:null,
+      valorCOFINS:null, valorICMS:null, sourceMap:{} };
+    m.rows.push(row);
+  }
+  return row;
+}
+
+/* "X em dólar = X em reais ÷ taxa do processo" — mesma regra pros quatro campos que seguem
+   essa lógica (frete/seguro/acréscimos/despesas), pedido explícito. Devolve null (nunca 0)
+   quando falta valor OU taxa, pra nunca fingir um cálculo que não pôde ser feito de verdade. */
+function brlToUsd(valorBrl, cambio){
+  if(valorBrl==null || valorBrl==='' || !cambio) return null;
+  return parseFloat(valorBrl) / cambio;
+}
+
+/* Rateio de um valor TOTAL do processo entre os itens — proporcional ao valor da mercadoria
+   (padrão) ou à quantidade, pedido explícito (seção 6). Nunca duplica o total inteiro em
+   cada linha. */
+function rateiaValorMemoria(total, itens, criterio){
+  if(total==null || !itens.length) return itens.map(()=>null);
+  const bases = itens.map(it => criterio==='quantidade'
+    ? (parseFloat(it.quantidade)||0)
+    : (parseFloat(it.valorUnitarioUsado)||0)*(parseFloat(it.quantidade)||0));
+  const somaBase = bases.reduce((a,b)=>a+b,0);
+  if(!somaBase) return itens.map(()=>0);
+  return bases.map(b => total * (b/somaBase));
+}
+
+/* Monta a linha "achatada" (dados vivos da Itens + dados manuais da memória + tudo
+   calculado) pra cada item do processo, na mesma ordem de p.itens — nunca lê nem grava nada
+   na aba Itens, só JUNTA os dois pra exibir/copiar/exportar. */
+function getDuimpMemoriaRows(p){
+  const m = ensureDuimpMemoria(p);
+  const itens = p.itens || [];
+  const cambio = parseFloat(p.cambio) || 0;
+
+  const fretesRateados = m.freightMode==='rateado' ? rateiaValorMemoria(m.freightTotalBrl, itens, m.freightAllocation) : null;
+  const segurosRateados = m.insuranceMode==='rateado' ? rateiaValorMemoria(m.insuranceTotalBrl, itens, m.insuranceAllocation) : null;
+  const acrescimosRateados = m.additionsMode==='rateado' ? rateiaValorMemoria(m.additionsTotalBrl, itens, m.additionsAllocation) : null;
+
+  return itens.map((it, idx)=>{
+    const row = getDuimpMemoriaRow(p, it.id);
+    const aliq = getEffectiveAliquotas(it);
+    const codigoImposto = resolveCodigoImpostoMemoria(p, it);
+    const valorMercadoriaUsd = (parseFloat(it.valorUnitarioUsado)||0) * (parseFloat(it.quantidade)||0);
+    const valorMercadoriaBrl = cambio ? valorMercadoriaUsd * cambio : null;
+
+    const freteBrl = m.freightMode==='rateado' ? fretesRateados[idx] : row.freteBrl;
+    const seguroBrl = m.insuranceMode==='rateado' ? segurosRateados[idx] : row.seguroBrl;
+    const acrescimosBrl = m.additionsMode==='rateado' ? acrescimosRateados[idx] : row.acrescimosBrl;
+
+    const valorAduaneiroBrl = valorMercadoriaBrl!=null
+      ? valorMercadoriaBrl + (freteBrl||0) + (seguroBrl||0) + (acrescimosBrl||0)
+      : null;
+
+    return {
+      itemId: it.id, idx, item: it, row,
+      itemNumber: idx+1,
+      sapCode: it.codigoII || '',
+      descricao: it.descricao || '',
+      ncm: it.ncm || '',
+      quantidade: it.quantidade,
+      /* Depósito padrão da empresa — "01RECEBE", igual ao que já é usado na prática (não o
+         simples "01"; confirmado pelo usuário contra o processo real). */
+      deposito: '01RECEBE',
+      codigoImposto: codigoImposto.codigo, codigoImpostoMotivo: codigoImposto.motivo,
+      valorMercadoriaUsd, valorMercadoriaBrl,
+      freteBrl, freteUsd: brlToUsd(freteBrl, cambio), freteRateado: m.freightMode==='rateado',
+      seguroBrl, seguroUsd: brlToUsd(seguroBrl, cambio), seguroRateado: m.insuranceMode==='rateado',
+      acrescimosBrl, acrescimosUsd: brlToUsd(acrescimosBrl, cambio), acrescimosRateado: m.additionsMode==='rateado',
+      valorAduaneiroBrl,
+      aliqII: aliq.ii, aliqIPI: aliq.ipi, aliqPIS: aliq.pis, aliqCOFINS: aliq.cofins, ncmEncontrado: aliq.ncmEncontrado,
+      valorII: row.valorII, valorIPI: row.valorIPI, valorPIS: row.valorPIS, valorCOFINS: row.valorCOFINS, valorICMS: row.valorICMS,
+      taxaSiscomexBrl: row.taxaSiscomexBrl, taxaSiscomexUsd: brlToUsd(row.taxaSiscomexBrl, cambio),
+      despesasAduaneirasBrl: row.despesasAduaneirasBrl, despesasAduaneirasUsd: brlToUsd(row.despesasAduaneirasBrl, cambio),
+    };
+  });
+}
+
+/* Código de Imposto (seção 11/13 do pedido original de NCM) — puxa automaticamente o vínculo
+   já cadastrado na NCM do item, filtrado pela FINALIDADE certa pra operação deste processo
+   (p.regime: 'revenda' → finalidade "REVENDA", 'consumo' → "USO E CONSUMO" — mesmos nomes já
+   usados em getEffectiveAliquotas/DEFAULT_FINALIDADES). Nunca inventa um vínculo: se a NCM
+   não tiver Código de Imposto cadastrado pra essa finalidade, mostra o motivo em vez de um
+   valor, pra nunca sugerir um código que na real não existe. */
+function resolveCodigoImpostoMemoria(p, item){
+  const entry = findNCMEntry(item && item.ncm);
+  if(!entry) return { codigo:null, motivo:'NCM não cadastrado' };
+  const finalidadeNome = p.regime==='revenda' ? 'REVENDA' : p.regime==='consumo' ? 'USO E CONSUMO' : null;
+  if(!finalidadeNome) return { codigo:null, motivo:'Defina o Regime Fiscal do processo (aba Custos)' };
+  const idsVinculados = entry.codigosImpostoIds || (entry.codigoImpostoId ? [entry.codigoImpostoId] : []);
+  const match = idsVinculados.map(getCodigoImpostoById).filter(Boolean)
+    .find(c=>{ const fin = getFinalidadeById(c.finalidadeId); return fin && fin.nome===finalidadeNome; });
+  if(!match) return { codigo:null, motivo:`Sem Código de Imposto vinculado a esta NCM pra ${finalidadeNome}` };
+  return { codigo: match.codigo, motivo:null };
+}
+
+
+/* Linhas da memória cujo item já não existe mais em Itens (removido do processo) — nunca
+   apagadas sozinhas (dado manual preservado), só sinalizadas pra revisão (pedido explícito,
+   seção 2.8/2.9). */
+function getDuimpMemoriaOrphanRows(p){
+  const m = ensureDuimpMemoria(p);
+  const idsAtivos = new Set((p.itens||[]).map(it=>it.id));
+  return m.rows.filter(r=>!idsAtivos.has(r.itemId));
+}
+
+async function removeDuimpMemoriaOrphanRow(itemId){
+  if(!requireEditPermission()) return;
+  if(!confirm('Remover esta linha da memória? Os valores manuais preenchidos pra ela serão perdidos.')) return;
+  const p = window.__editingProcess;
+  const m = ensureDuimpMemoria(p);
+  m.rows = m.rows.filter(r=>r.itemId!==itemId);
+  renderDuimpMemoriaTab();
+  await autoPersistCurrentProcess();
+}
+
+/* Config das colunas — única fonte de verdade pro cabeçalho, célula e cópia/colagem de cada
+   coluna, pra não repetir a mesma lista 4 vezes. `type`: 'readonly' (vem de Itens/NCM/câmbio,
+   nunca editável aqui), 'manual-text', 'manual-money'. `fmt`: como formatar readonly (usd,
+   brl, pct, texto simples). Ordem segue a planilha de referência sempre que possível,
+   agrupada como pedido (seção 3). */
+const DUIMP_MEMORIA_COLUMNS = [
+  {key:'itemNumber', label:'Item', group:'item', type:'readonly', fmt:'int', freeze:true},
+  {key:'sapCode', label:'Código SAP', group:'item', type:'readonly', fmt:'texto', tooltip:'Carregado automaticamente da aba Itens (código II do produto)'},
+  {key:'descricao', label:'Descrição', group:'item', type:'readonly', fmt:'texto', tooltip:'Carregado automaticamente da aba Itens'},
+  {key:'ncm', label:'NCM', group:'item', type:'readonly', fmt:'ncm', tooltip:'Carregado automaticamente da aba Itens'},
+  {key:'codigoImposto', label:'Código de Imposto', group:'item', type:'readonly', fmt:'codigoImposto', tooltip:'Carregado automaticamente do vínculo NCM × finalidade (Regime Fiscal do processo, aba Custos)'},
+  {key:'quantidade', label:'Quantidade', group:'item', type:'readonly', fmt:'int', tooltip:'Carregado automaticamente da aba Itens'},
+  {key:'valorMercadoriaUsd', label:'Valor Mercadoria (USD)', group:'aduaneiro', type:'readonly', fmt:'usd', tooltip:'Calculado a partir do valor unitário e quantidade da aba Itens'},
+  {key:'valorMercadoriaBrl', label:'Valor Mercadoria (BRL)', group:'aduaneiro', type:'readonly', fmt:'brl', tooltip:'Calculado pela taxa do dólar do processo'},
+  {key:'freteBrl', label:'Frete (BRL)', group:'aduaneiro', type:'manual-money', rateioKey:'freight'},
+  {key:'freteUsd', label:'Frete (USD)', group:'aduaneiro', type:'readonly', fmt:'usd', tooltip:'Calculado: Frete (BRL) ÷ taxa do dólar do processo'},
+  {key:'acrescimosBrl', label:'Acréscimos (BRL)', group:'aduaneiro', type:'manual-money', rateioKey:'additions'},
+  {key:'acrescimosUsd', label:'Acréscimos (USD)', group:'aduaneiro', type:'readonly', fmt:'usd', tooltip:'Calculado: Acréscimos (BRL) ÷ taxa do dólar do processo'},
+  {key:'seguroBrl', label:'Seguro (BRL)', group:'aduaneiro', type:'manual-money', rateioKey:'insurance'},
+  {key:'seguroUsd', label:'Seguro (USD)', group:'aduaneiro', type:'readonly', fmt:'usd', tooltip:'Calculado: Seguro (BRL) ÷ taxa do dólar do processo'},
+  {key:'valorAduaneiroBrl', label:'Valor Aduaneiro (BRL)', group:'aduaneiro', type:'readonly', fmt:'brl', tooltip:'Mercadoria + Frete + Seguro + Acréscimos (BRL)'},
+  {key:'aliqII', label:'Alíquota II', group:'aliquotas', type:'readonly', fmt:'pct', tooltip:'Carregado automaticamente do cadastro de NCM'},
+  {key:'valorII', label:'Valor II', group:'impostos', type:'manual-money'},
+  {key:'aliqIPI', label:'Alíquota IPI', group:'aliquotas', type:'readonly', fmt:'pct', tooltip:'Carregado automaticamente do cadastro de NCM'},
+  {key:'valorIPI', label:'Valor IPI', group:'impostos', type:'manual-money'},
+  {key:'aliqPIS', label:'Alíquota PIS', group:'aliquotas', type:'readonly', fmt:'pct', tooltip:'Carregado automaticamente do cadastro de NCM'},
+  {key:'valorPIS', label:'Valor PIS', group:'impostos', type:'manual-money'},
+  {key:'aliqCOFINS', label:'Alíquota COFINS', group:'aliquotas', type:'readonly', fmt:'pct', tooltip:'Carregado automaticamente do cadastro de NCM'},
+  {key:'valorCOFINS', label:'Valor COFINS', group:'impostos', type:'manual-money'},
+  {key:'valorICMS', label:'Valor ICMS', group:'impostos', type:'manual-money'},
+  {key:'taxaSiscomexBrl', label:'Taxa Siscomex (BRL)', group:'aduaneiro', type:'manual-money'},
+  {key:'taxaSiscomexUsd', label:'Taxa Siscomex (USD)', group:'aduaneiro', type:'readonly', fmt:'usd', tooltip:'Calculado: Taxa Siscomex (BRL) ÷ taxa do dólar do processo'},
+  {key:'despesasAduaneirasBrl', label:'Despesas Aduaneiras (BRL)', group:'aduaneiro', type:'manual-money'},
+  {key:'despesasAduaneirasUsd', label:'Despesas Aduaneiras (USD)', group:'aduaneiro', type:'readonly', fmt:'usd', tooltip:'Calculado: Despesas Aduaneiras (BRL) ÷ taxa do dólar do processo'},
+  {key:'deposito', label:'Depósito', group:'recebimento', type:'readonly', fmt:'texto', tooltip:'Depósito padrão da empresa — hoje fixo em "01RECEBE"'},
+];
+
+function fmtMemoriaCell(col, val, row){
+  if(col.type==='readonly' && col.fmt==='pct'){
+    if(val==null) return row.ncmEncontrado===false
+      ? `<span title="NCM não cadastrado na aba NCM">NCM não informado</span>`
+      : `<span title="Alíquota não cadastrada pra este NCM">Não cadastrada</span>`;
+    return `${fmtNumberBR(val,2)}%`;
+  }
+  if(col.fmt==='codigoImposto'){
+    if(val) return val;
+    return `<span title="${row.codigoImpostoMotivo||''}" style="color:var(--ink-amber-fg);">${row.codigoImpostoMotivo||'Não vinculado'}</span>`;
+  }
+  if(val==null || val==='') return col.type==='readonly' ? '—' : '';
+  if(col.fmt==='usd') return fmtUSD(val);
+  if(col.fmt==='brl') return fmtBRL(val);
+  if(col.fmt==='int') return String(val);
+  return String(val);
+}
+
+function renderDuimpMemoriaTab(){
+  const p = window.__editingProcess;
+  const el = document.getElementById('memoria-content');
+  if(!el || !p) return;
+  const m = ensureDuimpMemoria(p);
+  const rows = getDuimpMemoriaRows(p);
+  const orphans = getDuimpMemoriaOrphanRows(p);
+  const canEditHere = canEdit('processos');
+  const cambio = parseFloat(p.cambio) || 0;
+
+  const statusOptions = [['RASCUNHO','Rascunho'],['EM_REVISAO','Em revisão'],['VALIDADA','Validada']];
+
+  const groupClass = {item:'memoria-group-item', aduaneiro:'memoria-group-aduaneiro', aliquotas:'memoria-group-aliquotas', impostos:'memoria-group-impostos', recebimento:'memoria-group-recebimento'};
+
+  const headerRow = DUIMP_MEMORIA_COLUMNS.map((col,i)=>`
+    <th class="${groupClass[col.group]}${col.freeze?' memoria-freeze':''}" title="${col.tooltip||''}">
+      ${col.label}
+      ${rows.length ? `<button class="memoria-col-copy" onclick="copyDuimpMemoriaColumn('${col.key}')" title="Copiar coluna inteira">${svgCopyIcon()}</button>` : ''}
+      ${canEditHere && col.type!=='readonly' && rows.length ? `<button class="memoria-col-copy" onclick="pasteDuimpMemoriaColumn('${col.key}')" title="Colar coluna do Excel">${svgPasteInline?svgPasteInline():'⇩'}</button>` : ''}
+    </th>`).join('');
+
+  const bodyRows = rows.map(r => `
+    <tr>
+      ${DUIMP_MEMORIA_COLUMNS.map(col=>{
+        const cls = `${groupClass[col.group]}${col.type==='readonly'?' memoria-readonly':''}${col.freeze?' memoria-freeze':''}`;
+        if(col.type==='readonly'){
+          return `<td class="${cls}">${fmtMemoriaCell(col, r[col.key], r)}</td>`;
+        }
+        const rawVal = r[col.key];
+        const isRateado = (col.rateioKey==='freight'&&r.freteRateado) || (col.rateioKey==='insurance'&&r.seguroRateado) || (col.rateioKey==='additions'&&r.acrescimosRateado);
+        if(isRateado){
+          return `<td class="${cls} memoria-readonly" title="Rateado automaticamente a partir do total do processo">${rawVal!=null?fmtBRL(rawVal):'—'}</td>`;
+        }
+        if(col.type==='manual-text'){
+          return `<td class="${cls}"><input class="memoria-input" ${canEditHere?'':'disabled'} type="text" value="${rawVal||''}" onchange="updateDuimpMemoriaField('${r.itemId}','${col.key}',this.value)"></td>`;
+        }
+        // manual-money
+        return `<td class="${cls}"><input class="memoria-input" ${canEditHere?'':'disabled'} type="text" inputmode="decimal" value="${rawVal!=null?fmtNumberBR(rawVal):''}" oninput="maskCurrencyInput(this);" onchange="updateDuimpMemoriaField('${r.itemId}','${col.key}',parseBRMasked(this.value))"></td>`;
+      }).join('')}
+    </tr>
+  `).join('');
+
+  const orphanHtml = orphans.length ? `
+    <div class="form-hint" style="margin-top:12px; color:var(--ink-red-fg);">
+      ${svgWarnInline()} ${orphans.length} linha(s) da memória pertence(m) a item(ns) que não estão mais na aba Itens.
+      ${canEditHere ? orphans.map(o=>`<button class="btn" style="margin-left:8px; padding:3px 8px; font-size:11px;" onclick="removeDuimpMemoriaOrphanRow('${o.itemId}')">Remover linha</button>`).join('') : ''}
+    </div>` : '';
+
+  el.innerHTML = `
+    <div class="process-section">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+        <div>
+          <h3 style="margin:0 0 4px;">Memória de Cálculo da NF</h3>
+          <div class="form-hint">Processo: ${p.referencia||p.id} · ${rows.length} item(ns) carregado(s) da aba Itens</div>
+        </div>
+        <div style="text-align:right;">
+          <label style="font-size:10px; text-transform:uppercase; color:var(--muted); font-weight:700;">Status</label><br>
+          <select ${canEditHere?'':'disabled'} onchange="updateDuimpMemoriaStatus(this.value)" style="padding:5px 8px; border-radius:6px; border:1px solid var(--border-strong);">
+            ${statusOptions.map(([v,l])=>`<option value="${v}" ${m.status===v?'selected':''}>${l}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; background:var(--paper); border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:14px;">
+        <div>
+          <label style="font-size:10px; text-transform:uppercase; color:var(--muted); font-weight:700;">Taxa do dólar do processo</label><br>
+          <input type="text" inputmode="decimal" id="memoria-cambio-input" value="${p.cambio?fmtNumberBR(p.cambio,4):''}" oninput="maskCurrencyInputDecimals(this,4)" ${canEditHere?'':'disabled'} style="padding:6px 8px; border-radius:6px; border:1px solid var(--border-strong); width:120px; font-weight:700;">
+          ${canEditHere ? `<button class="btn" style="margin-left:6px;" onclick="saveDuimpMemoriaExchangeRate()">Salvar taxa</button>` : ''}
+        </div>
+        <div class="form-hint">
+          ${cambio ? `Taxa atual: R$ ${fmtNumberBR(cambio,4)} · Fonte: ${p.cambioManual?'definida manualmente no processo':'cotação automática'}${p.cambioUpdatedAt?' · Atualizada em '+formatHistoryDate(p.cambioUpdatedAt):''}` : 'Informe a taxa do dólar para calcular os valores em reais.'}
+          <br>Usada também na aba Custos — a mesma taxa vale pro processo inteiro.
+        </div>
+      </div>
+
+      ${renderDuimpMemoriaRateioConfig(m, canEditHere)}
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+        <button class="btn btn-primary" onclick="recalcularDuimpMemoria()">${svgRefreshIcon()} Recalcular memória</button>
+        <button class="btn" onclick="openDuimpMemoriaPasteAllModal()">Colar tabela do Excel</button>
+      </div>
+
+      ${rows.length ? `
+      <div class="memoria-table-wrap">
+        <table class="memoria-table">
+          <thead><tr>${headerRow}</tr></thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </div>
+      ${renderDuimpMemoriaTotais(rows, cambio)}
+      ` : `<div class="form-hint">Nenhum item cadastrado na aba Itens ainda — adicione itens lá para eles aparecerem aqui.</div>`}
+
+      ${orphanHtml}
+    </div>`;
+}
+
+function renderDuimpMemoriaRateioConfig(m, canEditHere){
+  const cfg = [
+    {key:'freight', label:'Frete', mode:m.freightMode, total:m.freightTotalBrl, alloc:m.freightAllocation},
+    {key:'insurance', label:'Seguro', mode:m.insuranceMode, total:m.insuranceTotalBrl, alloc:m.insuranceAllocation},
+    {key:'additions', label:'Acréscimos', mode:m.additionsMode, total:m.additionsTotalBrl, alloc:m.additionsAllocation},
+  ];
+  return `
+    <div class="form-hint" style="margin-bottom:6px; font-weight:700; text-transform:uppercase; font-size:10px; color:var(--muted);">Rateio (opcional) — quando o valor é total do processo, não por item</div>
+    <div style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:14px;">
+      ${cfg.map(c=>`
+        <div style="background:var(--paper); border:1px solid var(--border); border-radius:8px; padding:10px 12px; min-width:220px;">
+          <div style="font-weight:700; font-size:12px; margin-bottom:6px;">${c.label}</div>
+          <label style="font-size:11.5px; display:block; margin-bottom:4px;"><input type="radio" name="memoria-rateio-${c.key}" ${c.mode==='manual'?'checked':''} ${canEditHere?'':'disabled'} onchange="setDuimpMemoriaRateioMode('${c.key}','manual')"> Por item (manual)</label>
+          <label style="font-size:11.5px; display:block; margin-bottom:4px;"><input type="radio" name="memoria-rateio-${c.key}" ${c.mode==='rateado'?'checked':''} ${canEditHere?'':'disabled'} onchange="setDuimpMemoriaRateioMode('${c.key}','rateado')"> Total do processo, ratear</label>
+          ${c.mode==='rateado' ? `
+            <div style="margin-top:6px;">
+              <input type="text" inputmode="decimal" value="${c.total!=null?fmtNumberBR(c.total):''}" ${canEditHere?'':'disabled'} placeholder="Total em R$" oninput="maskCurrencyInput(this)" onchange="setDuimpMemoriaRateioTotal('${c.key}',parseBRMasked(this.value))" style="width:100%; padding:5px 7px; border-radius:5px; border:1px solid var(--border-strong); margin-bottom:6px;">
+              <select ${canEditHere?'':'disabled'} onchange="setDuimpMemoriaRateioAllocation('${c.key}',this.value)" style="width:100%; padding:5px 7px; border-radius:5px; border:1px solid var(--border-strong);">
+                <option value="valor" ${c.alloc==='valor'?'selected':''}>Proporcional ao valor dos itens</option>
+                <option value="quantidade" ${c.alloc==='quantidade'?'selected':''}>Proporcional à quantidade</option>
+              </select>
+            </div>` : ''}
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+/* Resumo "Valores" — soma cada coluna relevante (impostos de um lado, demais despesas do
+   outro), igual ao bloco que já existia na planilha de referência. Trata soma zero/sem dado
+   como "-" (nunca "0,00" fingindo um valor conferido) — mesma lógica de blank≠zero do resto
+   da Memória, só que aplicada ao total em vez de a cada linha. */
+function sumDuimpMemoriaColumn(rows, field){
+  return rows.reduce((acc, r) => acc + (parseFloat(r[field]) || 0), 0);
+}
+function fmtMemoriaTotalCell(v, fmt){
+  if(!v) return '-';
+  return fmt==='usd' ? fmtUSD(v) : fmtBRL(v);
+}
+function renderDuimpMemoriaTotais(rows, cambio){
+  const impostos = [
+    {label:'II', field:'valorII'},
+    {label:'IPI', field:'valorIPI'},
+    {label:'PIS', field:'valorPIS'},
+    {label:'COFINS', field:'valorCOFINS'},
+    {label:'ICMS', field:'valorICMS'},
+  ].map(i => ({...i, brl: sumDuimpMemoriaColumn(rows, i.field)}));
+  const totalImpostosBrl = impostos.reduce((a,i)=>a+i.brl, 0);
+
+  const outros = [
+    {label:'SISCOMEX', field:'taxaSiscomexBrl'},
+    {label:'DESP ADU', field:'despesasAduaneirasBrl'},
+    {label:'ACRÉSCIMOS', field:'acrescimosBrl'},
+    {label:'SEGURO', field:'seguroBrl'},
+  ].map(i => ({...i, brl: sumDuimpMemoriaColumn(rows, i.field)}));
+  const totalOutrosBrl = outros.reduce((a,i)=>a+i.brl, 0);
+
+  const linha = (label, brl, bold) => `
+    <tr ${bold?'style="font-weight:700; border-top:2px solid var(--border-strong);"':''}>
+      <td>${label}</td>
+      <td style="text-align:right;">${fmtMemoriaTotalCell(brl,'brl')}</td>
+      <td style="text-align:right;">${fmtMemoriaTotalCell(brlToUsd(brl,cambio),'usd')}</td>
+    </tr>`;
+
+  return `
+    <div style="display:flex; gap:24px; flex-wrap:wrap; margin-top:18px;">
+      <div>
+        <div style="text-align:center; font-weight:700; font-size:11px; text-transform:uppercase; color:var(--muted); margin-bottom:6px;">Valores</div>
+        <table class="cost-table">
+          <thead><tr><th></th><th style="text-align:right;">R$</th><th style="text-align:right;">USD</th></tr></thead>
+          <tbody>
+            ${impostos.map(i=>linha(i.label, i.brl)).join('')}
+            ${linha('TOTAL:', totalImpostosBrl, true)}
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <div style="text-align:center; font-weight:700; font-size:11px; text-transform:uppercase; color:var(--muted); margin-bottom:6px;">&nbsp;</div>
+        <table class="cost-table">
+          <thead><tr><th></th><th style="text-align:right;">R$</th><th style="text-align:right;">USD</th></tr></thead>
+          <tbody>
+            ${outros.map(i=>linha(i.label, i.brl)).join('')}
+            ${linha('TOTAL:', totalOutrosBrl, true)}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
 
 let itemSearchTimeout = null;
 let __itemAutocompleteResults = [];
@@ -14689,6 +15466,7 @@ function openProcessModal(id){
           <button class="tab-btn" data-tab="desempenho" onclick="switchTab('desempenho')">Desempenho</button>
           <button class="tab-btn" data-tab="historico" onclick="switchTab('historico')">Histórico</button>
           <button class="tab-btn" data-tab="emails" onclick="switchTab('emails')">E-mails</button>
+          <button class="tab-btn" data-tab="memoria" onclick="switchTab('memoria')">Memória de Cálculo da NF</button>
           <button class="tab-btn" data-tab="lotes" onclick="switchTab('lotes')">Lotes</button>
           <button class="tab-btn" data-tab="duimp" onclick="switchTab('duimp')">Portal Único / DUIMP</button>
         </div>
@@ -14950,6 +15728,10 @@ function openProcessModal(id){
           <div id="itens-totals"></div>
         </div>
 
+        <div class="tab-pane" id="tab-memoria">
+          <div id="memoria-content"></div>
+        </div>
+
         <div class="tab-pane" id="tab-preanalise">
           <div id="preanalise-content"></div>
         </div>
@@ -15118,6 +15900,7 @@ function openProcessModal(id){
   renderHistoryTab();
   editingItemIds = new Set();
   renderItensTab();
+  renderDuimpMemoriaTab();
   document.getElementById('desempenho-content').innerHTML = renderDesempenhoTab();
   renderDocsTab();
   renderProvisionamentoTab();
