@@ -5056,14 +5056,22 @@ function getProcessAlerts(p){
     alerts.push(`Carga acima de ${limiteFmt} (${valorFmt}) — informe a seguradora`);
   }
 
-  /* Alerta de "Testar NF" (Fase 6, índice 9): só nasce depois que a DUIMP já foi registrada
-     (não faz sentido cobrar teste de uma declaração que ainda não existe) e só depois de 1
-     dia sem confirmar — antes disso fica em silêncio, sem aparecer em posição nem em alerta.
-     Nunca aparece pro perfil viewer (canEdit('processos') falso) — é procedimento interno,
-     pedido explícito. Continua avisando (com "há X dias") enquanto não for testado. */
+  /* Alerta de "Testar NF": só nasce depois que a DUIMP já foi registrada (não faz sentido
+     cobrar teste de uma declaração que ainda não existe) e só depois de 1 dia sem confirmar —
+     antes disso fica em silêncio, sem aparecer em posição nem em alerta. Nunca aparece pro
+     perfil viewer (canEdit('processos') falso) — é procedimento interno, pedido explícito.
+     IMPORTANTE: os índices de "Registro da DUIMP"/"Testar NF" NÃO são fixos — no aéreo a
+     Fase 6 tem itens a mais/a menos (DTA agendada/iniciada só existem com transferência, ver
+     getStagesForProcess) e a posição desses dois itens muda de processo pra processo. Usar
+     índice fixo (8/9, válido só pro marítimo) fazia o alerta disparar mesmo com Testar NF já
+     marcado em processos aéreos — bug real encontrado. Sempre resolver pelo NOME, via
+     `stages` (já calculado acima, modal-aware) — nunca por posição fixa. */
+  const fase6Stage = stages.find(s=>s.key==='fase6');
   const fase6checked = p.checklist['fase6']||[];
-  const registroDuimpFeito = fase6checked[8];
-  const testarNfFeito = fase6checked[9];
+  const registroIdx = fase6Stage ? fase6Stage.items.indexOf('Registro da DUIMP') : -1;
+  const testarNfIdx = fase6Stage ? fase6Stage.items.indexOf('Testar NF') : -1;
+  const registroDuimpFeito = registroIdx>=0 && !!fase6checked[registroIdx];
+  const testarNfFeito = testarNfIdx>=0 && !!fase6checked[testarNfIdx];
   if(registroDuimpFeito && !testarNfFeito && extra.dataRegistroDUIMP && canEdit('processos')){
     const diasDesdeRegistro = daysBetween(extra.dataRegistroDUIMP, today);
     if(diasDesdeRegistro>=1){
