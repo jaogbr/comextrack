@@ -1097,6 +1097,8 @@ body.dark-mode .followup-narrative-row td{background:rgba(255,255,255,0.03);}
 .memoria-table thead th.memoria-freeze{z-index:3;}
 .memoria-table td.memoria-readonly{color:var(--muted); background:var(--paper);}
 .memoria-table td.memoria-readonly .memoria-source-icon{color:var(--ink-blue-fg); margin-left:3px;}
+.memoria-table tfoot td{position:sticky; bottom:0; z-index:2; background:var(--paper); font-weight:700; border-top:2px solid var(--border-strong);}
+.memoria-table tfoot td.memoria-freeze{z-index:3;}
 .memoria-table input.memoria-input{width:100%; min-width:78px; border:1px solid var(--border-strong); border-radius:4px; padding:4px 6px; font-size:11.5px; font-family:var(--font-text); background:var(--bg);}
 .memoria-table input.memoria-input:focus{outline:2px solid var(--accent); outline-offset:-1px;}
 .memoria-col-copy{background:none; border:none; cursor:pointer; color:var(--muted); padding:0 0 0 4px; vertical-align:middle; display:inline-flex;}
@@ -2749,8 +2751,8 @@ const STAGE_DEFS = [
       3:[{key:'dataAgendamentoDTA', label:'Data Agendada', type:'date'}],
       4:[{key:'dataInicioDTA', label:'Data de Início', type:'date'}],
       5:[{key:'recintoAlfandegado', label:'Recinto de Desembaraço (Zona Secundária)', type:'partner', partnerType:'Recinto Alfandegado', zona:'Zona Secundária'},{key:'dataChegadaBetim', label:'Data de Chegada', type:'date'}],
-      8:[{key:'numeroDUIMP', label:'Número da DUIMP', type:'text'},{key:'chaveAcessoDUIMP', label:'Chave de Acesso da DUIMP', type:'text'},{key:'dataRegistroDUIMP', label:'Data de Registro', type:'date'}],
-      10:[{key:'canalDesembaraco', label:'Canal', type:'select', options:['Verde','Amarelo','Vermelho','Cinza']},{key:'dataDesembaraco', label:'Data do Desembaraço', type:'date'}],
+      8:[{key:'numeroDUIMP', label:'Número da DUIMP', type:'text'},{key:'chaveAcessoDUIMP', label:'Chave de Acesso da DUIMP', type:'text'},{key:'dataRegistroDUIMP', label:'Data de Registro', type:'date'},{key:'canalDesembaraco', label:'Canal de Conferência (parametrização)', type:'select', options:['Verde','Amarelo','Vermelho','Cinza']}],
+      10:[{key:'dataDesembaraco', label:'Data do Desembaraço', type:'date'}],
       11:[{key:'dataLiberacaoSefaz', label:'Data de Liberação SEFAZ', type:'date'}],
     },
     /* "Navio Atracado no Porto" (índice 1) agora é o marco que faz o processo sair de
@@ -3646,6 +3648,12 @@ function svgWarnInline(size){
 /* Ícone de "copiar" — mesmo desenho já usado nos cabeçalhos de coluna da aba Itens, agora
    centralizado aqui pra não repetir o SVG inteiro em cada cabeçalho novo (Memória de
    Cálculo da NF tem quase 30 colunas copiáveis). */
+/* Ícone de "desvincular" (elo de corrente quebrado) — usado no botão de desvincular um
+   Código de Imposto de todas as NCMs de uma vez. */
+function svgUnlinkIcon(size){
+  size = size || 14;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18.84 12.25 1.72-1.71a5 5 0 0 0-.12-7.07 5.006 5.006 0 0 0-6.95 0l-1.72 1.71"/><path d="m5.17 11.75-1.71 1.71a5 5 0 0 0 .12 7.07 5.006 5.006 0 0 0 6.95 0l1.71-1.71"/><line x1="8" y1="2" x2="8" y2="5"/><line x1="2" y1="8" x2="5" y2="8"/><line x1="16" y1="19" x2="16" y2="22"/><line x1="19" y1="16" x2="22" y2="16"/></svg>`;
+}
 function svgCopyIcon(size){
   size = size || 12;
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>`;
@@ -4679,6 +4687,8 @@ function computePrevisaoEntradaEstoque(p){
     ];
   }
 
+  const canalExtra = CANAL_DIAS_UTEIS_EXTRA[extra.canalDesembaraco] || 0;
+  if(canalExtra){ const d = chain.find(c=>c.key==='desembaraco'); if(d) d.dias += canalExtra; }
   let runningDate = chegadaBase;
   const marcos = [];
   chain.forEach((step,i)=>{
@@ -4832,7 +4842,7 @@ function prazoPrimeiroPeriodoZonaSecundaria(p){
 function getProcessAlerts(p){
   const alerts = [];
   if(!canSeeProcessAlerts()) return alerts;
-  if(p.tipo==='temporaria' || isProcessDone(p)) return alerts;
+  if(isProcessDone(p)) return alerts;
   const extra = p.extra || {};
   const today = todayStr();
 
@@ -5613,8 +5623,7 @@ function openProcessViewModal(id, event){
   const previsaoEstoqueView = (()=>{
     const pe = computePrevisaoEntradaEstoque(p);
     if(pe.status==='sem_embarque' || pe.status==='sem_chegada_prevista') return { value:'Aguardando dados', sub:'Embarque e chegada previstos' };
-    const valor = p.previsaoEntradaEstoque || pe.dataFinal;
-    return { value: fmtDate(valor), sub: p.previsaoEntradaEstoque ? 'Ajustada manualmente' : (pe.status==='confirmado' ? 'Confirmada' : 'Calculada automaticamente') };
+    return { value: fmtDate(pe.dataFinal), sub: pe.status==='confirmado' ? 'Confirmada' : 'Atualizada automaticamente' };
   })();
 
   const overlay = document.createElement('div');
@@ -5668,7 +5677,7 @@ function openProcessViewModal(id, event){
         ${renderSectionRectangle({icon:svgPersonIcon(17), title:'Identificação', cls:'is-neutral'})}
         <div class="view-grid">
           ${viewFieldHtml('Fornecedor', fornecedor?fornecedorNameHtml(fornecedor):'—', svgPersonIcon())}
-          ${viewFieldHtml('Tipo', p.tipo==='temporaria'?'Admissão Temporária':'Importação Definitiva', svgTagIcon())}
+          ${viewFieldHtml('Tipo', tipoProcessoLabel(p.tipo), svgTagIcon())}
           ${viewFieldHtml('Data do Pedido', fmtDate(p.dataPedido), svgCalendarIcon())}
           ${viewFieldHtml('Prontidão Prevista', fmtDate(p.prontidao), svgCalendarIcon())}
           ${viewFieldHtml('Pedido no SAP', extra.numeroPedidoSAP, svgBarcodeIcon())}
@@ -6241,6 +6250,18 @@ async function saveDuimpMemoriaExchangeRate(){
   p.cambioManual = true;
   p.cambioUpdatedAt = Date.now();
   p.cambioUpdatedBy = (auth.currentUser && (auth.currentUser.displayName || auth.currentUser.email)) || '';
+  /* O campo de câmbio da aba Custos (#c-cambio) é um INPUT separado na mesma tela, com seu
+     próprio estado — atualizar só p.cambio não muda o que está digitado lá. Sem isto, o botão
+     "Salvar" principal releria o valor antigo desse input (collectCostFields) e sobrescrevia
+     de volta a taxa que acabou de ser salva aqui. Mesma classe de bug do duimpMemoria acima —
+     dois lugares guardando o mesmo dado precisam ficar sincronizados explicitamente. */
+  const cambioCustosInput = document.getElementById('c-cambio');
+  /* #c-cambio agora é <input type="text"> com máscara em vírgula (mesmo padrão dos outros
+     campos de valor do app — FOB, Frete, Seguro), então preenche igual: formatado em BR,
+     não em ponto. */
+  if(cambioCustosInput){ cambioCustosInput.value = fmtNumberBR(novo,4); updateCostPreview(); }
+  const statusEl = document.getElementById('cambio-status');
+  if(statusEl) statusEl.innerHTML = `${svgEditIcon()} Valor definido manualmente`;
   renderDuimpMemoriaTab();
   await autoPersistCurrentProcess();
 }
@@ -6660,21 +6681,17 @@ function getDuimpMemoriaRows(p){
   });
 }
 
-/* Código de Imposto (seção 11/13 do pedido original de NCM) — puxa automaticamente o vínculo
-   já cadastrado na NCM do item, filtrado pela FINALIDADE certa pra operação deste processo
-   (p.regime: 'revenda' → finalidade "REVENDA", 'consumo' → "USO E CONSUMO" — mesmos nomes já
-   usados em getEffectiveAliquotas/DEFAULT_FINALIDADES). Nunca inventa um vínculo: se a NCM
-   não tiver Código de Imposto cadastrado pra essa finalidade, mostra o motivo em vez de um
-   valor, pra nunca sugerir um código que na real não existe. */
+/* Código de Imposto — reaproveita a MESMA função já usada em outro lugar do app pra essa
+   exata resolução (resolveCodigoImpostoParaNcm, usada no cálculo de ICMS do Provisionamento;
+   ver STAGE ~8775) — não reimplementa a lógica de novo aqui. Antes eu tinha escrito uma versão
+   própria com correspondência exata do nome da finalidade, que divergia da estabelecida
+   (que faz correspondência mais flexível e cai pro primeiro vínculo existente quando não acha
+   um específico pra regime) — bug real encontrado, corrigido reaproveitando a função certa. */
 function resolveCodigoImpostoMemoria(p, item){
   const entry = findNCMEntry(item && item.ncm);
   if(!entry) return { codigo:null, motivo:'NCM não cadastrado' };
-  const finalidadeNome = p.regime==='revenda' ? 'REVENDA' : p.regime==='consumo' ? 'USO E CONSUMO' : null;
-  if(!finalidadeNome) return { codigo:null, motivo:'Defina o Regime Fiscal do processo (aba Custos)' };
-  const idsVinculados = entry.codigosImpostoIds || (entry.codigoImpostoId ? [entry.codigoImpostoId] : []);
-  const match = idsVinculados.map(getCodigoImpostoById).filter(Boolean)
-    .find(c=>{ const fin = getFinalidadeById(c.finalidadeId); return fin && fin.nome===finalidadeNome; });
-  if(!match) return { codigo:null, motivo:`Sem Código de Imposto vinculado a esta NCM pra ${finalidadeNome}` };
+  const match = resolveCodigoImpostoParaNcm(entry, p.regime);
+  if(!match) return { codigo:null, motivo:'Sem Código de Imposto vinculado a esta NCM' };
   return { codigo: match.codigo, motivo:null };
 }
 
@@ -6840,6 +6857,7 @@ function renderDuimpMemoriaTab(){
         <table class="memoria-table">
           <thead><tr>${headerRow}</tr></thead>
           <tbody>${bodyRows}</tbody>
+          <tfoot><tr>${renderDuimpMemoriaFooterRow(rows)}</tr></tfoot>
         </table>
       </div>
       ${renderDuimpMemoriaTotais(rows, cambio)}
@@ -6887,6 +6905,26 @@ function fmtMemoriaTotalCell(v, fmt){
   if(!v) return '-';
   return fmt==='usd' ? fmtUSD(v) : fmtBRL(v);
 }
+/* Linha de total no RODAPÉ da tabela principal — soma cada coluna monetária (BRL e USD),
+   inclusive as que não aparecem na caixa "Valores" embaixo (Valor Mercadoria, Frete, Seguro,
+   Acréscimos, Valor Aduaneiro): "soma de cada coluna" cobrindo a tabela inteira, não só os
+   impostos/siscomex/despesas. Gerada a partir da mesma config de colunas — nenhuma coluna
+   nova precisa ser listada duas vezes. */
+function renderDuimpMemoriaFooterRow(rows){
+  return DUIMP_MEMORIA_COLUMNS.map(col=>{
+    if(col.key==='itemNumber') return `<td class="memoria-freeze">TOTAL</td>`;
+    if(col.type==='manual-money' || col.fmt==='usd' || col.fmt==='brl'){
+      const soma = sumDuimpMemoriaColumn(rows, col.key);
+      const fmt = col.fmt || 'brl';
+      return `<td style="text-align:right;">${fmtMemoriaTotalCell(soma, fmt)}</td>`;
+    }
+    if(col.key==='quantidade'){
+      const soma = sumDuimpMemoriaColumn(rows, col.key);
+      return `<td>${soma||''}</td>`;
+    }
+    return `<td></td>`;
+  }).join('');
+}
 function renderDuimpMemoriaTotais(rows, cambio){
   const impostos = [
     {label:'II', field:'valorII'},
@@ -6907,17 +6945,27 @@ function renderDuimpMemoriaTotais(rows, cambio){
 
   const linha = (label, brl, bold) => `
     <tr ${bold?'style="font-weight:700; border-top:2px solid var(--border-strong);"':''}>
-      <td>${label}</td>
-      <td style="text-align:right;">${fmtMemoriaTotalCell(brl,'brl')}</td>
-      <td style="text-align:right;">${fmtMemoriaTotalCell(brlToUsd(brl,cambio),'usd')}</td>
+      <td style="padding:7px 14px 7px 4px;">${label}</td>
+      <td style="text-align:right; padding:7px 18px;">${fmtMemoriaTotalCell(brl,'brl')}</td>
+      <td style="text-align:right; padding:7px 4px;">${fmtMemoriaTotalCell(brlToUsd(brl,cambio),'usd')}</td>
     </tr>`;
 
+  /* Sem taxa do dólar do processo, brlToUsd() devolve null pra tudo (nunca inventa uma
+     conversão sem taxa) — o que sem esse aviso parecia bug ("USD não aparece"), mas é só a
+     taxa ainda não ter sido preenchida. Deixa isso explícito em vez de só mostrar "-" em
+     silêncio em toda linha. */
+  const avisoSemCambio = !cambio ? `
+    <div class="form-hint" style="color:var(--ink-amber-fg); margin-bottom:10px;">
+      ${svgWarnInline()} Informe a taxa do dólar do processo (no topo desta aba) para os totais em USD aparecerem aqui.
+    </div>` : '';
+
   return `
-    <div style="display:flex; gap:24px; flex-wrap:wrap; margin-top:18px;">
+    ${avisoSemCambio}
+    <div style="display:flex; gap:56px; flex-wrap:wrap; margin-top:18px;">
       <div>
-        <div style="text-align:center; font-weight:700; font-size:11px; text-transform:uppercase; color:var(--muted); margin-bottom:6px;">Valores</div>
-        <table class="cost-table">
-          <thead><tr><th></th><th style="text-align:right;">R$</th><th style="text-align:right;">USD</th></tr></thead>
+        <div style="text-align:center; font-weight:700; font-size:11px; text-transform:uppercase; color:var(--muted); margin-bottom:8px; letter-spacing:0.04em;">Valores</div>
+        <table class="cost-table" style="border-spacing:0 2px;">
+          <thead><tr><th></th><th style="text-align:right; padding:6px 18px;">R$</th><th style="text-align:right; padding:6px 4px;">USD</th></tr></thead>
           <tbody>
             ${impostos.map(i=>linha(i.label, i.brl)).join('')}
             ${linha('TOTAL:', totalImpostosBrl, true)}
@@ -6925,9 +6973,9 @@ function renderDuimpMemoriaTotais(rows, cambio){
         </table>
       </div>
       <div>
-        <div style="text-align:center; font-weight:700; font-size:11px; text-transform:uppercase; color:var(--muted); margin-bottom:6px;">&nbsp;</div>
-        <table class="cost-table">
-          <thead><tr><th></th><th style="text-align:right;">R$</th><th style="text-align:right;">USD</th></tr></thead>
+        <div style="text-align:center; font-weight:700; font-size:11px; text-transform:uppercase; color:var(--muted); margin-bottom:8px; letter-spacing:0.04em;">&nbsp;</div>
+        <table class="cost-table" style="border-spacing:0 2px;">
+          <thead><tr><th></th><th style="text-align:right; padding:6px 18px;">R$</th><th style="text-align:right; padding:6px 4px;">USD</th></tr></thead>
           <tbody>
             ${outros.map(i=>linha(i.label, i.brl)).join('')}
             ${linha('TOTAL:', totalOutrosBrl, true)}
@@ -7159,6 +7207,10 @@ function getPosicaoAtualTexto(p){
   const base = FOLLOWUP_POSICAO_ATUAL[status] || '';
   const extra = p.extra || {};
   if(status==='Aguardando Início da DTA' && extra.dataAgendamentoDTA) return `DTA agendada para ${fmtDate(extra.dataAgendamentoDTA)}, aguardando início`;
+  if(status==='Em processo de desembaraço'){
+    const pend = getCanalEtapaPendente(p);
+    if(pend) return `Canal ${extra.canalDesembaraco} — ${pend}`;
+  }
   if(status==='Transporte DTA' && extra.dataInicioDTA) return `Em transporte DTA para o recinto de desembaraço — iniciada em ${fmtDate(extra.dataInicioDTA)}`;
   return base;
 }
@@ -7665,7 +7717,7 @@ function followUpTableRowHtml(p){
     <tr class="followup-tr">
       <td class="followup-td-sticky">${escHtmlSimple(r.processo)}</td>
       <td class="followup-td-fornecedor"${fornecedorStyle}>${escHtmlSimple(r.fornecedor)}</td>
-      <td class="followup-td-produto">${escHtmlSimple(r.descricao)}${p.tipo==='temporaria'?' <span class="followup-temp-tag">Admissão Temporária</span>':''}</td>
+      <td class="followup-td-produto">${escHtmlSimple(r.descricao)}${(p.tipo==='temporaria'||p.tipo==='courier')?` <span class="followup-temp-tag">${tipoProcessoLabel(p.tipo)}</span>`:''}</td>
       <td>${r.dataPedido||'—'}</td>
       <td>${r.prontidao||'—'}</td>
       <td><div class="followup-date-cell ${embarqueCellCls}"><span class="followup-date-label">${embarqueInfo.label}</span><span>${embarqueInfo.value}</span></div></td>
@@ -7681,7 +7733,7 @@ function followUpTableRowHtml(p){
     <tr class="followup-narrative-row" id="${narrativeId}" style="${isOpen?'':'display:none;'}">
       <td colspan="14">
         <div class="followup-narrative-header">
-          <div class="followup-narrative-title">${escHtmlSimple(r.processo)} &middot; ${escHtmlSimple(r.descricao)}${p.tipo==='temporaria'?' <span class="followup-temp-tag">Admissão Temporária</span>':''}</div>
+          <div class="followup-narrative-title">${escHtmlSimple(r.processo)} &middot; ${escHtmlSimple(r.descricao)}${(p.tipo==='temporaria'||p.tipo==='courier')?` <span class="followup-temp-tag">${tipoProcessoLabel(p.tipo)}</span>`:''}</div>
           <div class="followup-narrative-sub">${escHtmlSimple(r.fornecedor)}${r.modal?` · <span class="followup-inline-icon">${modalIconHtml}</span>${escHtmlSimple(r.modal)}`:''}${r.origem?` · ${originFlag?`<span class="followup-inline-icon">${originFlag}</span>`:''}${escHtmlSimple(r.origem)}`:''}</div>
         </div>
         <div class="followup-narrative-andamento-title"><span class="followup-inline-icon">${svgRouteIcon(13)}</span>ANDAMENTO</div>
@@ -7815,6 +7867,7 @@ function renderFollowUpPage(){
         <option value="">Definitiva e Temporária</option>
         <option value="definitiva" ${f.tipo==='definitiva'?'selected':''}>Só Definitiva</option>
         <option value="temporaria" ${f.tipo==='temporaria'?'selected':''}>Só Temporária</option>
+        <option value="courier" ${f.tipo==='courier'?'selected':''}>Só Courier Expresso</option>
       </select>
       <button class="btn" onclick="clearPageFilters('followup')">Limpar filtros</button>
     </div>
@@ -7970,7 +8023,7 @@ function generateFollowUpEmailProcessBlock(p){
   // Sem bandeira/ícone/emoji de país — origem só como texto, como pedido.
   const supplierColor = followUpSupplierColorEmail(p);
   const stageColor = followUpHeaderColorEmail(r.status);
-  const tempTag = p.tipo==='temporaria' ? ' <span style="font-size:10px; font-weight:bold; text-transform:uppercase; background-color:rgba(255,255,255,0.18); padding:2px 7px; border-radius:999px;">Admissão Temporária</span>' : '';
+  const tempTag = (p.tipo==='temporaria'||p.tipo==='courier') ? ` <span style="font-size:10px; font-weight:bold; text-transform:uppercase; background-color:rgba(255,255,255,0.18); padding:2px 7px; border-radius:999px;">${tipoProcessoLabel(p.tipo)}</span>` : '';
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; border-collapse:collapse; background-color:#FFFFFF; border:1px solid #D8E1EA;">
     <tr>
       <td width="72%" valign="middle" style="width:72%; padding:11px 16px; background-color:${supplierColor}; font-family:Arial,Helvetica,sans-serif; color:#FFFFFF;">
@@ -8062,7 +8115,7 @@ function generateFollowUpEmailPlainText(processes){
       const embarqueInfo = r.embarqueDisplayDate ? {label:r.embarqueLabel, value:fmtDate(r.embarqueDisplayDate)} : null;
       const chegadaInfo = r.chegadaDisplayDate ? {label:r.chegadaLabel, value:fmtDate(r.chegadaDisplayDate)} : null;
 
-      text += `${r.processo} · ${r.descricao}${p.tipo==='temporaria'?' (Admissão Temporária)':''} — ${String(r.status).toUpperCase()}\n`;
+      text += `${r.processo} · ${r.descricao}${(p.tipo==='temporaria'||p.tipo==='courier')?` (${tipoProcessoLabel(p.tipo)})`:''} — ${String(r.status).toUpperCase()}\n`;
       text += `${r.fornecedor}${r.modal?' · '+r.modal:''}${r.origem?' · '+r.origem:''}\n\n`;
       if(r.dataPedido) text += `Pedido: ${r.dataPedido}\n`;
       if(r.prontidao) text += `Prontidão prevista: ${r.prontidao}\n`;
@@ -9523,8 +9576,89 @@ function getModalidadePagamentoOptions(p){
   if(options.length===0) options = ['Adiantado','A prazo','Factoring'];
   return options;
 }
+/* CANAL DIFERENTE DE VERDE (Fase 6) — o canal é definido no Registro da DUIMP (parametrização).
+   Verde segue direto pro desembaraço. Amarelo/Vermelho/Cinza ganham etapas próprias inseridas
+   ENTRE "Testar NF" e "Desembaraço da DUIMP" (o fluxo volta pra confirmação do desembaraço
+   depois delas). O checklist é por índice, então o bloco inserido é sincronizado de forma
+   idempotente: p.extra._f6CanalNames guarda quais etapas de canal o checklist salvo contém hoje;
+   se o canal mudar, o bloco é reconstruído mapeando os checks por NOME (nada se perde nem
+   desloca Desembaraço/SEFAZ). */
+const CANAL_ETAPAS = {
+  Amarelo:  ['Conferência documental pela Receita','Atender exigências fiscais'],
+  Vermelho: ['Conferência documental pela Receita','Agendar conferência física','Conferência física realizada','Atender exigências fiscais'],
+  Cinza:    ['Abertura do procedimento especial','Atender intimações e comprovar valoração','Conclusão do procedimento especial'],
+};
+/* Dias úteis que o canal soma na Previsão de Entrada em Estoque enquanto o desembaraço não foi confirmado. */
+const CANAL_DIAS_UTEIS_EXTRA = { Amarelo:3, Vermelho:6, Cinza:15 };
+const CANAL_ETAPAS_CAMPOS = { 'Agendar conferência física':[{key:'dataAgendamentoConferenciaFisica', label:'Data Agendada', type:'date'}], 'Conferência física realizada':[{key:'dataConferenciaFisica', label:'Data da Conferência', type:'date'}] };
+function getCanalEtapasNomes(canal){ return (canal && CANAL_ETAPAS[canal]) ? CANAL_ETAPAS[canal].slice() : []; }
+function injectCanalEtapas(p, st){
+  if(!p) return st;
+  p.extra = p.extra || {};
+  const at = st.items.indexOf('Desembaraço da DUIMP');
+  if(at<0) return st;
+  const novo = getCanalEtapasNomes(p.extra.canalDesembaraco);
+  const antigo = Array.isArray(p.extra._f6CanalNames) ? p.extra._f6CanalNames : [];
+  if(JSON.stringify(novo)!==JSON.stringify(antigo)){
+    p.checklist = p.checklist || {};
+    const arr = Array.isArray(p.checklist.fase6) ? p.checklist.fase6.slice() : [];
+    while(arr.length < at + antigo.length) arr.push(false);
+    const head = arr.slice(0, at);
+    const bloco = arr.slice(at, at+antigo.length);
+    const tail = arr.slice(at+antigo.length);
+    // Se o desembaraço já estava confirmado, etapas de canal que passam a existir contam como cumpridas.
+    const jaDesembaracado = tail[0]===true;
+    const novoBloco = novo.map(n=>{ const i=antigo.indexOf(n); return i>=0 ? bloco[i]===true : jaDesembaracado; });
+    p.checklist.fase6 = head.concat(novoBloco, tail);
+    p.extra._f6CanalNames = novo.slice();
+  }
+  if(!novo.length) return st;
+  const n = novo.length;
+  const items = st.items.slice(0,at).concat(novo, st.items.slice(at));
+  const itemFields = {};
+  Object.keys(st.itemFields||{}).forEach(k=>{ const i=parseInt(k,10); itemFields[i>=at ? i+n : i] = st.itemFields[k]; });
+  novo.forEach((nm,j)=>{ if(CANAL_ETAPAS_CAMPOS[nm]) itemFields[at+j] = CANAL_ETAPAS_CAMPOS[nm]; });
+  return {...st, items, itemFields, canalEtapasRange:[at, at+n-1]};
+}
+/* Etapa de canal pendente (primeira ainda não confirmada), ou null. */
+function getCanalEtapaPendente(p){
+  const canal = (p.extra||{}).canalDesembaraco;
+  if(!canal || canal==='Verde') return null;
+  const st = getStagesForProcess(p).find(s=>s.key==='fase6');
+  if(!st || !st.canalEtapasRange) return null;
+  const chk = (p.checklist||{}).fase6 || [];
+  if(chk[st.items.indexOf('Desembaraço da DUIMP')]) return null;
+  for(let i=st.canalEtapasRange[0]; i<=st.canalEtapasRange[1]; i++){ if(!chk[i]) return st.items[i]; }
+  return null;
+}
+
+/* Tipos de processo: 'definitiva' (padrão), 'temporaria' (admissão temporária — feira/demo) e
+   'courier' (remessa por courier expresso). */
+function tipoProcessoLabel(tipo){
+  return tipo==='temporaria' ? 'Admissão Temporária' : tipo==='courier' ? 'Remessa Courier Expresso' : 'Importação Definitiva';
+}
+/* Etapas próprias da Remessa Courier Expresso — A DEFINIR pelo usuário. Enquanto for null, o
+   courier usa o fluxo padrão de importação (do modal escolhido). Quando as etapas forem
+   definidas, basta preencher este array (mesmo formato de TEMP_STAGES) que o courier passa a usá-las. */
+const COURIER_STAGES = null;
+/* Admissão temporária NÃO é um fluxo enxuto: percorre praticamente todas as etapas de uma
+   importação comum (pedido, embarque, chegada, desembaraço, remoção, custos...). As etapas
+   específicas do regime (registro/garantia, permanência, encerramento) são ACRESCENTADAS ao
+   fluxo normal: "Registro e Garantia" logo antes da Fase 6 (chegada/desembaraço), e
+   "Permanência"/"Encerramento" no final. As chaves tfase1..3 são as mesmas de sempre, então
+   marcações já feitas em processos temporários existentes continuam valendo. */
 function getStagesForProcess(p){
-  if(p && p.tipo==='temporaria') return TEMP_STAGES;
+  const base = getStagesForProcessBase(p);
+  if(p && p.tipo==='courier' && Array.isArray(COURIER_STAGES) && COURIER_STAGES.length) return COURIER_STAGES;
+  if(p && p.tipo==='temporaria'){
+    const i = base.findIndex(s=>s.key==='fase6');
+    const antes = i>=0 ? base.slice(0,i) : base.slice();
+    const depois = i>=0 ? base.slice(i) : [];
+    return antes.concat([TEMP_STAGES[0]], depois, [TEMP_STAGES[1], TEMP_STAGES[2]]);
+  }
+  return base;
+}
+function getStagesForProcessBase(p){
   const isAereo = p && p.modal==='aereo';
   return STAGE_DEFS.map(s=>{
     if(s.key==='fase3'){
@@ -9605,14 +9739,16 @@ function getStagesForProcess(p){
       ];
       items.push('Pagar numerário despachante');
       items.push('Registro da DUIMP');
-      itemFields[items.length-1] = [{key:'numeroDUIMP', label:'Número da DUIMP', type:'text'},{key:'chaveAcessoDUIMP', label:'Chave de Acesso da DUIMP', type:'text'},{key:'dataRegistroDUIMP', label:'Data de Registro', type:'date'}];
+      itemFields[items.length-1] = [{key:'numeroDUIMP', label:'Número da DUIMP', type:'text'},{key:'chaveAcessoDUIMP', label:'Chave de Acesso da DUIMP', type:'text'},{key:'dataRegistroDUIMP', label:'Data de Registro', type:'date'},{key:'canalDesembaraco', label:'Canal de Conferência (parametrização)', type:'select', options:['Verde','Amarelo','Vermelho','Cinza']}];
       items.push('Testar NF');
       items.push('Desembaraço da DUIMP');
-      itemFields[items.length-1] = [{key:'canalDesembaraco', label:'Canal', type:'select', options:['Verde','Amarelo','Vermelho','Cinza']},{key:'dataDesembaraco', label:'Data do Desembaraço', type:'date'}];
+      itemFields[items.length-1] = [{key:'dataDesembaraco', label:'Data do Desembaraço', type:'date'}];
       items.push('Liberação SEFAZ');
       itemFields[items.length-1] = [{key:'dataLiberacaoSefaz', label:'Data de Liberação SEFAZ', type:'date'}];
-      return {...s, items, itemFields, arrivalItemIndex, extraFields: s.extraFields};
+      return injectCanalEtapas(p, {...s, items, itemFields, arrivalItemIndex, extraFields: s.extraFields});
     }
+
+    if(s.key==='fase6') return injectCanalEtapas(p, s);
 
     if(s.key==='fase7' && isAereo){
       const items = s.items.slice(0,4); // remove "Devolução do vazio" (não existe no aéreo)
@@ -9795,7 +9931,6 @@ function getBucket(p){
   const cfg = getDashboardConfig();
   const rule = (cfg.rules||[]).find(r=>r.stageKey===p.status);
   if(rule) return 'custom:'+rule.id;
-  if(p.tipo==='temporaria') return 'producao';
 
   const stages = getStagesForProcess(p);
   const fase7 = stages.find(s=>s.key==='fase7');
@@ -9989,7 +10124,7 @@ function computeValorAduaneiroBreakdown(p){
      inputs quando eles existem, com fallback pro valor já salvo no processo. */
   const cambioEl = document.getElementById('c-cambio');
   const seguroEl = document.getElementById('c-seguro');
-  const cambio = cambioEl ? (parseFloat(cambioEl.value)||0) : (parseFloat(p.cambio)||0);
+  const cambio = cambioEl ? parseBRMasked(cambioEl.value) : (parseFloat(p.cambio)||0);
   const seguroUsd = seguroEl ? parseBRMasked(seguroEl.value) : (parseFloat(p.seguro)||0);
   /* Frete Internacional pode ser informado em US$ ou R$ (alguns fornecedores cobram frete
      direto em reais) — internamente tudo é somado em USD, então um valor em R$ é convertido
@@ -11088,6 +11223,7 @@ function renderFilterBar(pageKey, universe, stageOptions){
         <option value="">Definitiva e Temporária</option>
         <option value="definitiva" ${f.tipo==='definitiva'?'selected':''}>Só Definitiva</option>
         <option value="temporaria" ${f.tipo==='temporaria'?'selected':''}>Só Temporária</option>
+        <option value="courier" ${f.tipo==='courier'?'selected':''}>Só Courier Expresso</option>
       </select>
       <select id="${pageKey}-filter-despachante" onchange="applyPageFiltersFull('${pageKey}')">
         <option value="">Todos os despachantes</option>
@@ -11645,6 +11781,7 @@ async function renderBancoItensPage(){
         ${['pn','descricao','ncm','fabricante'].map(f=>`<option value="${f}" ${productSearchState.field===f?'selected':''}>${f==='pn'?'PN':f==='descricao'?'Nome/Descrição':f==='ncm'?'NCM':'Fabricante'}</option>`).join('')}
       </select>
       <input type="text" id="product-search-input" placeholder="Digite para buscar..." value="${productSearchState.query}" oninput="runProductSearch()">
+      <button class="btn" onclick="exportBancoItensExcel()" title="Baixa o Banco de Itens inteiro em planilha Excel, no mesmo formato aceito pelo Importar Planilha">Exportar Planilha</button>
       ${canEdit('bancoitens') ? `
         <button class="btn" onclick="openImportModal()">Importar Planilha</button>
         <button class="btn" onclick="fixAllCodigoIIFormat()" title="Corrige o formato (II + 6 dígitos) de todos os produtos já cadastrados que estiverem só com o número">Corrigir Formato dos Códigos II</button>
@@ -12697,6 +12834,7 @@ function renderCodigoImpostoResults(){
       <div>${c.icms==='DIFERIMENTO' ? 'DIFERIMENTO' : fmtPct(c.icms)}</div>
       <div style="display:flex; gap:6px;">
         <button class="btn" style="padding:6px 10px; font-size:12px;" onclick="openCodigoImpostoModal('${c.id}')" title="Editar">${svgEditIcon()}</button>
+        ${emUso ? `<button class="btn" style="padding:6px 10px; font-size:12px;" onclick="unlinkCodigoImpostoFromAllNCMs('${c.id}')" title="Desvincular de todas as NCMs">${svgUnlinkIcon()}</button>` : ''}
         <button class="btn btn-danger" style="padding:6px 10px; font-size:12px;" onclick="deleteCodigoImposto('${c.id}')" title="Excluir">${svgTrashIcon()}</button>
       </div>
     </div>
@@ -12851,7 +12989,23 @@ async function deleteCodigoImposto(id){
   if(currentView==='ncm') render();
 }
 
-/* ---------- Finalidades (lista gerenciável) ---------- */
+/* Remove o vínculo deste Código de Imposto de TODAS as NCMs que o usam de uma vez — útil
+   antes de excluir (excluir continua bloqueado enquanto houver vínculo, ver
+   deleteCodigoImposto acima) ou só pra desfazer vínculos em massa sem precisar abrir NCM por
+   NCM. Nunca apaga o Código de Imposto em si, só o vínculo em cada NCM. */
+async function unlinkCodigoImpostoFromAllNCMs(id){
+  if(!requireEditPermission()) return;
+  const c = getCodigoImpostoById(id);
+  const afetadas = (state.ncms||[]).filter(n=>(n.codigosImpostoIds||[]).includes(id));
+  if(!afetadas.length){ alert('Este Código de Imposto não está vinculado a nenhuma NCM.'); return; }
+  if(!confirm(`Desvincular "${c?c.codigo:'este código'}" de ${afetadas.length} NCM(s)? As NCMs continuam cadastradas, só perdem esse vínculo específico.`)) return;
+  afetadas.forEach(n=>{ n.codigosImpostoIds = (n.codigosImpostoIds||[]).filter(x=>x!==id); });
+  const ok = await persistState();
+  if(!ok){ alert('Não foi possível salvar agora. Tente novamente.'); return; }
+  if(currentView==='ncm') render();
+}
+
+
 function openFinalidadesModal(){
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -14181,7 +14335,7 @@ function renderImportMapping(){
         <label style="font-size:13px; font-weight:600;">${f.label}${f.key==='pn'?' *':''}</label>
         <select id="map-${f.key}">
           <option value="">— não mapear —</option>
-          ${headers.map((h,idx)=>`<option value="${idx}" ${guessColumnMatch(f.key,h)?'selected':''}>${h||'(coluna '+(idx+1)+')'}</option>`).join('')}
+          ${headers.map((h,idx)=>`<option value="${idx}" ${(headers.indexOf(f.label)>=0 ? headers[idx]===f.label : guessColumnMatch(f.key,h))?'selected':''}>${h||'(coluna '+(idx+1)+')'}</option>`).join('')}
         </select>
       </div>
     `).join('')}
@@ -14190,6 +14344,36 @@ function renderImportMapping(){
       <button class="btn btn-primary" onclick="buildImportPreview()">Analisar Planilha</button>
     </div>
   `;
+}
+
+/* EXPORTAR BANCO DE ITENS — gera a planilha com as mesmas colunas (PRODUCT_FIELDS, na mesma
+   ordem e com os mesmos nomes) que o "Importar Planilha" mapeia, então o arquivo exportado pode
+   ser editado e reimportado sem remapear nada (o mapeamento reconhece o nome exato da coluna). */
+async function exportBancoItensExcel(){
+  try{
+    const lista = await getAllProdutosCached(true);
+    if(!lista.length){ alert('O Banco de Itens está vazio — nada para exportar.'); return; }
+    const ordenada = lista.slice().sort((a,b)=>String(a.pn||a.id).localeCompare(String(b.pn||b.id), 'pt-BR', {numeric:true}));
+    const aoa = [PRODUCT_FIELDS.map(f=>f.label)];
+    ordenada.forEach(prod=>{
+      aoa.push(PRODUCT_FIELDS.map(f=>{
+        let v = f.key==='pn' ? (prod.pn!=null && prod.pn!=='' ? prod.pn : prod.id) : prod[f.key];
+        if(v==null) return '';
+        if(f.type==='number'){ const n = parseFloat(v); return isNaN(n) ? '' : n; }
+        return String(v);
+      }));
+    });
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = PRODUCT_FIELDS.map(f=>({wch: f.key==='descricao'||f.key==='descDetalhada'||f.key==='obs' ? 40 : 18}));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
+    const d = new Date();
+    const stamp = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    XLSX.writeFile(wb, `Banco_de_Itens_${stamp}.xlsx`);
+  }catch(e){
+    console.error(e);
+    alert('Não foi possível exportar o Banco de Itens: ' + e.message);
+  }
 }
 
 function guessColumnMatch(fieldKey, headerName){
@@ -14506,7 +14690,7 @@ function processCard(p, note){
     ${refBadgeHtml(p)}
     <div class="process-main">
       <h3>${p.produto || 'Sem descrição'}<span class="phase-mini">${info.label.replace(/^Fase \d+ · /,'')}</span></h3>
-      ${p.tipo==='temporaria'?'<div class="process-badge-temp">Admissão Temp.</div>':''}
+      ${p.tipo==='temporaria'?'<div class="process-badge-temp">Admissão Temp.</div>':p.tipo==='courier'?'<div class="process-badge-temp">Courier Expresso</div>':''}
       <div class="process-meta">${fornecedorNameHtml(fornecedor)} · ${originModalMeta(p)}</div>
       ${cardInfoHtml}
       <div class="process-track">${trackHtml}</div>
@@ -15173,7 +15357,7 @@ async function fetchDollarQuoteIfNeeded(){
     const data = await resp.json();
     const bid = data && data.USDBRL && data.USDBRL.bid;
     if(bid && cambioInput){
-      cambioInput.value = parseFloat(bid).toFixed(4);
+      cambioInput.value = fmtNumberBR(parseFloat(bid), 4);
       updateCostPreview();
       const statusEl = document.getElementById('cambio-status');
       if(statusEl) statusEl.innerHTML = `${svgRefreshIcon()} Cotação automática do último fechamento`;
@@ -15501,6 +15685,7 @@ function openProcessModal(id){
             <div class="type-toggle" style="margin-bottom:14px;">
               <button type="button" class="${p.tipo==='definitiva'?'active':''}" onclick="changeProcessType('definitiva')">Importação Definitiva</button>
               <button type="button" class="${p.tipo==='temporaria'?'active':''}" onclick="changeProcessType('temporaria')">Admissão Temporária (feira/demo)</button>
+              <button type="button" class="${p.tipo==='courier'?'active':''}" onclick="changeProcessType('courier')">Remessa Courier Expresso</button>
             </div>
             <div class="process-grid-4">
               <div class="form-group">
@@ -15639,11 +15824,8 @@ function openProcessModal(id){
             ${(()=>{
               const pe = computePrevisaoEntradaEstoque(p);
               const indisponivel = pe.status==='sem_embarque' || pe.status==='sem_chegada_prevista';
-              const temOverrideManual = !!p.previsaoEntradaEstoque;
-              const valorInput = p.previsaoEntradaEstoque || (!indisponivel ? pe.dataFinal : '');
-              const bloqueado = !indisponivel && !temOverrideManual;
               if(indisponivel){
-                return `<div class="form-group" style="max-width:260px;"><input type="date" id="f-previsao-estoque" value="${valorInput}"></div>
+                return `<input type="hidden" id="f-previsao-estoque" value="">
                   <div class="form-hint">Aguardando definição de Embarque Previsto e Chegada Prevista ao Brasil — depois que os dois existirem, esta data passa a ser calculada automaticamente e recalculada sozinha conforme o processo avança.</div>`;
               }
               const marcosHtml = pe.marcos.map(m=>`
@@ -15655,11 +15837,11 @@ function openProcessModal(id){
                 <div class="prov-line">
                   <div class="prov-line-label">Data prevista</div>
                   <div style="display:flex; align-items:center; gap:10px;">
-                    <input type="date" id="f-previsao-estoque" value="${valorInput}" ${bloqueado?'disabled':''} style="${bloqueado?'opacity:0.7;':''} max-width:170px;">
-                    ${bloqueado?`<button type="button" class="prov-edit-btn" onclick="const inp=document.getElementById('f-previsao-estoque'); inp.disabled=false; inp.style.opacity=1; inp.focus(); this.style.display='none';">${svgEditIcon()} Ajustar manualmente</button>`:''}
+                    <input type="hidden" id="f-previsao-estoque" value="">
+                    <strong style="font-size:15px;">${fmtDate(pe.dataFinal)}</strong>
                   </div>
                 </div>
-                <div class="form-hint" style="margin-top:-4px;">${temOverrideManual ? 'Ajustada manualmente — não é mais recalculada sozinha.' : `${pe.status==='confirmado'?'Confirmada':'Calculada'} automaticamente a partir de: ${pe.baseUsada}.`}</div>
+                <div class="form-hint" style="margin-top:-4px;">${pe.status==='confirmado'?'Confirmada':'Atualizada'} automaticamente a partir de: ${pe.baseUsada} — recalculada sozinha a cada mudança no processo.</div>
                 <details class="prov-details" style="margin-top:8px;">
                   <summary>Ver projeção completa (${pe.marcos.length} marcos)</summary>
                   <div style="margin-top:4px;">${marcosHtml}</div>
@@ -15748,7 +15930,7 @@ function openProcessModal(id){
                 <button type="button" class="prov-edit-btn" onclick="calcularSeguroAutomatico()" title="Calcular pela taxa de seguro da empresa">${svgCalculatorIcon()} Calcular</button>
               </div>
             </div>
-            <div class="form-group"><label>Câmbio (BRL/USD)</label><input type="number" step="0.0001" id="c-cambio" value="${p.cambio||''}" oninput="updateCostPreview(); onCambioManualEdit();"><div class="form-hint" id="cambio-status">${p.cambioManual ? svgEditIcon()+' Valor definido manualmente' : ''}</div></div>
+            <div class="form-group"><label>Câmbio (BRL/USD)</label><input type="text" inputmode="decimal" id="c-cambio" value="${p.cambio?fmtNumberBR(p.cambio,4):''}" oninput="maskCurrencyInputDecimals(this,4); updateCostPreview(); onCambioManualEdit();"><div class="form-hint" id="cambio-status">${p.cambioManual ? svgEditIcon()+' Valor definido manualmente' : ''}</div></div>
           </div>
           <div class="form-hint" style="margin:-6px 0 12px 0;">Clique em "Calcular" pra estimar o seguro pela taxa negociada (configurável em Empresa); comunique a seguradora apenas se a carga ultrapassar o limite definido no Alerta de Seguro.</div>
           <div class="form-group">
@@ -16030,13 +16212,6 @@ async function applyProdutoMestre(){
   const leadTimes = historico.filter(h=>h.leadTimeDias!=null).map(h=>h.leadTimeDias);
   if(leadTimes.length){
     const mediaLead = Math.round(leadTimes.reduce((a,b)=>a+b,0)/leadTimes.length);
-    const dataPedidoEl = document.getElementById('f-datapedido');
-    const previsaoEl = document.getElementById('f-previsao-estoque');
-    if(dataPedidoEl && dataPedidoEl.value && previsaoEl && !previsaoEl.value){
-      const base = new Date(dataPedidoEl.value+'T00:00:00');
-      base.setDate(base.getDate()+mediaLead);
-      previsaoEl.value = base.toISOString().slice(0,10);
-    }
   }
 
   alert(`Modelo "${template.nome}" aplicado. Você ainda pode ajustar qualquer campo neste processo específico, sem alterar o modelo mestre.`);
@@ -16117,11 +16292,17 @@ function onSupplierChange(val){
 
 function changeProcessType(tipo){
   window.__editingProcess.tipo = tipo;
+  // Courier expresso é remessa aérea: se o modal ainda não foi escolhido, já sugere Aéreo.
+  if(tipo==='courier' && !window.__editingProcess.modal){
+    window.__editingProcess.modal = 'aereo';
+    const modalEl = document.getElementById('f-modal');
+    if(modalEl) modalEl.value = 'aereo';
+  }
   initProcessData(window.__editingProcess);
   window.__editingProcess.status = recomputeStatus(window.__editingProcess);
   window.__openStage = window.__editingProcess.status;
   document.querySelectorAll('.type-toggle button').forEach(b=>{
-    b.classList.toggle('active', (tipo==='definitiva' && b.textContent.includes('Definitiva')) || (tipo==='temporaria' && b.textContent.includes('Temporária')));
+    b.classList.toggle('active', (tipo==='definitiva' && b.textContent.includes('Definitiva')) || (tipo==='temporaria' && b.textContent.includes('Temporária')) || (tipo==='courier' && b.textContent.includes('Courier')));
   });
   renderEtapasTab();
 }
@@ -16655,7 +16836,7 @@ function collectCostFields(){
     fob: parseBRMasked(document.getElementById('c-fob').value),
     frete: parseBRMasked(document.getElementById('c-frete').value),
     seguro: parseBRMasked(document.getElementById('c-seguro').value),
-    cambio: document.getElementById('c-cambio').value,
+    cambio: parseBRMasked(document.getElementById('c-cambio').value),
     ii: parseBRMasked(document.getElementById('c-ii').value),
     ipi: parseBRMasked(document.getElementById('c-ipi').value),
     pis: parseBRMasked(document.getElementById('c-pis').value),
@@ -16850,7 +17031,7 @@ function collectProcessFormData(){
     origemPais: document.getElementById('f-origem').value,
     incoterm: document.getElementById('f-incoterm').value,
     dataPedido: document.getElementById('f-datapedido').value,
-    previsaoEntradaEstoque: document.getElementById('f-previsao-estoque').value,
+    previsaoEntradaEstoque: '', // sempre calculada por computePrevisaoEntradaEstoque(); nunca persistida (antes congelava a data)
     prontidao: document.getElementById('f-prontidao').value,
     prontidaoConfirmada: document.getElementById('f-prontidao-confirmada').checked,
     dataEmbarqueReal: document.getElementById('f-dataembarquereal').value,
@@ -16897,6 +17078,12 @@ function collectProcessFormData(){
     customDocs: window.__editingProcess.customDocs || [],
     itens: window.__editingProcess.itens || [],
     customPayments: window.__editingProcess.customPayments || [],
+    /* Mesmo caso do provisionamento/lotes documentado acima: a Memória de Cálculo da NF
+       também é escrita direto em window.__editingProcess (autoPersistCurrentProcess), fora
+       deste formulário — sem entrar aqui, o botão "Salvar" principal reconstrói o processo
+       sem ela e apaga tudo que já tinha sido preenchido lá. Bug real encontrado (usuário
+       preencheu a Memória inteira, salvou o processo pelo botão principal, e ela sumiu). */
+    duimpMemoria: window.__editingProcess.duimpMemoria || null,
     ...collectCostFields()
   };
 }
@@ -17083,7 +17270,7 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);font-size:9.5pt;bac
   <div class="row">
     ${field('Referência', data.ref)}
     ${field('Referência do Fornecedor', (data.referenciasFornecedor||[]).map(r=>r.ref).filter(Boolean).join(' / '))}
-    ${field('Tipo de Processo', data.tipo==='temporaria'?'Admissão Temporária':'Importação Definitiva')}
+    ${field('Tipo de Processo', tipoProcessoLabel(data.tipo))}
   </div>
   ${data.produtoMestreNome || (data.rotaAplicada&&data.rotaAplicada.nome) ? `
   <div class="row">
@@ -17093,7 +17280,7 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);font-size:9.5pt;bac
   <div class="row">
     ${field('Data de Abertura', fmtDate(data.dataPedido))}
     ${field('Prontidão da Carga', fmtDate(data.prontidao))}
-    ${field('Previsão de Entrada em Estoque', fmtDate(data.previsaoEntradaEstoque))}
+    ${field('Previsão de Entrada em Estoque', (()=>{ try{ const pe=computePrevisaoEntradaEstoque(data); return pe.dataFinal?fmtDate(pe.dataFinal):'—'; }catch(e){ return '—'; } })())}
   </div>
 
   <div class="sec-bar">2. Dados da Importação</div>
