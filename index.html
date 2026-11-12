@@ -6032,7 +6032,39 @@ function renderItemTotals(){
       ${canEdit('processos') ? `<button class="btn" style="margin-left:auto;" onclick="refreshAllItemsFromBank()" title="Atualiza todos os itens com os dados mais recentes do Banco de Itens (código II, descrição, NCM, fabricante e Ex-Tarifário)">${svgRefreshIcon()} Atualizar todos do Banco de Itens</button>
       <button class="btn" onclick="useItemsTotalAsFOB(${valorTotal})">Usar como FOB (Custos)</button>` : ''}
     </div>
+    <div id="itens-pesos" class="item-totals-row" style="margin-top:8px;"></div>
   ` : '';
+  if(totalItens) updateItemPesos();
+}
+
+/* PESO LÍQUIDO / BRUTO do processo = Σ (peso unitário do cadastro no Banco de Itens × quantidade
+   do item no processo). Lê o cadastro ao vivo (pelo PN), então reflete pesos cadastrados depois
+   sem precisar atualizar o item. Itens sem peso no cadastro ficam fora da soma e são listados. */
+async function updateItemPesos(forceRefresh){
+  if(!document.getElementById('itens-pesos')) return;
+  const p = window.__editingProcess;
+  const itens = (p && p.itens) || [];
+  let catalogo = [];
+  try{ catalogo = await getAllProdutosCached(!!forceRefresh); }catch(e){}
+  const porPn = {};
+  catalogo.forEach(c=>{ porPn[String(c.pn||c.id)] = c; });
+  let liq=0, bru=0; const semLiq=[], semBru=[];
+  itens.forEach(it=>{
+    const c = porPn[String(it.pn)];
+    const q = parseFloat(it.quantidade)||0;
+    const pl = c ? parseFloat(c.peso) : NaN;
+    const pb = c ? parseFloat(c.pesoBruto) : NaN;
+    if(isNaN(pl) || !pl) semLiq.push(it.pn||'(sem PN)'); else liq += pl*q;
+    if(isNaN(pb) || !pb) semBru.push(it.pn||'(sem PN)'); else bru += pb*q;
+  });
+  const aviso = (lista, nome)=> lista.length ? `<div class="form-hint" style="color:var(--ink-amber-fg); flex-basis:100%;">${svgWarnInline()} ${lista.length} item(ns) sem ${nome} no cadastro (ficam fora da soma): ${lista.slice(0,8).join(', ')}${lista.length>8?'…':''}</div>` : '';
+  const el = document.getElementById('itens-pesos');
+  if(!el) return;
+  el.innerHTML = `
+    <div class="item-total-box"><div class="num">${fmtNumberBR(liq,3)} kg</div><div class="lbl">Peso Líquido Total</div></div>
+    <div class="item-total-box"><div class="num">${fmtNumberBR(bru,3)} kg</div><div class="lbl">Peso Bruto Total</div></div>
+    <button class="btn" style="margin-left:auto;" onclick="updateItemPesos(true)" title="Relê os pesos do Banco de Itens">Atualizar pesos</button>
+    ${aviso(semLiq,'peso líquido')}${aviso(semBru,'peso bruto')}`;
 }
 
 async function updateItemField(idx, field, val){
@@ -6196,7 +6228,17 @@ async function updateDuimpMemoriaField(itemId, field, value){
   row.sourceMap = row.sourceMap || {};
   row.sourceMap[field] = 'MANUAL';
   renderDuimpMemoriaTab();
-  await autoPersistCurrentProcess();
+  await persistMemoriaOrWarn();
+}
+/* Salva e, se não conseguiu, AVISA com o motivo real — antes a falha ficava só num indicador
+   pequeno e a pessoa seguia preenchendo achando que estava salvo. */
+async function persistMemoriaOrWarn(){
+  let ok = false;
+  try{ ok = await autoPersistCurrentProcess(); }catch(e){ console.error(e); window.__lastPersistError = e.message||String(e); }
+  if(ok===false){
+    alert('ATENÇÃO: a Memória de Cálculo NÃO foi salva na nuvem.\n\nMotivo: ' + (window.__lastPersistError || 'processo sem nome, sem permissão de edição ou sem conexão') + '\n\nNão feche a tela — tente de novo em instantes.');
+  }
+  return ok;
 }
 
 async function updateDuimpMemoriaStatus(val){
@@ -6204,7 +6246,7 @@ async function updateDuimpMemoriaStatus(val){
   const p = window.__editingProcess;
   const m = ensureDuimpMemoria(p);
   m.status = val;
-  await autoPersistCurrentProcess();
+  await persistMemoriaOrWarn();
 }
 
 async function setDuimpMemoriaRateioMode(key, mode){
@@ -6213,7 +6255,7 @@ async function setDuimpMemoriaRateioMode(key, mode){
   const m = ensureDuimpMemoria(p);
   m[`${key==='freight'?'freight':key==='insurance'?'insurance':'additions'}Mode`] = mode;
   renderDuimpMemoriaTab();
-  await autoPersistCurrentProcess();
+  await persistMemoriaOrWarn();
 }
 async function setDuimpMemoriaRateioTotal(key, value){
   const p = window.__editingProcess;
@@ -6221,7 +6263,7 @@ async function setDuimpMemoriaRateioTotal(key, value){
   const field = key==='freight'?'freightTotalBrl':key==='insurance'?'insuranceTotalBrl':'additionsTotalBrl';
   m[field] = value;
   renderDuimpMemoriaTab();
-  await autoPersistCurrentProcess();
+  await persistMemoriaOrWarn();
 }
 async function setDuimpMemoriaRateioAllocation(key, value){
   const p = window.__editingProcess;
@@ -6229,7 +6271,7 @@ async function setDuimpMemoriaRateioAllocation(key, value){
   const field = key==='freight'?'freightAllocation':key==='insurance'?'insuranceAllocation':'additionsAllocation';
   m[field] = value;
   renderDuimpMemoriaTab();
-  await autoPersistCurrentProcess();
+  await persistMemoriaOrWarn();
 }
 
 /* Salvar a taxa do dólar do processo — mesmo campo já usado na aba Custos (p.cambio), pra
@@ -6263,7 +6305,7 @@ async function saveDuimpMemoriaExchangeRate(){
   const statusEl = document.getElementById('cambio-status');
   if(statusEl) statusEl.innerHTML = `${svgEditIcon()} Valor definido manualmente`;
   renderDuimpMemoriaTab();
-  await autoPersistCurrentProcess();
+  await persistMemoriaOrWarn();
 }
 
 /* "Recalcular" — os valores calculados já são sempre derivados ao vivo (nunca ficam
@@ -6276,7 +6318,7 @@ async function recalcularDuimpMemoria(){
   m.recalculatedAt = Date.now();
   m.recalculatedBy = (auth.currentUser && (auth.currentUser.displayName || auth.currentUser.email)) || '';
   renderDuimpMemoriaTab();
-  await autoPersistCurrentProcess();
+  await persistMemoriaOrWarn();
   const btn = event && event.target ? event.target.closest('button') : null;
   if(btn){ const original = btn.innerHTML; btn.innerHTML = `${svgCheckInline()} Recalculado`; setTimeout(()=>{ btn.innerHTML = original; }, 1400); }
 }
@@ -6408,7 +6450,7 @@ async function applyDuimpMemoriaColumnPaste(){
   document.getElementById('memoria-paste-overlay').remove();
   renderHistoryTab();
   renderDuimpMemoriaTab();
-  await autoPersistCurrentProcess();
+  await persistMemoriaOrWarn();
 }
 
 /* Aliases de cabeçalho (seção 16/17) — nomes comuns que a planilha do usuário (ou qualquer
@@ -6526,7 +6568,7 @@ async function applyDuimpMemoriaPasteAll(){
   window.__memoriaPasteAllData = null;
   document.getElementById('memoria-paste-all-overlay').remove();
   renderDuimpMemoriaTab();
-  await autoPersistCurrentProcess();
+  await persistMemoriaOrWarn();
 }
 
 /* Copia uma coluna inteira da tabela de Itens — uma linha de texto por item, na mesma ordem
@@ -8283,29 +8325,29 @@ function generateEmailNotaFiscalText(p){
   const itens = p.itens || [];
   const introHtml = `Segue a NF ${esc(numeroNF)}, referente à nacionalização da importação ${produtoNome?('dos '+esc(produtoUpper)):'[dos/das PRODUTO]'} ${esc(fornecedorNome)} recebida no estoque do [LOCAL DO ESTOQUE] em ${esc(dataRecebimento)}.`;
 
-  const thStyle = 'border:1px solid #333; padding:6px 10px; background:#e9edf5; font-weight:700; text-align:left; font-size:13px;';
-  const tdStyle = 'border:1px solid #333; padding:6px 10px; font-size:13px;';
+  const thStyle = 'border:1px solid #333; padding:8px 10px; background:#e9edf5; font-weight:700; text-align:left; font-size:14px;';
+  const tdStyle = 'border:1px solid #333; padding:8px 10px; font-size:14px;';
   const tdStyleRight = tdStyle + ' text-align:right;';
 
   const linhasHtml = itens.length
-    ? itens.map(it=> `<tr><td style="${tdStyle}">${esc(it.pn)}</td><td style="${tdStyle}">${esc(it.descricao)}</td><td style="${tdStyleRight}">${esc(it.quantidade)}</td></tr>`).join('')
+    ? itens.map(it=> `<tr><td style="${tdStyle}">${esc(it.pn)}</td><td style="${tdStyle}">${esc(it.descricao)}</td><td style="${tdStyle}">${esc(it.quantidade)}</td></tr>`).join('')
     : `<tr><td colspan="3" style="${tdStyle}">[Nenhum item cadastrado no processo — adicione na aba Itens]</td></tr>`;
 
-  const tabelaHtml = `<table style="border-collapse:collapse; width:100%; margin:10px 0;">
-    <thead><tr><th style="${thStyle}">PN</th><th style="${thStyle}">ITEM</th><th style="${thStyle} text-align:right;">QTD</th></tr></thead>
+  const tabelaHtml = `<table style="border-collapse:collapse; width:584px; margin:0 0 16px 0;">
+    <thead><tr><th style="${thStyle} width:100px;">PN</th><th style="${thStyle}">ITEM</th><th style="${thStyle} width:70px;">QTD</th></tr></thead>
     <tbody>${linhasHtml}</tbody>
   </table>`;
 
-  const bodyHtml = `<p>${greetingByHour()}</p>
-<p>${introHtml}</p>
+  const pStyle = 'margin:0 0 16px 0;';
+  const bodyHtml = `<p style="${pStyle}"><b>${greetingByHour()}</b></p>
+<p style="${pStyle}">${introHtml}</p>
 ${tabelaHtml}
-<p>DUIMP: ${esc(numeroDUIMP)}<br>Chave de Acesso: ${esc(chaveDUIMP)}</p>
-<p>Anexos: NF ${esc(numeroNF)}.pdf e Extrato da DUIMP.</p>`;
+<p style="margin:0;"><b>DUIMP:</b> ${esc(numeroDUIMP)}<br><b>Chave de Acesso:</b> ${esc(chaveDUIMP)}</p>`;
 
   const linhasTexto = itens.length
     ? itens.map(it=> `${it.pn}\t${it.descricao||''}\t${it.quantidade}`).join('\n')
     : '[Nenhum item cadastrado no processo — adicione na aba Itens]';
-  const bodyText = `${greetingByHour()}\n\nSegue a NF ${numeroNF}, referente à nacionalização da importação ${produtoNome?('dos '+produtoUpper):'[dos/das PRODUTO]'} ${fornecedorNome} recebida no estoque do [LOCAL DO ESTOQUE] em ${dataRecebimento}.\n\nPN\tITEM\tQTD\n${linhasTexto}\n\nDUIMP: ${numeroDUIMP}\nChave de Acesso: ${chaveDUIMP}\n\nAnexos: NF ${numeroNF}.pdf e Extrato da DUIMP.\n`;
+  const bodyText = `${greetingByHour()}\n\nSegue a NF ${numeroNF}, referente à nacionalização da importação ${produtoNome?('dos '+produtoUpper):'[dos/das PRODUTO]'} ${fornecedorNome} recebida no estoque do [LOCAL DO ESTOQUE] em ${dataRecebimento}.\n\nPN\tITEM\tQTD\n${linhasTexto}\n\nDUIMP: ${numeroDUIMP}\nChave de Acesso: ${chaveDUIMP}\n`;
 
   return { subject, bodyHtml, bodyText };
 }
@@ -9255,7 +9297,7 @@ function generateEmailProvisionamentoText(p){
     ${custosRowsHtml}
   </table>`;
 
-  const bodyHtml = `<p>${greetingByHour()}</p>
+  const bodyHtml = `<p><b>${greetingByHour()}</b></p>
 <p>Segue provisionamento do processo: <b>${esc(ref)}${produtoNome?(' - '+esc(produtoNome)):''}</b>.</p>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="1140" style="border-collapse:collapse; width:1140px;">
   <tr>
@@ -9340,7 +9382,7 @@ function generateEmailDTAText(p){
 
   const linhaCEMercante = 'Acrescentar alguma taxa de CE MERCANTE NO VALOR DA DTA? (Consultar Despachante valor exato)';
 
-  const bodyHtml = `<p>${greetingByHour()}</p>
+  const bodyHtml = `<p><b>${greetingByHour()}</b></p>
 <p>Para esta DTA+remoção estou adicionando nosso parceiro ${mentionNames.map(esc).join('; ')}, envio documentos em anexo.</p>
 <p>Segue abaixo as instruções:</p>
 <ul style="margin:6px 0; padding-left:22px;">
@@ -10429,11 +10471,23 @@ async function persistState(isRetry){
       codigosImposto: state.codigosImposto || [],
       tiposItem: state.tiposItem || [],
     }));
+    /* Todos os processos moram num único documento do Firestore, que tem limite de ~1 MB.
+       Passando disso, a gravação é recusada INTEIRA (nada novo é salvo, de nenhuma aba). Mede o
+       tamanho aqui pra avisar antes de estourar e pra deixar claro o motivo se acontecer. */
+    const payloadBytes = new Blob([JSON.stringify(payload)]).size;
+    window.__lastPayloadBytes = payloadBytes;
+    if(payloadBytes > 1000000){
+      window.__lastPersistError = `Banco de dados acima do limite do Firestore (${Math.round(payloadBytes/1024)} KB de 1024 KB)`;
+      updateSaveIndicator(`${svgWarnInline()} Não salvou: banco acima do limite de 1 MB (${Math.round(payloadBytes/1024)} KB)`);
+      return false;
+    }
     await companyDocRef().set(payload);
-    updateSaveIndicator(`Dados salvos na nuvem ${svgCheckInline()}`);
+    window.__lastPersistError = null;
+    updateSaveIndicator(`Dados salvos na nuvem ${svgCheckInline()}` + (payloadBytes>850000 ? ` · banco em ${Math.round(payloadBytes/1024)} KB de 1024 KB` : ''));
     return true;
   }catch(e){
     console.error('Erro ao salvar no Firestore', e);
+    window.__lastPersistError = (e && (e.code ? e.code+': ' : '') + (e.message||e)) || 'erro desconhecido';
     /* Não existe mais um botão "Salvar agora" pro usuário forçar manualmente — então, se a
        primeira tentativa falhar (rede instável, por exemplo), o sistema tenta de novo sozinho
        uma vez, alguns segundos depois, antes de avisar que precisa de atenção. */
@@ -11645,7 +11699,8 @@ const PRODUCT_FIELDS = [
   {key:'fabricante', label:'Fabricante'},
   {key:'codigo', label:'Código de Imposto'},
   {key:'codigoII', label:'II (Código SAP)'},
-  {key:'peso', label:'Peso (kg)', type:'number'},
+  {key:'peso', label:'Peso Líquido (kg)', type:'number'},
+  {key:'pesoBruto', label:'Peso Bruto (kg)', type:'number'},
   {key:'tipo', label:'Tipo'},
   {key:'produto', label:'Produto (modelo)'},
   {key:'codCatalogo', label:'Código Catálogo'},
@@ -11889,7 +11944,7 @@ function applyModeloProdutoToProduct(modeloId){
 function productFieldDisplayValue(f, p){
   const v = p[f.key];
   if(f.key==='valorUnitario') return (v!==undefined && v!=='' && v!=null) ? fmtUSD(parseFloat(v)||0) : '—';
-  if(f.key==='peso') return (v!==undefined && v!=='' && v!=null) ? fmtNumberBR(v)+' kg' : '—';
+  if(f.key==='peso' || f.key==='pesoBruto') return (v!==undefined && v!=='' && v!=null) ? fmtNumberBR(v)+' kg' : '—';
   if(f.key==='codigoII') return v ? formatCodigoII(v) : '—';
   return (v!==undefined && v!==null && v!=='') ? v : '—';
 }
@@ -11911,7 +11966,7 @@ function renderProductModalOverlay(){
       return `<div class="${cls}"><label>${f.label}</label><div class="fixed-field-value">${productFieldDisplayValue(f,p)}</div>${extra}</div>`;
     }
     if(f.key==='pn' && existing) return `<div class="${cls}"><label>${f.label}</label><input id="pf-${f.key}" value="${p[f.key]||''}"><div class="form-hint">Alterar o PN migra todo o histórico e os vínculos deste produto para o novo número.</div></div>`;
-    if(f.key==='valorUnitario' || f.key==='peso'){
+    if(f.key==='valorUnitario' || f.key==='peso' || f.key==='pesoBruto'){
       return `<div class="${cls}"><label>${f.label}</label><input id="pf-${f.key}" type="text" inputmode="decimal" value="${p[f.key]?fmtNumberBR(p[f.key]):''}" oninput="maskCurrencyInput(this)"></div>`;
     }
     if(f.key==='ncm'){
@@ -12037,7 +12092,7 @@ function renderProductModalOverlay(){
     </div>
     <div class="process-section">
       ${renderSectionRectangle({icon:svgMoneyIcon(17), title:'Comercial', cls:'is-neutral'})}
-      <div class="${gridCls}">${f('valorUnitario')}${f('peso')}</div>
+      <div class="${gridCls}">${f('valorUnitario')}${f('peso')}${f('pesoBruto')}</div>
     </div>
     <div class="process-section">
       ${renderSectionRectangle({icon:svgBarcodeIcon(17), title:'Fiscal / Tributário', cls:'is-neutral'})}
@@ -13514,7 +13569,7 @@ async function saveProduct(isEdit){
     if(f.key==='pn') return;
     const el = document.getElementById('pf-'+f.key);
     data[f.key] = el ? el.value : (prev[f.key]||'');
-    if((f.key==='valorUnitario' || f.key==='peso') && data[f.key]){
+    if((f.key==='valorUnitario' || f.key==='peso' || f.key==='pesoBruto') && data[f.key]){
       data[f.key] = String(parseBRMasked(data[f.key]));
     }
   });
@@ -14378,6 +14433,7 @@ async function exportBancoItensExcel(){
 
 function guessColumnMatch(fieldKey, headerName){
   const h = String(headerName||'').toLowerCase();
+  if(fieldKey==='peso' && h.includes('bruto')) return false; // "Peso Bruto" é outra coluna
   const guesses = {
     pn: ['pn','part number','partnumber'],
     descricao: ['descrição','descricao','nome'],
@@ -14385,7 +14441,7 @@ function guessColumnMatch(fieldKey, headerName){
     ncm: ['ncm'],
     fabricante: ['fabricante'],
     codigo: ['código','codigo'],
-    peso: ['peso'],
+    peso: ['peso líquido','peso liquido','líquido','liquido','peso (kg)','peso'], pesoBruto: ['peso bruto','bruto'],
     tipo: ['tipo'],
     produto: ['produto'],
     codCatalogo: ['cod catalogo','código catálogo','catalogo'],
@@ -16774,7 +16830,7 @@ async function autoPersistCurrentProcess(){
   const p = window.__editingProcess;
   if(!p) return;
   const data = collectProcessFormData();
-  if(!data.produto) return; // processo novo ainda sem nome — evita salvar rascunho vazio sozinho
+  if(!data.produto) return false; // processo novo ainda sem nome — evita salvar rascunho vazio sozinho
   const idx = state.processes.findIndex(x=>x.id===data.id);
   const prev = idx>=0 ? state.processes[idx] : null;
   detectHistoryChanges(prev, data);
@@ -16786,7 +16842,7 @@ async function autoPersistCurrentProcess(){
   }
   data.pendingKey = newKey;
   if(idx>=0) state.processes[idx] = data; else state.processes.push(data);
-  await persistState();
+  return await persistState();
 }
 
 async function uploadDocFile(inputEl, docType){
@@ -17072,6 +17128,8 @@ function collectProcessFormData(){
     cargaPerigosa: !!window.__editingProcess.cargaPerigosa,
     seguradoraInformada: document.getElementById('c-seguradora-informada') ? document.getElementById('c-seguradora-informada').checked : false,
     cambioManual: !!window.__editingProcess.cambioManual,
+    cambioUpdatedAt: window.__editingProcess.cambioUpdatedAt || null,
+    cambioUpdatedBy: window.__editingProcess.cambioUpdatedBy || '',
     obs: document.getElementById('f-obs').value,
     docs: docs,
     docFiles: docFiles,
