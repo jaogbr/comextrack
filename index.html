@@ -13328,7 +13328,9 @@ function openNCMModal(id){
                 ${renderNcmCodigoImpostoSelectOptions()}
               </select>
               <button type="button" class="btn" onclick="addNcmCodigoImposto()">+ Vincular</button>
+              <button type="button" class="btn" onclick="rebuscarCodigosImpostoNcm()" title="Procura de novo, entre os Códigos de Imposto cadastrados, os que batem 100% com as alíquotas desta NCM e refaz os vínculos">Buscar melhor código</button>
             </div>
+            <div class="form-hint" id="ncm-codigo-rebusca-msg" style="margin-bottom:6px;"></div>
             <div class="form-hint" id="ncm-codigo-compat-hint">${renderNcmCodigoCompatHint()}</div>
             <div class="supplier-tags" id="ncm-codigos-tags">${renderNcmCodigosTagsHtml()}</div>
             <div class="form-hint">Uma NCM pode ter mais de um Código de Imposto vinculado — um por finalidade (Revenda, Uso e Consumo, etc.). Só aparecem aqui os códigos 100% compatíveis com as alíquotas informadas acima (mesmo II/IPI/PIS/COFINS). O sistema escolhe automaticamente o certo conforme o regime do processo. <a href="#" onclick="event.preventDefault(); openCodigoImpostoModal();">+ Criar novo Código de Imposto</a></div>
@@ -13404,6 +13406,43 @@ function onNcmAliquotaInput(){
   if(sel) sel.innerHTML = renderNcmCodigoImpostoSelectOptions();
   const hint = document.getElementById('ncm-codigo-compat-hint');
   if(hint) hint.innerHTML = renderNcmCodigoCompatHint();
+}
+/* Botão "Buscar melhor código": refaz a busca do zero a partir das alíquotas ATUAIS do
+   formulário. (1) remove vínculos que deixaram de ser compatíveis (ex.: alíquota mudou);
+   (2) mantém os vínculos compatíveis que já existiam; (3) para cada finalidade sem vínculo
+   compatível, vincula o código ativo compatível (se houver mais de um, o de código menor).
+   Só altera o rascunho do modal — grava ao clicar em "Salvar NCM". */
+function rebuscarCodigosImpostoNcm(){
+  const n = window.__editingNCM;
+  const msg = document.getElementById('ncm-codigo-rebusca-msg');
+  n.ii = document.getElementById('ncm-ii').value;
+  n.ipi = document.getElementById('ncm-ipi').value;
+  n.pis = document.getElementById('ncm-pis').value;
+  n.cofins = document.getElementById('ncm-cofins').value;
+  const temAliquota = !['ii','ipi','pis','cofins'].every(k=>n[k]===undefined||n[k]===null||n[k]==='');
+  if(!temAliquota){ if(msg) msg.textContent = 'Preencha as alíquotas (II/IPI/PIS/COFINS) antes de buscar.'; return; }
+  const antes = (n.codigosImpostoIds||[]).slice();
+  const compat = getCompatibleCodigosImposto(n).slice().sort((x,y)=>String(x.codigo).localeCompare(String(y.codigo)));
+  const mantidos = antes.filter(id=>compat.some(c=>c.id===id));
+  const removidos = antes.filter(id=>!mantidos.includes(id));
+  const finalidadesCobertas = new Set(mantidos.map(id=>{ const c=getCodigoImpostoById(id); return c?c.finalidadeId:null; }));
+  const adicionados = [];
+  compat.forEach(c=>{
+    if(mantidos.includes(c.id) || finalidadesCobertas.has(c.finalidadeId)) return;
+    mantidos.push(c.id); adicionados.push(c.id); finalidadesCobertas.add(c.finalidadeId);
+  });
+  n.codigosImpostoIds = mantidos;
+  document.getElementById('ncm-codigos-tags').innerHTML = renderNcmCodigosTagsHtml();
+  const sel = document.getElementById('ncm-codigo-imposto-select');
+  if(sel) sel.innerHTML = renderNcmCodigoImpostoSelectOptions();
+  const hint = document.getElementById('ncm-codigo-compat-hint');
+  if(hint) hint.innerHTML = renderNcmCodigoCompatHint();
+  const nome = id=>{ const c=getCodigoImpostoById(id); return c?c.codigo:'?'; };
+  if(msg){
+    if(!compat.length) msg.innerHTML = `${svgWarnInline()} Nenhum Código de Imposto cadastrado bate com essas alíquotas${removidos.length?' — removido(s): '+removidos.map(nome).join(', '):''}. Crie um novo pelo link abaixo.`;
+    else if(!adicionados.length && !removidos.length) msg.textContent = 'Busca refeita: os vínculos atuais já são os melhores. Nada a alterar.';
+    else msg.textContent = 'Busca refeita.' + (adicionados.length?' Vinculado(s): '+adicionados.map(nome).join(', ')+'.':'') + (removidos.length?' Removido(s) (incompatíveis): '+removidos.map(nome).join(', ')+'.':'') + ' Clique em "Salvar NCM" para gravar.';
+  }
 }
 function addNcmCodigoImposto(){
   const sel = document.getElementById('ncm-codigo-imposto-select');
