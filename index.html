@@ -6985,6 +6985,23 @@ function renderDuimpMemoriaTotais(rows, cambio){
   ].map(i => ({...i, brl: sumDuimpMemoriaColumn(rows, i.field)}));
   const totalOutrosBrl = outros.reduce((a,i)=>a+i.brl, 0);
 
+  /* Valor total que a NF deve ter = FOB (Valor Mercadoria) + Impostos (II, IPI, PIS, COFINS,
+     ICMS) + Frete + Seguro + Taxa Siscomex + Despesas Aduaneiras + Acréscimos. Seguro,
+     Siscomex, Despesas e Acréscimos já estão somados em totalOutrosBrl. Tudo vem das mesmas
+     somas de coluna da tabela — nenhum valor novo é digitado aqui. */
+  const fobBrl = sumDuimpMemoriaColumn(rows, 'valorMercadoriaBrl');
+  const freteBrlTotal = sumDuimpMemoriaColumn(rows, 'freteBrl');
+  const totalNfBrl = fobBrl + totalImpostosBrl + freteBrlTotal + totalOutrosBrl;
+  const componentesNf = [
+    {label:'FOB (MERCADORIA)', brl: fobBrl},
+    {label:'IMPOSTOS', brl: totalImpostosBrl},
+    {label:'FRETE', brl: freteBrlTotal},
+    {label:'SEGURO', brl: outros.find(o=>o.field==='seguroBrl').brl},
+    {label:'SISCOMEX', brl: outros.find(o=>o.field==='taxaSiscomexBrl').brl},
+    {label:'DESP ADU', brl: outros.find(o=>o.field==='despesasAduaneirasBrl').brl},
+    {label:'ACRÉSCIMOS', brl: outros.find(o=>o.field==='acrescimosBrl').brl},
+  ];
+
   const linha = (label, brl, bold) => `
     <tr ${bold?'style="font-weight:700; border-top:2px solid var(--border-strong);"':''}>
       <td style="padding:7px 14px 7px 4px;">${label}</td>
@@ -7023,6 +7040,17 @@ function renderDuimpMemoriaTotais(rows, cambio){
             ${linha('TOTAL:', totalOutrosBrl, true)}
           </tbody>
         </table>
+      </div>
+      <div>
+        <div style="text-align:center; font-weight:700; font-size:11px; text-transform:uppercase; color:var(--muted); margin-bottom:8px; letter-spacing:0.04em;">Valor total da NF</div>
+        <table class="cost-table" style="border-spacing:0 2px;">
+          <thead><tr><th></th><th style="text-align:right; padding:6px 18px;">R$</th><th style="text-align:right; padding:6px 4px;">USD</th></tr></thead>
+          <tbody>
+            ${componentesNf.map(i=>linha(i.label, i.brl)).join('')}
+            ${linha('TOTAL DA NF:', totalNfBrl, true)}
+          </tbody>
+        </table>
+        <div class="form-hint" style="margin-top:6px; max-width:340px;">FOB + Impostos + Frete + Seguro + Taxa Siscomex + Despesas Aduaneiras + Acréscimos.${!cambio ? ' <span style="color:var(--ink-amber-fg);">Sem a taxa do dólar o FOB em R$ fica zerado — este total está incompleto.</span>' : ''}</div>
       </div>
     </div>`;
 }
@@ -8317,7 +8345,10 @@ function generateEmailNotaFiscalText(p){
   const produtoNome = (p.produto||'').trim();
   const produtoUpper = produtoNome ? produtoNome.toUpperCase() : '[PRODUTO]';
   const fornecedorNome = fornecedor ? fornecedor.name : '[FORNECEDOR]';
-  const dataRecebimento = fmtDate(todayStr());
+  /* Data de recebimento = a MESMA marcada na etapa "Recebimento em estoque" (Fase 7, campo
+     "Data de Recebimento" → extra.dataRecebimentoEstoque). Nunca a data de hoje: se ainda não
+     foi preenchida na etapa, sai um marcador pra preencher, em vez de uma data errada. */
+  const dataRecebimento = extra.dataRecebimentoEstoque ? fmtDate(extra.dataRecebimentoEstoque) : '[DATA DE RECEBIMENTO]';
   const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
   const subject = `NF ${numeroNF} - NACIONALIZAÇÃO - ${produtoUpper} - ${(fornecedorNome||'').toUpperCase()} - ${ref}`;
