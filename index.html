@@ -2612,6 +2612,8 @@ function attachDataListener(){
     const atracacaoOrderChanged = migrateAtracacaoOrder();
     const aereoDtaSplitChanged = migrateAereoDTASplit();
     const fase1SapCheckChanged = migrateFase1SapCheckInsert();
+    const fase4EntregaAgenteChanged = migrateFase4EntregaAgenteInsert();
+    const pagBackfillChanged = backfillPagamentosEntregues();
     const provRulesBackfilled = backfillDefaultProvisioningRules();
     /* Evita rodar o auto-preenchimento de NCM (que dispara um persistState() de fundo) enquanto
        o modal de processo está aberto — evita uma corrida onde esse salvamento de fundo grava
@@ -2620,7 +2622,7 @@ function attachDataListener(){
     if(!window.__editingProcess && hasAnyEditAccess()){
       const ncmChanged = autoFillKnownNcmAliquotas();
       const codigosChanged = seedCodigosImpostoParaNcmsConhecidas();
-      if(ncmChanged || codigosChanged || blOrderChanged || inicioDtaOrderChanged || atracacaoOrderChanged || aereoDtaSplitChanged || fase1SapCheckChanged || provRulesBackfilled) persistState();
+      if(ncmChanged || codigosChanged || blOrderChanged || inicioDtaOrderChanged || atracacaoOrderChanged || aereoDtaSplitChanged || fase1SapCheckChanged || fase4EntregaAgenteChanged || pagBackfillChanged || provRulesBackfilled) persistState();
     }
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
@@ -2711,10 +2713,16 @@ const STAGE_DEFS = [
        checklist — o estado marcado de cada item viaja junto pro índice novo, nada se perde.
        Continua valendo a regra de só adicionar índice no FINAL: não insira nada depois disso
        sem também migrar o checklist salvo. */
-    items:['Cotação agente de cargas','Definição agente de cargas','Booking','Aprovar Draft de BL','Embarque confirmado'],
+    /* "Carga entregue no agente" foi inserida no índice 2, logo depois de "Definição agente de
+       cargas" (Booking virou 3, Draft de BL 4, Embarque confirmado 5). É um marco INDEPENDENTE do
+       Booking: o booking pode sair antes da entrega no agente, então marcar um não implica
+       pular o outro. Processos que já tinham embarcado NÃO são alterados (item entra como
+       cumprido, sem data) — ver migrateFase4EntregaAgenteInsert(). */
+    items:['Cotação agente de cargas','Definição agente de cargas','Carga entregue no agente','Booking','Aprovar Draft de BL','Embarque confirmado'],
     itemFields:{
       1:[{key:'agenteCarga', label:'Agente de Cargas', type:'partner', partnerType:'Agente de Cargas'}],
-      2:[
+      2:[{key:'dataEntregaAgente', label:'Data de Entrega no Agente', type:'date'}],
+      3:[
         {key:'numeroBooking', label:'Número do Booking', type:'text'},
         {key:'armador', label:'Armador', type:'text'},
         {key:'navio', label:'Navio', type:'text'},
@@ -2724,10 +2732,10 @@ const STAGE_DEFS = [
         {key:'viagem', label:'Viagem', type:'text'},
         {key:'freetime', label:'Freetime (dias)', type:'number'},
       ],
-      3:[{key:'numeroBL', label:'Número do BL', type:'text'}],
+      4:[{key:'numeroBL', label:'Número do BL', type:'text'}],
     },
-    embarqueConfirmadoItemIndex:4,
-    containersItemIndex:2},
+    embarqueConfirmadoItemIndex:5,
+    containersItemIndex:3},
   {key:'fase5', label:'Fase 5 · Documentação e Licenciamento', cls:'stamp-transito',
     /* "Aprovar Draft de BL" mudou pra Fase 4 (ver comentário lá) — os itens abaixo deslizaram
        um índice pra trás (o que era índice 1 virou 0, etc.), migrado por migrateBLDraftOrder(). */
@@ -2890,6 +2898,29 @@ function migrateAereoDTASplit(){
       const novoFase6 = [oldFase6[0]===true, iniciouDTA, iniciouDTA]
         .concat(oldFase6.slice(2).map(v=>v===true));
       checklist['fase6'] = novoFase6;
+      p.checklist = checklist;
+      changed = true;
+    }
+  });
+  return changed;
+}
+
+/* MIGRAÇÃO: "Carga entregue no agente" foi inserida no índice 2 da Fase 4, logo depois de
+   "Definição agente de cargas" — ver comentário em STAGE_DEFS/fase4. Idempotente pelo TAMANHO
+   do array (formato antigo tinha 5 itens; um array de 6 nunca é tocado de novo). Regra pedida:
+   só vale pra cargas que AINDA NÃO EMBARCARAM (e as futuras) — se "Embarque confirmado" (antigo
+   índice 4) já estava marcado, o item novo entra como cumprido (sem data), pra não gerar
+   pendência/alerta em processo antigo; senão entra desmarcado. Deve rodar DEPOIS de
+   migrateBLDraftOrder(), que ainda pode produzir o formato de 5 itens. */
+function migrateFase4EntregaAgenteInsert(){
+  let changed = false;
+  (state.processes||[]).forEach(p=>{
+    if(!p) return;
+    const checklist = p.checklist || {};
+    const old = Array.isArray(checklist['fase4']) ? checklist['fase4'] : null;
+    if(old && old.length===5){
+      const jaEmbarcou = old[4]===true;
+      checklist['fase4'] = [old[0]===true, old[1]===true, jaEmbarcou, old[2]===true, old[3]===true, old[4]===true];
       p.checklist = checklist;
       changed = true;
     }
@@ -4929,6 +4960,27 @@ function getProcessAlerts(p){
     }
   }
 
+  /* "Carga entregue no agente" (Fase 4): 5 dias depois da data de entrega no agente, sem booking
+     preenchido (nem o número do booking, nem a etapa Booking marcada) → alerta. Não cobra nada
+     se a carga já embarcou. O próprio item "Carga entregue no agente" nunca entra no alerta
+     genérico de fase anterior (só este alerta específico cobra isso). */
+  const fase4Entrega = stages.find(s=>s.key==='fase4');
+  if(fase4Entrega){
+    const entregaIdx = fase4Entrega.items.indexOf('Carga entregue no agente');
+    const bookingIdx = fase4Entrega.items.indexOf('Booking');
+    if(entregaIdx>=0) handledPendencies.add('fase4:'+entregaIdx);
+    const f4 = p.checklist['fase4']||[];
+    const bookingOk = !!String(extra.numeroBooking||'').trim() || (bookingIdx>=0 && !!f4[bookingIdx]);
+    const embarcou = fase4Entrega.embarqueConfirmadoItemIndex!=null && !!f4[fase4Entrega.embarqueConfirmadoItemIndex];
+    if(extra.dataEntregaAgente && !bookingOk && !embarcou){
+      const diasDesdeEntrega = daysBetween(extra.dataEntregaAgente, today);
+      if(diasDesdeEntrega>=5){
+        alerts.push(`Carga entregue no agente há ${diasDesdeEntrega} dias sem booking preenchido`);
+        if(bookingIdx>=0) handledPendencies.add('fase4:'+bookingIdx);
+      }
+    }
+  }
+
   if(p.dataEmbarqueReal){
     const diasDesdeEmbarque = daysBetween(p.dataEmbarqueReal, today);
     const diasParaEmbarque = daysBetween(today, p.dataEmbarqueReal);
@@ -5827,7 +5879,7 @@ function detectHistoryChanges(prev, next){
   {
     const prevPayments = prev.payments || {};
     const nextPayments = next.payments || {};
-    const nomesFixosPagamento = {freteInternacional:'Frete Internacional', armazenagemZonaPrimaria:'Armazenagem Zona Primária', armazenagemZonaSecundaria:'Armazenagem Zona Secundária', dta:'Transporte DTA', prestacaoDespachante:'Honorários Despachante'};
+    const nomesFixosPagamento = {freteInternacional:'Frete Internacional', armazenagemZonaPrimaria:'Armazenagem Zona Primária', armazenagemZonaSecundaria:'Armazenagem Zona Secundária', dta:'Transporte DTA', lavagemContainer:'Lavagem de Container', prestacaoDespachante:'Honorários Despachante'};
     const paymentLabel = (key)=>{
       if(nomesFixosPagamento[key]) return nomesFixosPagamento[key];
       if(key.startsWith('custom:')){
@@ -6865,7 +6917,7 @@ function renderDuimpMemoriaTab(){
       <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
         <div>
           <h3 style="margin:0 0 4px;">Memória de Cálculo da NF</h3>
-          <div class="form-hint">Processo: ${p.referencia||p.id} · ${rows.length} item(ns) carregado(s) da aba Itens</div>
+          <div class="form-hint">Processo: ${p.ref||p.referencia||p.id} · ${rows.length} item(ns) carregado(s) da aba Itens</div>
         </div>
         <div style="text-align:right;">
           <label style="font-size:10px; text-transform:uppercase; color:var(--muted); font-weight:700;">Status</label><br>
@@ -7280,6 +7332,7 @@ function getPosicaoAtualTexto(p){
   if(status==='Em processo de desembaraço'){
     const pend = getCanalEtapaPendente(p);
     if(pend) return `Canal ${extra.canalDesembaraco} — ${pend}`;
+    if(extra.canalDesembaraco && extra.canalDesembaraco!=='Verde') return `Carga parametrizada em canal ${extra.canalDesembaraco}, aguardando desembaraço`;
   }
   if(status==='Transporte DTA' && extra.dataInicioDTA) return `Em transporte DTA para o recinto de desembaraço — iniciada em ${fmtDate(extra.dataInicioDTA)}`;
   return base;
@@ -7519,6 +7572,13 @@ function buildAndamentoLines(p){
     dated.push({ text:`DUIMP registrada: ${fmtDate(extra.dataRegistroDUIMP)}`, date: extra.dataRegistroDUIMP });
   }
 
+  /* Canal diferente de Verde: a parametrização acontece ANTES do desembaraço — aparece primeiro
+     "Carga parametrizada em canal X" (sem data própria: usa a do registro só pra ordenar, ou
+     vai pro fim das datadas se ainda não houver) e só depois "DUIMP desembaraçada", quando
+     de fato acontecer. */
+  if(extra.canalDesembaraco && extra.canalDesembaraco!=='Verde'){
+    dated.push({ text:`Carga parametrizada em canal ${extra.canalDesembaraco}`, date: extra.dataRegistroDUIMP || extra.dataDesembaraco || '9999-12-31' });
+  }
   if(extra.dataDesembaraco){
     const canal = extra.canalDesembaraco ? ` (Canal ${extra.canalDesembaraco})` : '';
     dated.push({ text:`DUIMP desembaraçada${canal}: ${fmtDate(extra.dataDesembaraco)}`, date: extra.dataDesembaraco });
@@ -8073,10 +8133,10 @@ function generateFollowUpEmailProcessBlock(p){
       const boxColor = f.highlight==='green' ? 'color:#1F7A5C;' : (f.highlight==='amber' ? 'color:#92400E;' : 'color:#17263A;');
       const boxStyle = f.highlight ? `${boxBg} border-radius:7px; padding:4px 7px;` : '';
       return `<td width="33%" valign="top" style="width:33%; ${padStyle}">
-        <div style="${boxStyle}">
+        ${f.highlight?`<div style="${boxStyle}">`:''}
         <p style="margin:0; font-size:11px; line-height:15px; font-weight:bold; ${f.highlight?boxColor:'color:#65758A;'} text-transform:uppercase;">${esc(f.label)}</p>
-        <p style="margin:3px 0 0 0; font-size:13px; line-height:18px; ${boxColor} word-break:normal; overflow-wrap:break-word;">${esc(f.value)}</p>
-        </div>
+        <p style="margin:3px 0 0 0; font-size:13px; line-height:18px; ${boxColor}">${esc(f.value)}</p>
+        ${f.highlight?'</div>':''}
       </td>`;
     }).join('') + (row.length<3 ? `<td width="${(3-row.length)*33}%">&nbsp;</td>` : '') + '</tr>';
   }
@@ -8093,7 +8153,7 @@ function generateFollowUpEmailProcessBlock(p){
   // Sem bandeira/ícone/emoji de país — origem só como texto, como pedido.
   const supplierColor = followUpSupplierColorEmail(p);
   const stageColor = followUpHeaderColorEmail(r.status);
-  const tempTag = (p.tipo==='temporaria'||p.tipo==='courier') ? ` <span style="font-size:10px; font-weight:bold; text-transform:uppercase; background-color:rgba(255,255,255,0.18); padding:2px 7px; border-radius:999px;">${tipoProcessoLabel(p.tipo)}</span>` : '';
+  const tempTag = (p.tipo==='temporaria'||p.tipo==='courier') ? ` <span style="font-size:10px; font-weight:bold; text-transform:uppercase; background-color:#4A6F94; padding:2px 7px; border-radius:999px;">${tipoProcessoLabel(p.tipo)}</span>` : '';
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; border-collapse:collapse; background-color:#FFFFFF; border:1px solid #D8E1EA;">
     <tr>
       <td width="72%" valign="middle" style="width:72%; padding:11px 16px; background-color:${supplierColor}; font-family:Arial,Helvetica,sans-serif; color:#FFFFFF;">
@@ -8152,7 +8212,7 @@ function generateFollowUpEmailHtml(processes){
      condicional [if mso] garante que o Outlook (que ignora max-width em CSS normal) também
      respeite essa largura, sem sobrar área vazia nem criar rolagem horizontal.
      Alinhamento: à esquerda (não centralizado) — pedido explícito, mantendo a mesma largura. */
-  return `<!--[if mso]>
+  const full = `<!--[if mso]>
 <table role="presentation" width="1180" align="left" cellpadding="0" cellspacing="0" border="0"><tr><td width="1180">
 <![endif]-->
 <div style="width:100%; max-width:1180px; margin:0;">
@@ -8161,6 +8221,10 @@ ${headerHtml}${summaryHtml}${spacer}${blocksHtml}${footerHtml}
 <!--[if mso]>
 </td></tr></table>
 <![endif]-->`;
+  /* Enxuga o HTML: tira quebras de linha + indentação ENTRE tags (viram nós de texto vazios que
+     o Outlook/Word processa um por um ao colar). Só remove espaço que contém quebra de linha,
+     nunca o espaço simples entre palavras/elementos inline. */
+  return full.replace(/>\s*\n\s*</g, '><');
 }
 
 /* Fallback em texto puro (text/plain) — mesma estrutura de blocos, sem HTML. */
@@ -8220,9 +8284,40 @@ function generateFollowUpPlainText(processes){
    Corpo renderizado num contenteditable com <table> de verdade (não textarea), pra manter
    a tabela ao colar num cliente de e-mail. Mesmo mecanismo de cópia rica (com fallback pra
    texto simples) já usado no e-mail de Nota Fiscal. */
+/* Colar um Follow-up com MUITOS processos de uma vez pode travar o Outlook (cada processo vira
+   várias tabelas aninhadas que o Word precisa desenhar). Acima de FOLLOWUP_PARTE_TAMANHO
+   processos, o preview oferece copiar em partes (na mesma ordem do relatório completo). */
+const FOLLOWUP_PARTE_TAMANHO = 10;
+function followUpPartes(processes){
+  const ordenados = getFollowUpGroups(processes).reduce((a,g)=>a.concat(g.items), []);
+  const partes = [];
+  for(let i=0;i<ordenados.length;i+=FOLLOWUP_PARTE_TAMANHO) partes.push(ordenados.slice(i, i+FOLLOWUP_PARTE_TAMANHO));
+  return partes;
+}
+function selectFollowUpParte(valor){
+  const overlay = document.getElementById('followup-overlay');
+  const body = document.getElementById('followup-table-body');
+  if(!overlay || !body || !window.__followUpProcessesAll) return;
+  const partes = window.__followUpPartes || [];
+  const lista = valor==='all' ? window.__followUpProcessesAll : (partes[parseInt(valor,10)] || window.__followUpProcessesAll);
+  body.innerHTML = generateFollowUpEmailHtml(lista);
+  overlay.dataset.plainFallback = generateFollowUpEmailPlainText(lista);
+}
 function openFollowUpTablePreview(processes, title){
   const emailHtml = generateFollowUpEmailHtml(processes);
   const plainFallback = generateFollowUpEmailPlainText(processes);
+  window.__followUpProcessesAll = processes;
+  window.__followUpPartes = followUpPartes(processes);
+  const partes = window.__followUpPartes;
+  const partesHtml = partes.length>1 ? `
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+          <label style="font-size:12.5px; font-weight:600;">Copiar:</label>
+          <select id="followup-parte-select" onchange="selectFollowUpParte(this.value)" style="padding:6px 8px; border:1px solid var(--border-strong); border-radius:6px; font-size:12.5px;">
+            <option value="all">Tudo (${processes.length} processos)</option>
+            ${partes.map((pt,i)=>`<option value="${i}">Parte ${i+1} de ${partes.length} (${pt.length} processo${pt.length===1?'':'s'})</option>`).join('')}
+          </select>
+          <span class="form-hint" style="margin:0;">Se o Outlook travar ao colar tudo de uma vez, escolha uma parte, cole, e repita para as demais.</span>
+        </div>` : '';
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -8235,6 +8330,7 @@ function openFollowUpTablePreview(processes, title){
         <button class="modal-close" onclick="document.getElementById('followup-overlay').remove()">×</button>
       </div>
       <div class="modal-body" style="background:#EEF1F5;">
+        ${partesHtml}
         <div class="form-hint" style="margin-bottom:10px;">Confira o resumo abaixo — dá pra clicar e ajustar antes de copiar. Ao colar no corpo do Outlook, o formato e as cores vêm junto.</div>
         <div id="followup-table-body" contenteditable="true" style="width:100%; max-height:520px; overflow:auto; padding:16px; border:1px solid var(--border-strong); border-radius:6px; background:#EEF1F5;">${emailHtml}</div>
       </div>
@@ -9750,22 +9846,23 @@ function getStagesForProcessBase(p){
     }
 
     if(s.key==='fase4' && isAereo){
-      /* "Aprovar Draft de BL" (índice 3) vira "Aprovar Draft de AWB" no aéreo — mesma etapa,
+      /* "Aprovar Draft de BL" (índice 4) vira "Aprovar Draft de AWB" no aéreo — mesma etapa,
          mesmo campo de número (chave `numeroBL` mantida por baixo dos panos, só o rótulo muda
          pra "Número do AWB"), sem criar campo/chave novo, mesmo padrão já usado em outros
          pontos do app pra diferenças aéreo/marítimo (ex: Armazenagem Zona Secundária).
          IMPORTANTE: este bloco só existe pra Fase 4; a Fase 5 (Despachante notificado, etc.)
          não tem NENHUMA diferença de conteúdo entre aéreo e marítimo — ver aviso logo abaixo. */
       const items = s.items.slice();
-      items[3] = 'Aprovar Draft de AWB';
+      items[4] = 'Aprovar Draft de AWB';
       return {...s, items, containersItemIndex: undefined, itemFields:{
         1: s.itemFields[1],
-        2: [
+        2: s.itemFields[2],
+        3: [
           {key:'numeroBooking', label:'Número do Booking', type:'text'},
           {key:'numeroAWB', label:'AWB', type:'text'},
           {key:'ciaAerea', label:'Companhia Aérea', type:'text'},
         ],
-        3: [{key:'numeroBL', label:'Número do AWB', type:'text'}],
+        4: [{key:'numeroBL', label:'Número do AWB', type:'text'}],
       }};
     }
 
@@ -10074,25 +10171,66 @@ function currentStepLabel(p){
   return 'Concluído';
 }
 
+/* Custos puxados da Memória de Cálculo da NF: quando a memória tem valores, eles valem no custo do processo
+   (frete, seguro, impostos, Siscomex, despesas aduaneiras) e seguem para a Capa, Provisionamento etc. Só entra
+   o que estiver preenchido (>0); o resto continua vindo da aba Custos. */
+function getMemoriaCustos(p){
+  const out = {};
+  try{
+    if(!p || !p.duimpMemoria || !(p.itens||[]).length) return out;
+    const cambio = parseFloat(p.cambio)||0;
+    const rows = getDuimpMemoriaRows(p);
+    const soma = k => rows.reduce((t,r)=>t+(parseFloat(r[k])||0),0);
+    const put = (k,v)=>{ if(v>0.0000001) out[k]=v; };
+    const freteBrl = soma('freteBrl'), seguroBrl = soma('seguroBrl');
+    put('freteBrl', freteBrl); put('seguroBrl', seguroBrl);
+    if(cambio){ put('frete', freteBrl/cambio); put('seguro', seguroBrl/cambio); }
+    put('ii', soma('valorII')); put('ipi', soma('valorIPI')); put('pis', soma('valorPIS')); put('cofins', soma('valorCOFINS')); put('icms', soma('valorICMS'));
+    put('taxaSiscomex', soma('taxaSiscomexBrl')); put('despesas', soma('despesasAduaneirasBrl'));
+  }catch(e){}
+  return out;
+}
+
+/* Reflete a memória nos campos da aba Custos (somem a digitação manual dos campos puxados; salvos junto com o processo). */
+function syncCustosFromMemoria(){
+  const p = window.__editingProcess; if(!p) return;
+  const mem = getMemoriaCustos(p);
+  const map = {frete:'c-frete', seguro:'c-seguro', ii:'c-ii', ipi:'c-ipi', pis:'c-pis', cofins:'c-cofins', icms:'c-icms', taxaSiscomex:'c-siscomex', despesas:'c-despesas'};
+  Object.keys(map).forEach(k=>{
+    const el = document.getElementById(map[k]); if(!el) return;
+    if(mem[k]!=null){
+      el.value = fmtNumberBR(mem[k], k==='frete'||k==='seguro' ? 4 : 2);
+      el.readOnly = true; el.style.background = 'var(--paper)';
+      el.title = 'Puxado da Memória de Cálculo da NF';
+    }else{
+      el.readOnly = false; el.style.background = ''; el.title = '';
+    }
+  });
+  const sd = document.getElementById('c-siscomex-display');
+  if(sd && mem.taxaSiscomex!=null) sd.textContent = fmtBRL(mem.taxaSiscomex) + ' (da Memória de Cálculo)';
+}
+
 function computeCosts(p){
+  const mem = getMemoriaCustos(p);
+  const num0 = k => mem[k]!=null ? mem[k] : (parseFloat(p[k])||0);
   const fob = parseFloat(p.fob)||0;
-  const frete = parseFloat(p.frete)||0;
-  const seguro = parseFloat(p.seguro)||0;
+  const frete = num0('frete');
+  const seguro = num0('seguro');
   const cambio = parseFloat(p.cambio)||0;
   const cifUsd = fob + frete + seguro;
   const cifBrl = cifUsd * cambio;
   const fobBrl = fob * cambio;
   const seguroBrl = seguro * cambio;
-  const ii = parseFloat(p.ii)||0;
-  const ipi = parseFloat(p.ipi)||0;
-  const pis = parseFloat(p.pis)||0;
-  const cofins = parseFloat(p.cofins)||0;
+  const ii = num0('ii');
+  const ipi = num0('ipi');
+  const pis = num0('pis');
+  const cofins = num0('cofins');
   /* RET-MG (regime "revenda") substitui o recolhimento do ICMS na entrada — o campo não
      deve compor o custo enquanto esse regime estiver selecionado. */
   const icmsAplicavel = p.regime !== 'revenda';
-  const icms = icmsAplicavel ? (parseFloat(p.icms)||0) : 0;
-  const despesas = parseFloat(p.despesas)||0;
-  const taxaSiscomex = parseFloat(p.taxaSiscomex)||0;
+  const icms = icmsAplicavel ? num0('icms') : 0;
+  const despesas = num0('despesas');
+  const taxaSiscomex = num0('taxaSiscomex');
   const paymentsTotal = p.payments ? Object.values(p.payments).reduce((s,r)=>s+(parseFloat(r.valor)||0),0) : 0;
   /* Total NÃO soma o frete do campo acima (que é só referência para o CIF) — o frete
      de verdade é o valor pago marcado na Fase 8, já incluído em paymentsTotal. */
@@ -10119,15 +10257,16 @@ function computeCostosComparativo(p){
      (que pode ter sido preenchido antes, depois, ou nunca). Sem Provisionamento congelado
      ainda, cai pro cálculo ao vivo a partir de Custos, como já era antes. */
   const congelado = p.provisionamentoCongelado ? p.provisionamentoCongelado.snapshot : null;
+  const lanc = k => { const v = parseFloat((payments[k]||{}).valor)||0; return v>0 ? v : null; };
 
-  const freteInicialBrl = congelado ? (congelado.freteInternacional||0) : (()=>{
+  const freteInicialBrl = congelado ? (congelado.freteInternacional||0) : lanc('freteInternacional') ?? (()=>{
     const freteValorInformado = parseFloat((p.extra||{}).provFreteInternacionalUsd)||0;
     const freteMoeda = (p.extra||{}).provFreteMoeda || 'USD';
     return freteMoeda==='BRL' ? freteValorInformado : freteValorInformado*cambio;
   })();
   const freteRealizadoBrl = valorPago('freteInternacional');
 
-  const honorariosInicialBrl = congelado ? (congelado.honorarios||0) : getHonorariosDespachante(p).valor;
+  const honorariosInicialBrl = congelado ? (congelado.honorarios||0) : (lanc('prestacaoDespachante') ?? getHonorariosDespachante(p).valor);
   const honorariosRealizadoBrl = valorPago('prestacaoDespachante');
 
   /* Transporte DTA — mesma fórmula (Biotech) já usada no Provisionamento e na lista principal
@@ -10135,18 +10274,18 @@ function computeCostosComparativo(p){
      comentário "fórmula definitiva não existe" ficou desatualizado depois que a fórmula foi
      implementada. */
   const freteDtaInicial = (!isAereo && !congelado) ? computeFreteDTABiotech(p) : { status:'nao_aplicavel' };
-  const dtaInicialBrl = congelado ? (congelado.transporteDTA||0) : effectiveProvValue(p, freteDtaInicial.status==='ok' ? freteDtaInicial.total : 0, 'provTransporteDtaBrl');
+  const dtaInicialBrl = congelado ? (congelado.transporteDTA||0) : lanc('dta') ?? effectiveProvValue(p, freteDtaInicial.status==='ok' ? freteDtaInicial.total : 0, 'provTransporteDtaBrl');
   const dtaRealizadoBrl = valorPago('dta');
 
   const armZP = (!isAereo && !congelado) ? computeArmazenagemZonaPrimaria(p) : null;
-  const armZPInicialBrl = congelado ? (congelado.armazenagemZP||0) : (armZP && armZP.status==='ok' ? armZP.total : 0);
+  const armZPInicialBrl = congelado ? (congelado.armazenagemZP||0) : lanc('armazenagemZonaPrimaria') ?? (armZP && armZP.status==='ok' ? armZP.total : 0);
   const armZPRealizadoBrl = valorPago('armazenagemZonaPrimaria');
 
   const armZS = !congelado ? computeArmazenagemZonaSecundaria(p) : null;
-  const armZSInicialBrl = congelado ? (congelado.armazenagemZS||0) : (armZS && armZS.status==='ok' ? armZS.total : 0);
+  const armZSInicialBrl = congelado ? (congelado.armazenagemZS||0) : lanc('armazenagemZonaSecundaria') ?? (armZS && armZS.status==='ok' ? armZS.total : 0);
   const armZSRealizadoBrl = valorPago('armazenagemZonaSecundaria');
 
-  const lavagemInicialBrl = congelado ? (congelado.lavagemContainer||0) : 0;
+  const lavagemInicialBrl = congelado ? (congelado.lavagemContainer||0) : (lanc('lavagemContainer') ?? 0);
   const lavagemRealizadoBrl = ((p.extra||{}).teveLavagemContainer) ? valorPago('lavagemContainer') : null;
 
   const linhas = [
@@ -12537,6 +12676,14 @@ function renderCompanyMetaForm(c, podeEditar){
     <div class="form-row">${field('country','País')}${field('state','Estado')}${field('city','Cidade')}</div>
     ${field('address','Endereço')}
     <div class="form-row">${field('mainEmail','E-mail Principal','email')}${field('phone','Telefone')}</div>
+    <div class="form-group">
+      <label>Logo da Empresa <span class="form-hint" style="display:inline;">(aparece na Capa do Processo)</span></label>
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        ${c.logoUrl ? `<img src="${c.logoUrl}" alt="Logo" style="height:56px; max-width:220px; object-fit:contain; background:#fff; border:1px solid var(--border-strong); border-radius:6px; padding:6px;">` : '<span class="form-hint">Nenhuma logo enviada.</span>'}
+        ${podeEditar ? `<input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onchange="uploadCompanyLogo('${c.id}', this)">
+        ${c.logoUrl ? `<button type="button" class="btn btn-danger" style="padding:6px 10px;" onclick="removeCompanyLogo('${c.id}')">Remover logo</button>` : ''}` : ''}
+      </div>
+    </div>
     ${podeEditar?`<button type="button" class="btn btn-primary" style="margin-top:6px;" onclick="saveCompanyMeta('${c.id}')">Salvar Dados da Empresa</button>`:''}
   `;
 }
@@ -12714,6 +12861,49 @@ function renderEmpresaOperationalSections(podeEditar){
       ${podeEditar?`<button class="btn" style="margin-top:12px;" onclick="addFeriado()">+ Adicionar Feriado</button>`:''}
     </div>
   `;
+}
+
+/* Logo da empresa: reduzida no navegador (máx. 600×200 px, PNG com transparência preservada)
+   e gravada como data URI em companies_registry.logoUrl — documento próprio, fora do banco
+   principal de processos, então não pesa no limite de 1 MB do Firestore. */
+function uploadCompanyLogo(id, input){
+  if(!requireEditPermission()) return;
+  const file = input.files && input.files[0];
+  if(!file) return;
+  if(file.size > 5*1024*1024){ alert('Imagem muito grande (máx. 5 MB). Use uma versão menor da logo.'); input.value=''; return; }
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const img = new Image();
+    img.onload = async ()=>{
+      const maxW = 600, maxH = 200;
+      const ratio = Math.min(1, maxW/img.width, maxH/img.height);
+      const cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.round(img.width*ratio));
+      cv.height = Math.max(1, Math.round(img.height*ratio));
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      const c = companiesRegistry.find(x=>x.id===id);
+      if(!c) return;
+      c.logoUrl = cv.toDataURL('image/png');
+      c.updatedAt = Date.now();
+      try{
+        await db.collection('companies_registry').doc(id).set(c);
+        updateSaveIndicator(`Logo da empresa salva ${svgCheckInline()}`);
+      }catch(e){ alert('Não foi possível salvar a logo: '+(e.message||e)); }
+      render();
+    };
+    img.onerror = ()=>alert('Não foi possível ler essa imagem. Tente um PNG ou JPG.');
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+async function removeCompanyLogo(id){
+  if(!requireEditPermission()) return;
+  const c = companiesRegistry.find(x=>x.id===id);
+  if(!c) return;
+  c.logoUrl = '';
+  c.updatedAt = Date.now();
+  await db.collection('companies_registry').doc(id).set(c);
+  render();
 }
 
 async function saveCompanyMeta(id){
@@ -15668,10 +15858,131 @@ function saveSiscomexValue(){
   updateCostPreview();
 }
 
+/* Estimativas "de origem" (cadastros/regras do sistema), sem passar pela aba Custo de Importação. */
+function getEstimadosBase(p){
+  const out = {};
+  const isAereo = p.modal==='aereo';
+  const put = (k,v)=>{ v = parseFloat(v)||0; if(v>0.004) out[k] = Math.round(v*100)/100; };
+  try{ put('prestacaoDespachante', getHonorariosDespachante(p).valor); }catch(e){}
+  try{ if(!isAereo){ const a = computeArmazenagemZonaPrimaria(p); if(a && a.status==='ok') put('armazenagemZonaPrimaria', a.total); } }catch(e){}
+  try{ const a = computeArmazenagemZonaSecundaria(p); if(a && a.status==='ok') put('armazenagemZonaSecundaria', a.total); }catch(e){}
+  try{ if(!isAereo){ const f = computeFreteDTABiotech(p); put('dta', effectiveProvValue(p, f.status==='ok' ? f.total : 0, 'provTransporteDtaBrl')); } }catch(e){}
+  try{ if(!isAereo && p.extra && p.extra.teveLavagemContainer) put('lavagemContainer', getLavagemContainerValor(p)); }catch(e){}
+  return out;
+}
+
+/* Valores de cada pagamento da Fase 8: puxa TUDO que está como despesa na aba Custo de Importação
+   (frete, armazenagens, despachante, DTA, lavagem, demurrage, AFRMM, LI e extras); o que faltar lá vem das
+   estimativas do sistema. O usuário só preenche Pedido SAP e Vencimento. */
+function getPagamentosEstimados(p, leve){
+  const out = { fixos:{}, customs:[] };
+  const base = getEstimadosBase(p);
+  const num = v => parseFloat(String(v==null?'':v).replace(/\./g,'').replace(',','.'))||0;
+  const cambio = parseFloat(p.cambio)||0;
+  const r2 = v => Math.round((parseFloat(v)||0)*100)/100;
+  Object.keys(base).forEach(k=>{ out.fixos[k] = base[k]; });
+  try{
+    const mem = getMemoriaCustos(p);
+    if(leve){ if(mem.freteBrl!=null) out.fixos.freteInternacional = r2(mem.freteBrl); return out; }
+    const ci = ensureCustoImp(p);
+    const bol = num(ci.boletoFrete);
+    const fr = bol>0 ? bol : (mem.freteBrl!=null ? mem.freteBrl : 0);
+    if(fr>0) out.fixos.freteInternacional = r2(fr);
+    const mapa = { honorarios:'prestacaoDespachante', dta:'dta', armTora:'armazenagemZonaSecundaria', armConfins:'armazenagemZonaSecundaria', armMovecta:'armazenagemZonaPrimaria', lavagem:'lavagemContainer' };
+    const ignorar = { frete:1, seguro:1, acresc:1, sisc:1, difFrete:1 };
+    /* Fonte única: a coluna amarela (Valor desp. importação) da aba Despesas de importação. */
+    let D = null;
+    try{ D = CCX.despImport(JSON.parse(JSON.stringify(ccxBuildState(p, window.__ccxCatalogo||[])))); }catch(e){ D = null; }
+    if(D){
+      D.linhas.forEach(L=>{
+        if(ignorar[L.key]) return;
+        /* Só linhas que o usuário mexeu (valor ou retenção/COFINS/PIS) mandam nos pagamentos; as automáticas
+           continuam vindo do pagamento real / estimativa do sistema e não são sobrescritas. */
+        const dl = (ci.despesas||[]).find(x=>(x.key||x.nome)===L.key);
+        const cr = (ci.cred||{})[L.key]||{};
+        /* Qualquer valor preenchido na aba Custo de Importação vale (inclui AFRMM, demurrage, LI e valores digitados antes). */
+        const mexeu = (dl && (dl.user || num(dl.valor)>0)) || num(cr.ret)>0 || num(cr.cofins)>0 || num(cr.pis)>0;
+        if(!mexeu) return;
+        const v = L.E;   /* valor da despesa (o que se paga); a coluna amarela líquida só vale para o total do custo de importação */
+        if(!(v>0.004)) return;
+        if(mapa[L.key]) out.fixos[mapa[L.key]] = r2(v);
+        else out.customs.push({ nome:(L.nome||'').trim(), valor:r2(v) });
+      });
+    }else{
+      (ci.despesas||[]).forEach(d=>{
+        if(ignorar[d.key]) return;
+        if(/^(frete internacional|seguro|acr[eé]scimos|taxa siscomex|diferen[cç]a de frete)/i.test(d.nome||'')) return;
+        const v = d.moeda==='BRL' ? num(d.valor) : num(d.valor)*cambio;
+        if(!(v>0.004)) return;
+        if(mapa[d.key]) out.fixos[mapa[d.key]] = r2(v);
+        else out.customs.push({ nome:(d.nome||'').trim(), valor:r2(v) });
+      });
+    }
+  }catch(e){ console.error(e); }
+  return out;
+}
+
+/* Processos já ENTREGUES: preenche, uma única vez, os pagamentos que ficaram sem valor (frete da Memória, armazenagens,
+   despachante, DTA…) — sem criar a aba Custo de Importação nem marcar nada como pago. */
+function backfillPagamentosEntregues(){
+  let changed = false;
+  (state.processes||[]).forEach(p=>{
+    if(!p || p.pagBackfillV1) return;
+    let done = false; try{ done = isProcessDone(p); }catch(e){}
+    if(!done) return;
+    p.pagBackfillV1 = true; changed = true;
+    try{
+      p.payments = p.payments || {};
+      const est = getPagamentosEstimados(p, true);
+      const aereo = p.modal==='aereo';
+      Object.keys(est.fixos).forEach(k=>{
+        if(aereo && (k==='armazenagemZonaPrimaria' || k==='dta' || k==='lavagemContainer')) return;
+        const rec = p.payments[k] = p.payments[k] || {checked:false, valor:'', pedidoSap:'', dataVencimento:''};
+        if((parseFloat(rec.valor)||0)>0) return;
+        rec.valor = est.fixos[k]; rec.autoValor = est.fixos[k]; rec.autoFilled = true;
+      });
+    }catch(e){ console.error('backfill pagamentos', e); }
+  });
+  return changed;
+}
+
+/* Preenche uma única vez cada pagamento ainda sem valor; nunca sobrescreve o que o usuário digitou nem marca como pago. */
+function prefillPagamentos(p){
+  if(!p) return;
+  p.payments = p.payments || {};
+  const est = getPagamentosEstimados(p);
+  const aereo = p.modal==='aereo';
+  Object.keys(est.fixos).forEach(k=>{
+    if(aereo && (k==='armazenagemZonaPrimaria' || k==='dta' || k==='lavagemContainer')) return;
+    const rec = p.payments[k] = p.payments[k] || {checked:false, valor:'', pedidoSap:'', dataVencimento:''};
+    if(rec.manual) return;
+    /* Segue sempre a aba Custo de Importação (até ser pago ou editado à mão em Pagamentos). */
+    rec.valor = est.fixos[k]; rec.autoValor = est.fixos[k]; rec.autoFilled = true;
+  });
+  /* Despesas sem pagamento fixo (Demurrage, AFRMM, LI, extras) viram pagamentos personalizados — criados uma só vez por nome. */
+  p.customPayments = p.customPayments || [];
+  p.autoCustomNomes = p.autoCustomNomes || [];
+  est.customs.forEach(c=>{
+    const nomeN = c.nome.toLowerCase();
+    let cp = p.customPayments.find(x=>(x.name||'').trim().toLowerCase()===nomeN);
+    if(!cp){
+      if(p.autoCustomNomes.includes(nomeN)) return;   // já foi criado e o usuário removeu: não recria
+      cp = { id: uid(), name: c.nome };
+      p.customPayments.push(cp);
+      p.autoCustomNomes.push(nomeN);
+    }
+    const key = 'custom:'+cp.id;
+    const rec = p.payments[key] = p.payments[key] || {checked:false, valor:'', pedidoSap:'', dataVencimento:''};
+    if(rec.manual) return;
+    rec.valor = c.valor; rec.autoValor = c.valor; rec.autoFilled = true;
+  });
+}
+
 function updatePaymentField(key, field, val){
   const p = window.__editingProcess;
   p.payments[key] = p.payments[key] || {checked:false, valor:'', pedidoSap:'', dataVencimento:''};
   p.payments[key][field] = val;
+  if(field==='valor'){ p.payments[key].autoFilled = false; p.payments[key].manual = true; }   // editado à mão: deixa de acompanhar a origem
 }
 function updatePaymentValue(key, val){ updatePaymentField(key, 'valor', val); }
 function togglePaymentCheck(key){
@@ -15777,6 +16088,7 @@ function openProcessModal(id){
           <button class="tab-btn" data-tab="historico" onclick="switchTab('historico')">Histórico</button>
           <button class="tab-btn" data-tab="emails" onclick="switchTab('emails')">E-mails</button>
           <button class="tab-btn" data-tab="memoria" onclick="switchTab('memoria')">Memória de Cálculo da NF</button>
+          <button class="tab-btn" data-tab="custoimp" onclick="switchTab('custoimp')">Custo de Importação</button>
           <button class="tab-btn" data-tab="lotes" onclick="switchTab('lotes')">Lotes</button>
           <button class="tab-btn" data-tab="duimp" onclick="switchTab('duimp')">Portal Único / DUIMP</button>
         </div>
@@ -16038,6 +16350,10 @@ function openProcessModal(id){
 
         <div class="tab-pane" id="tab-memoria">
           <div id="memoria-content"></div>
+        </div>
+
+        <div class="tab-pane" id="tab-custoimp">
+          <div id="custoimp-content"></div>
         </div>
 
         <div class="tab-pane" id="tab-preanalise">
@@ -16433,10 +16749,1219 @@ function changeProcessType(tipo){
   renderEtapasTab();
 }
 
+
+const CCX = (function(){
+  var S, R;
+  function num(s) {
+    if (typeof s === 'number') return isFinite(s) ? s : 0;
+    s = String(s == null ? '' : s).trim().replace(/\s/g, '');
+    if (!s) return 0;
+    if (s.indexOf(',') > -1) s = s.replace(/\./g, '').replace(',', '.');
+    var n = parseFloat(s);
+    return isFinite(n) ? n : 0;
+  }
+  /* Fatura sempre em USD: "DI" = dólar da DUIMP (frete, seguro, despesas em USD); "Pagamento" = dólar
+     do pagamento ao fornecedor (converte o FOB). Pagamento em branco => usa o da DI. */
+  function taxaUsdEf() { return num(S.taxaUsd); }
+  function tfEf() { var v = num(S.taxaPag); return v > 0 ? v : num(S.taxaUsd); }
+  function despesaBRL(d) {
+    var v = num(d.valor);
+    if (d.moeda === 'BRL') return v;
+    return v * taxaUsdEf();
+  }
+  function estadoCalculo() {
+    return {
+      taxaFat: tfEf(), taxaUsd: taxaUsdEf(), moedaFat: 'USD', creditos: S.creditos,
+      despesas: S.despesas.map(function (d) { return { nome: d.nome || 'Despesa', moeda: d.moeda === 'BRL' ? 'BRL' : 'USD', valor: num(d.valor), rateio: d.rateio, aduaneiro: !!d.aduaneiro }; }),
+      itens: S.itens.map(function (i) { return { qtd: num(i.qtd), fob: num(i.fob), peso: num(i.peso), ii: num(i.ii) / 100, ipi: num(i.ipi) / 100, pis: num(i.pis) / 100, cofins: num(i.cofins) / 100, icms: num(i.icms) / 100, iiV: i.iiV == null ? null : num(i.iiV), ipiV: i.ipiV == null ? null : num(i.ipiV), pisV: i.pisV == null ? null : num(i.pisV), cofinsV: i.cofinsV == null ? null : num(i.cofinsV) }; })
+    };
+  }
+
+  /* ---------- Despesas de importação (aba DESPESA IMPORTAÇÃO da planilha da diretoria) ---------- */
+  var RX_FRETE = /^frete internacional/i, RX_SEG = /^seguro/i, RX_ACR = /^acr[eé]scimos/i, RX_SISC = /siscomex/i, RX_CAPAT = /^capatazia/i, RX_DIF = /^diferen[cç]a de frete/i;
+  function primeiraBRL(rx) { for (var i = 0; i < S.despesas.length; i++) if (rx.test(S.despesas[i].nome || '')) return despesaBRL(S.despesas[i]); return 0; }
+  function regraJ(nm) { return /afrmm|anvisa/i.test(nm) ? 'E' : (/libera[cç][aã]o.*bl|rodovi[aá]rio|lavagem|siscomex/i.test(nm) ? 'EGH' : 'I'); }
+  function despImportCalc() {
+    var T = R.totais, cr = S.cred || {};
+    var c3 = function (key) { var o = cr[key] || {}; return [num(o.ret), num(o.cofins), num(o.pis)]; };
+    var freteDI = primeiraBRL(RX_FRETE), seguro = primeiraBRL(RX_SEG), acresc = primeiraBRL(RX_ACR), sisc = primeiraBRL(RX_SISC), capat = primeiraBRL(RX_CAPAT);
+    var boleto = num(S.boletoFrete), cb = [0, 0, 0];
+    var iBol = boleto;
+    /* Frete na NF: em aberto. Se não for informado, vale o frete que foi na DI. Os impostos a retirar ficam nessa linha. */
+    var nfInformado = num(S.nfFrete) > 0, nfBase = num(S.nfFrete), cn = c3('freteNF');
+    var iNF = nfBase - cn[0] - cn[1] - cn[2];
+    var impostosNF = cn[0] + cn[1] + cn[2];
+    /* Mesma lógica da planilha: diferença = total pago − frete da DI − frete da NF LÍQUIDO (NF − retenção − COFINS − PIS) − acréscimos */
+    var difBruta = boleto > 0 ? boleto - freteDI - iNF - acresc : 0;
+    var dif = Math.max(0, difBruta);
+    var linhas = [], somaJ = dif;
+    S.despesas.forEach(function (d, k) {
+      var nm = d.nome || '';
+      if (RX_FRETE.test(nm) || RX_SEG.test(nm) || RX_ACR.test(nm) || RX_SISC.test(nm) || RX_CAPAT.test(nm) || RX_DIF.test(nm)) return;
+      var E = despesaBRL(d), key = d.key || nm, c = c3(key), I = E - c[0] - c[1] - c[2], rg = regraJ(nm);
+      var J = rg === 'E' ? E : (rg === 'EGH' ? E - c[1] - c[2] : I);
+      linhas.push({ k: k, key: key, nome: nm, E: E, F: c[0], G: c[1], H: c[2], I: I, J: J, regra: rg });
+      somaJ += J;
+    });
+    var imp = T.ii + T.ipi + T.pis + T.cofins + T.icms;
+    var totalNF = T.fob + freteDI + seguro + capat + acresc + sisc + imp;
+    return { freteDI: freteDI, seguro: seguro, acresc: acresc, sisc: sisc, capat: capat, boleto: boleto, boletoF: cb[0], boletoG: cb[1], boletoH: cb[2], boletoI: iBol, nf: nfBase, nfInformado: nfInformado, nfF: cn[0], nfG: cn[1], nfH: cn[2], nfI: iNF,
+             dif: dif, difBruta: difBruta, linhas: linhas, totalDesp: somaJ, fob: T.fob, impostos: imp, totalNF: totalNF, custoTotal: totalNF + somaJ };
+  }
+// Motor de cálculo do custo de importação. Todos os valores internos em R$.
+// state = { taxaFat, taxaUsd, moedaFat, despesas:[{nome,moeda,valor,rateio,aduaneiro}],
+//           creditos:{ipi,pis,cofins,icms}, itens:[{qtd,fob,peso,ii,ipi,pis,cofins,icms}] }
+// Alíquotas em fração (0.126 = 12,6%). fob = preço unitário na moeda da fatura. peso = kg por unidade.
+function calcular(state) {
+  var taxaFat = state.taxaFat || 0;
+  var taxaUsd = state.taxaUsd || 0;
+  function paraReais(valor, moeda) {
+    if (moeda === 'BRL') return valor;
+    if (moeda === 'USD') return valor * taxaUsd;
+    return valor * taxaFat; // 'FAT' = moeda da fatura
+  }
+  var itens = state.itens.map(function (it) {
+    var qtd = it.qtd || 0;
+    return {
+      qtd: qtd,
+      fobBRL: qtd * (it.fob || 0) * taxaFat,
+      pesoTot: qtd * (it.peso || 0),
+      raw: it
+    };
+  });
+  var avisos = [];
+  var base = {
+    peso: itens.map(function (i) { return i.pesoTot; }),
+    fob: itens.map(function (i) { return i.fobBRL; }),
+    igual: itens.map(function (i) { return i.qtd > 0 ? 1 : 0; }),
+    qtd: itens.map(function (i) { return i.qtd; })
+  };
+  function soma(a) { return a.reduce(function (s, x) { return s + x; }, 0); }
+
+  var res = itens.map(function (i) {
+    return { aduaneiras: 0, outras: 0, porDespesa: [] };
+  });
+  var totDespAduaneira = 0, totDespOutras = 0;
+
+  state.despesas.forEach(function (d, k) {
+    var valorBRL = paraReais(d.valor || 0, d.moeda);
+    var chave = d.rateio;
+    var pesos = base[chave];
+    if (!(soma(pesos) > 0)) {
+      if (valorBRL > 0) {
+        if (chave === 'peso') avisos.push('"' + d.nome + '": nenhum item tem peso, então o rateio foi feito pelo valor FOB.');
+        else avisos.push('"' + d.nome + '": sem base para ratear, então o rateio foi feito pelo valor FOB.');
+      }
+      pesos = base.fob;
+    } else if (chave === 'peso' && valorBRL > 0) {
+      var semPeso = itens.filter(function (i) { return i.qtd > 0 && !(i.pesoTot > 0); }).length;
+      if (semPeso) avisos.push('"' + d.nome + '": ' + semPeso + ' item(ns) sem peso não recebem parte desta despesa.');
+    }
+    var tot = soma(pesos);
+    if (valorBRL > 0 && tot > 0) {
+      if (d.aduaneiro) totDespAduaneira += valorBRL; else totDespOutras += valorBRL;
+    }
+    itens.forEach(function (i, n) {
+      var parte = tot > 0 ? valorBRL * pesos[n] / tot : 0;
+      res[n].porDespesa[k] = parte;
+      if (d.aduaneiro) res[n].aduaneiras += parte; else res[n].outras += parte;
+    });
+  });
+
+  var linhas = itens.map(function (i, n) {
+    var it = i.raw, r = res[n];
+    var va = i.fobBRL + r.aduaneiras;
+    /* Valores da Memória de Cálculo (quando informados) valem no lugar do cálculo por alíquota. */
+    var ii = it.iiV != null ? it.iiV : va * (it.ii || 0);
+    var ipi = it.ipiV != null ? it.ipiV : (va + ii) * (it.ipi || 0);
+    var pis = it.pisV != null ? it.pisV : va * (it.pis || 0);
+    var cofins = it.cofinsV != null ? it.cofinsV : va * (it.cofins || 0);
+    var icms = 0, icmsAliq = it.icms || 0;
+    if (icmsAliq > 0 && icmsAliq < 1) {
+      // ICMS "por dentro": base inclui o próprio imposto e as despesas não aduaneiras (ex.: Siscomex)
+      var baseIcms = (va + ii + ipi + pis + cofins + r.outras) / (1 - icmsAliq);
+      icms = baseIcms * icmsAliq;
+    }
+    var cred = 0;
+    if (state.creditos.ipi) cred += ipi;
+    if (state.creditos.pis) cred += pis;
+    if (state.creditos.cofins) cred += cofins;
+    if (state.creditos.icms) cred += icms;
+    var total = i.fobBRL + r.aduaneiras + r.outras + ii + ipi + pis + cofins + icms;
+    var liquido = total - cred;
+    var q = i.qtd;
+    return {
+      qtd: q, fob: i.fobBRL, aduaneiras: r.aduaneiras, outras: r.outras, valorAduaneiro: va,
+      ii: ii, ipi: ipi, pis: pis, cofins: cofins, icms: icms,
+      total: total, creditos: cred, liquido: liquido,
+      unitario: q > 0 ? total / q : 0,
+      unitarioLiquido: q > 0 ? liquido / q : 0,
+      fobUnitBRL: q > 0 ? i.fobBRL / q : 0,
+      fator: i.fobBRL > 0 ? total / i.fobBRL : 0,
+      fatorLiquido: i.fobBRL > 0 ? liquido / i.fobBRL : 0,
+      porDespesa: r.porDespesa
+    };
+  });
+
+  var tot = { fob: 0, aduaneiras: 0, outras: 0, valorAduaneiro: 0, ii: 0, ipi: 0, pis: 0, cofins: 0, icms: 0, total: 0, creditos: 0, liquido: 0, qtd: 0 };
+  linhas.forEach(function (l) { Object.keys(tot).forEach(function (k) { tot[k] += l[k]; }); });
+  tot.fator = tot.fob > 0 ? tot.total / tot.fob : 0;
+  tot.fatorLiquido = tot.fob > 0 ? tot.liquido / tot.fob : 0;
+  tot.porDespesa = state.despesas.map(function (d, k) {
+    return linhas.reduce(function (s, l) { return s + l.porDespesa[k]; }, 0);
+  });
+  return { linhas: linhas, totais: tot, avisos: avisos };
+}
+  /* ---------- aba CUSTOS PARA IMP: mesmo desenho da planilha de custos para importação ---------- */
+  var LOGO_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAWkAAABaCAYAAAB64qf5AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAIdUAACHVAQSctJ0AADVZSURBVHhe7Z0JnCRFne8jIrOO7pmevgZ3PECmp3tmABFE9AkegIC3uJ5vVVTQ1V1FZUUFWVBQd5X3dEUFL1B08XqKxwMBFQ9EReCxIrDDANPVMwwDck4fc3RXVWZGvP+vurImKycyqyLrnLa+n89vuronKyszK/Mf//jHP/7BWWvoI60iPZE0gD8QTyYdRXoqaYyUIaXKAk5ZRdI86b9IfyLdT1Kkx0l/JT1S/r3VZElPIOE8hvGHMoeSji7/HCrLJgXxSDgHCMf9DdJG0i7SVtLDJJdkwgjpMNJ+pJeXf/6OdDUJ+64XnM8hJByzIP0P0pNITyFNkADOPQqcG74n/NyMPxCTpAIJ39WjpDmSz0Oku0l4Ty1wDAeTcG7Pxh+I+0j3kLD/20nTpGaA63kQaTkJ9xP2+yAJ302t+wv39XoS7u3nko4t/y1Nwv0sSXkSznknCfvFtcE54P7dQQKjJBzHIAn3Gq4/rj2eDYvkg33hOv6C9EcSrvF/k+q5ptjXM0h4/v4nCdcV53gB6f+STMC1wnnjuMPgfjqQFLQpeM6D51ELPCs4t20k3F+4dneS8NzUAp+zjrR/6bdF8D3g/bjmrWAZybcRK/CHACtJQbsBcF/hmcFxxYH//zOpWfd6BRzkd0h4oKZIuNgLJHwgDq4RYR/+zY79v5rUKl5JwmfkSLiZd5N0x2QqnIP/sG0ibSC9lVQPnyLhIcdDGd7nDAnGrRYwHj8i4RqigQjup5WCwcb5PosUx5UkXJuo+wXHjGtwKqlRPkLCvvB94PMgGAI4Afju/x8piktJ2C78XbRTeBZwTWEc4kBjh/sYzkJ4HzCC/0aql0+StpBwncL7apVgP2DU4ETEAYN4LwnPQvD9OMcHSGeRmgUao/8g4T7Bsfl2Lvi5jQrHjfvzGFJDoMWEF3Y+CRdC92Gt1NdIYQ82CTBeryddRmqWQTZRnNFBS3wFSfe+oOBJwyuOYg0Jhkf33nYJBvFfSGFw3F8lRRnnsPAgHk5KyrdIuv2G9QVSEHig8Gx023ZKaCyeRtJxJgnXXPc+XzA08LTjgIH8FUn3/nYJPQ/0InW8izRL0r3PF95/BCkpR5LQsKORqvc+bYbg4ESdd138ltRJbwJhEb973gjwLNt54cOKa+UvIuneExaMB7p6OtAI/Zqke1+7het8AinIF0mm1z9pN/C9pHo/C+GEILUMXqcELznMl0j1nCe2QQgjjnobtVbrKlKY00n1fp9nk0xB6OlWUjt7nmF9j2TM80hogXU7bLdwLEmAB/5lUrO7KUn0XZIOeL8mjSDi1DpeQkL3SfeeTugrJB8YCMSZddvFCQ/N35NMQNwXnolufzohHAVwr9xM0m3TLXo6yQehL3/cph7F9eTQY+mkgQoKIZ4wGN/RbauTSfwdUYLPkDCGoNtXO/UYyYg3kHQ76oTQgiLcYgoGeO4i6fbZCWGAVAcGzHTbR+kfSGEQStDFIzupH5B80BNK2oD8hWQyKAVjVK/XBflGGoPd3XYNw8KAoA/Cj7ptonQHKQrEvXXv6ZSCIT3EyHXbRAm9yXpAHB9jI7p9dEK74uKYYWAQ0Y3qFtDCm3Z7MTL9GxIyCLoFnaHpJ9XqhoY5vvwzCDJQkGnTTQS/MwzCmdyDQeDlIRxUL+iZJMlmwud02zUME/QyP1D+WS9ryz/DYFASmSfdBBpZgN7NuxdfNhWc8+/LP7uF+XofkL8j/ZKEUdRuAd4wWrx6QQv5ExLSrroJ3TkglanWgE4YXWwSqWHdhp+2h0boBYsvE/N2Enp39XBS+acprTAGzca/pmhMwqlgtYjqTj+HFE4h6yRI4/TB8xGXJqoDY09xHEC6hQRHrpu4qV4jfQbJ9MtvNZeT6smfBPBMbyJ1m4EGiHeGgaePYzZBlyuNxrWbQGaGnzWBjJpG8/TRkMEb/8fSb/FEZUHUAnnJ3QwGNJGnDpCzbYou1gvwrCTt5bQCxIh9kKlh2rtBWnAUuA+Rgw5D3W18vZ4vAd1EpPM0+kA1C8RpkBJ0Yem3+sAgIc6j28DAxI8XX1aBSRGmD4guYR8eR7eA48NAL7JyQK286XqB84AHOM7jfRHJ9P5FWhf4OinKkHWa7SQMGiKuD0wHUwEmjuioN4e/HWD8AXn0PjDQps8H8qh1INx4CakbHTg4CNcvvoyn0zmSYWFAzZ/FWA/ovnRTdoMvTJSJCh/B6OjeEydddofp4GMrFc5txkOj2y6pEK9EY6zjOpLuPXF6LckHPRKTjIl2CI0dxhyCIN9ct22c4ICFgQE0GWRtpZD9FA5twEHTbRunF5N0IJGgG9MrkXJYV8gTU0nR0up20m4hBo2wi8mIPgYATNKuWimMlCMnGPmaryLFeQIYcdftI0pI1TuRFKaTNx8axp+RkAeOByEIbj4YGd37GhUGfpCR4YNBJkwN1m0bpzDYD7IoPkr6NgkTJHTva6UQl/1fJGSqhAeWcT+hRIDufXHS9TARbtNt2y4h4wnXOcqw4jro3hcl3Gu62XuYQ9At6cQQHDc4aOjFVOxDrS4guqd/WHxpBGZCfZOE2hIwTpji2AkQq0RXJmmoBhcOIQl0dyEMPOKc8NBHdRObAfK3TQZGUPMAAz3BuBsGfUyzX3CTIN4XHMyEcfJj2zAMqFXig+uDgSc/hFFrcMYHE1rQQ2slqJeCTAc01KgBYzLojUFY1GVICry/Ny2+rAt83y8k4Xr6IJSBvyOOrxsUDgODg7TBqGyNKBAuCodzMMv1dYsv6waN8v8mfZoU3B/y04MNCr4H3b0NRwPjKnAsaoH7DedbL7ifEV4L358fJH128WUicM74fmDfkOIHu+dPjot6FuCw+D0Vv84NxhT8Z8gYzNDyrbyJ4GmYZic0G8StGvF2YOAw5TTolbUDhHJ0xxMnjO4jjh0EvQ7dtnGCJ9aOsQdcW93nN1sIqSQJdTQyWIj7zrQnhJhroyTpncCY6hojnL9u+zih7EBc77BZwPnQfX6ccB/A2QiTZCKVL4QS0ZCFn7umU+uBRD2LpAVt4L3Adcd8d7Tw/uBGu7iYdNriS2PQC0ADVY8H02xwvXHdTUAoKJy9gDokphkiADcuCmUFs0UQYsLDAa8INzvkZ/ugIUTOOjwCvPY9CXQj8XsYeFVhz63b+ATpvMWXxsBThOemMwpRIEMFDkEjoIcDr84EZBYhDRJerA/uGTy7SWpG4D5Ao6ir4Ib7x7c3cET8SnowdrhX0ePGvYNQRtz9gQHiqLGHKJBah55mEIQcTasA+qB3/k+LLzsPRlR1rUi9wsOKLhtaWaTMoWRiO0A5VHQ9dMcUJ9xkuiJA7eQGku7Y4vR9UphOFIvyhe8dDYeukUSoQ/eeblI9KX1RoFQmzl+33yhhrKJRTGfgQbr7Bs9OJwZJcc0g9CpQSjcKNCC698cpmL4H0HtIOuUbjbdJqKXlIKdVd6CNCK02WjB4qsiVRUC/2SeNVCTTBwXC6HgnQXcRBV10xxancObEalI31CWBwh7He0i67bpFuD9R7yQpGPTR7TdOJiVDo8C4hG7fcYIHHwb3Eq6Bbvt2SlfyAc9HkhBFuNQp7E6SjK9rSZ0O4+4FRrN1B9ss4UJhoAABdIRFPkZqxiwnDLroPi9OKLdqkjnSClBAHIN/uuOLUxiMinfDgwYh7BEMu5xD0m3XLUKIq5F7MEkjC6PRCDAcSZwSXSmBZ5J027ZbiIuHw7F4PmAndNvHKQzmJui2q6Vum9BXAq1qJ7rN6CojfxMeoSkYxdXtM064wZPG3psJ4sqmg50wgmHeSdJt2wmhEQ7GAzGSrdsuSvhuEINEvFX3/80WGvhGBsB0+6wl04yMMHi/br+1pANhSd22nVB4TAV54aYptTeSgiAebjrAinuwY+UBat2MGKWGwWw3yNNEPihWlTiFZDKCmmSwEF/CNYsvOwpuIJOJOgA1VcJ0U5cMxxJ82EwbXowTIJ0OeeAwoK0GA1m4H5KQxKkAGDRrhOPKP03AYJqOV5R/dgPhHgYGR0292XAKMQZoTcOr6Olj2nhHqGWk0Yq8b/FlR8DxIdMCdTf8Ne/igEEYX3xpBOrS4ovoNKYeFb4fdP/CdEOvwAcDNH7uK3oKpiElP/cUExywsAGK0LeS95d/JgHTzztBMHe9XnRlFZA+iAyebsGfmu9jGobC84FnO0iSQWHEwXXPWVcB7xQeje/+d0KIX9da2xCJ4kmOExMJugH0WnTHFyV4fKgEFwZxVd32nVAwJo2JDrpt4qQrQPV8EnpZuu0bVSNgAFC3zzghvNAoSNnU7TtKeJbCU8pBt8SjIdzb4QbdtEQFzvMtJJ+kmStJaqK0HcwQSjJfvtlCy6ob7PDBxBN8ubr3RglGveUJ6XVimhaEmzC8CC3yT02vQSsVXLbIdDovhBmeOpCPjIHtJFkNUcLgcSOgGJNuv3FCg9MopnF+eJfhqfogSSPaKqFxDg8cmo6P4XkKPh/IJDONR0MmOe8dB12FJJkTzRS6v7obDGBaqu49cTKdANAqcDPpji9OMNJh0NvQbdtuoaEIxvkRB0xS8AkTS2qBjBHkz+J66PZRr4KV1pJg2mDgeBtdpxOGzLT3iME0neHBTGHd9u0Wrks4ZJdkJi6MdJBXknTbxameaepdB2ohJPEYmiU8/OeSdCTJAAgPLHQKhC10xxcn1BAJg/PRbdtuYYJGsOYv4slJpoNjpeZ6wGeh3ORtpKQ9CQxWN4Jun3FCJk+4J2QK4tG6fcdJ1xihEUWvRbd9O4UGR5eSiLxp3fZxCg/IImdft12cMBGvoyRJNUIRHnjUWFrnX0mYAIKVlfFgtAN4DphdpSton2QApVPFn8KEV9GuBwyqhmlGnnkSkJeNHGFMgEIXHgNwmFDjg95PkqJFUWtAhsFnIZyCAlEwfPWuaRcE55CUYGnTesGzhC58IwQX9q0XXa0QhDQ7uSoJCpZhUPg1JBR4CvPm8k8Two1RrTEtHUj5W1JgZQgMFCHugxaxlbFRxM/C6Larpf8gdQNYoFV3fHEKg4YrSWlZNLLBBg5xbeQ2w7tHr+X/kFDECeEKXygJ+hFSvQ92kjAMjFhSYNx1+4xT3HhHLZIUckIp10ZJUv5Al8GB71y3bZzwfGPgE6UUwkIVQNxDQTUy9pNkAgp6b0GSjF+0ulpjx0DXCRNh/pmEefMYiW+2wdblB+u2qyUYoE6DeJtpEXxdaUN4kVhSTLd9nEzKoiYF94Lus+OEHlNSktQRb8SImE5Cgho10mhYkTqq23ecdGCWqm7bOOlmBbYCfC9wCnTHEKcwum1qqVvGrNoCQisfIsEYoUpYo4M8iD2GC5/rtqsl5EB2GiySa1prQ1dOE56gaWMYVfe22ZhOl8Z5BNOnTMB9odtnnHSNXr0gvJJkZi4K2zcCZteafq5uhirAfaDbPk6fJ7UDZPKgV6U7hijpFtjVbVePOkqSmHRS8NChwDa6ILi5UMTmt6SkYNHIZiw53+joejOAUTH1ZhGiCAOP3NSzQYH6dlDvAKAPGnHTRQt8kiw6i/KaSUGYL0lvBEskNQIq7pl+rq77jnsmXISoHqJmLTYbTFIzWbQBIPwUJjyxpV4anbbfEO000kGQj4qbBZ4fusGIX5uCCRLNyG/Gfjq9SjBqbZiiM2CmNW7hJSC+3GqCWR71gtSnpMf20vJPExoJPSDGa9o4wmnBQGcjII5s+gyjBxoGi9kmAeMo7QDnaTpTVbcwM0ImSWhkFmrDdMpIB0FdhiQPIwqDh3MYceMnIWnx72aBMJApummqptOSYaSTeqsmYNDIFMyaTGrEklQrw0IHScHgqamRRnirkRALSFKnRhdjReF/UzCxLOnzZkqSAvsYJAyTtP7G0aSOVcjsBiMNLzrJqhQY1Q7P7U9a1wGeRNLiOI0CLyxJPe1wehEGkUy/T4QUdB5Hs9EtAloLPGRJjYBpzwiNVSOTFpJMG8bqHo2ARsG0G44UQ92qJxgTMUW3YECrQA1yU3SOHxqoJPcU7EOSFNmm0A1GGiQpboT3IJMhyNfKP03BdcByOp2gnsJROsIDI0kMITy5dsQV4YmYYrqEWBDT7jsaqka82iQNPArINwIGK03DSGj4dLH3JPdgkjz0JCQNaeqqWqLXmKQxhhfdrrGbvegWI52kpUSWSBi0nkkmB8ArwZTyJCUfGyVJKED3gLys/NMEeJDtWMcxyX3WyBRtDKiZgIyHpJNKksRzMV250eueJASAhijc+wRJGtF2lTBG0ack6CahYLA9ac8RcXGkhJqGtRqmG4w0ZsiZLH/vo1uMEt71zxdfGoOQww9JmFrcTpKUhtTFT5OMzgcXm20ViA9jRQ0TEIZBbn0S4PWY1tNGPZqksw0x8G0Kut2Npj4mcSh04w9JapijcU8y2J8E3TJatYiqz42G8frFl4nADGtkprWVbjDSKI5jaqhgXKLyPRtJ60OaDwYRkdjfLkzDLHhAUEwoCNKw0NKb8qXyz1YCA33g4su6wezGpHyg/NOERqb+JllcuVEjjZRNU8MKUJc9TJJZljj2dq34/uTyTxPiQmW4P5I2yLCXmJ/QTfXaWwq6DW8jweiYCF5WrdUjUI9D9956hbgVRs5Nu82mwOszLU+KYwsX5cGNnGSGHYpltRqssoOHQvf5UWpkpmGSSVJJF4LFQ4sutG6fcUIRrEbAgCG8Yt2+46TL4sCx6LaN029I7cp2MF3OCwODmHkbB+qdYDvd++vVp0hJeq/7FMgNTjJLC7UpanmNyJNFd0z3fhPBY8AAT6uMGeKZus+NE7zo8AQGDFwlOd92AMNg+kCgW5mUJEY6aWEh3BdJHALUPW8EGKEk56nrOSdp3HWDcq3CdKYh7rVaxhO9H1PHISx8DuZ7YNZlN0Qkmga8Z6yC8hOS7sRrCRfm30m1wAQVGDPdPpIKAw5YAh8VANHdQW2SJKlzQUxXmoB+SgqD+KRu2zi1q/rf6STd58fpDaQkIPUuiYeUFBhb054QBu8anYSFQWLdvuOki0ejKmGSmiModtQOYC9MjSnGpeoJ/aF6Z5J7RSfEujFG9g7Sy0n4fts+wNgoGD3GYBdym3GT6k60HuELqPfkMWVct49mCWEH3OC4+ZHG9jGS6dRVfLm6fcdJF0e+mKTbNk6Yot8OknSn15CSAONl+uDpJj3Uy7Ek3T7jNEVqFGT36PYdJ9SADwNHw7RmDJQ0PGQKSkjoPj9OJg0ISrbq9tGI0KOFXYDgCCE0BNtQKwRjBCaWIA6EwQ3dQXRKOHnTNLPXkRppFJIKX/7nSGhVo0hSVAnSeZlIq9Jt20qhZ4GeABqI80hY9UKH7r21lJT3kkyNNFYjSQqK0+v2GSdcq0bR7beWziSFQf2cJN3+JNPuk4AyubrPj5PJmpGYW5AkbNSoECaB04qkCSPGSEm6Pu0QHjy0SElAYfxOfBG+sLKDLiUMsdokD0h4X+hZ6LbrhDDGEJy9hlidbrs4JS2CA84g6fYZJ6yTmBSU4dXtM0q4j5uRGaDbdy3pKgr+AynJs9EukjwfpnMunkfqhCPnCw5dXZOS8GU1mhHRSqGiVSMxHhhq3X7bITyYHyeFQepdMwb7MGio265TOonkg5itbps4Bd9vCtKjdPuMU5LJRD5wHHT7jBLi141WVMNgpW7ftaRbsecUkm7bOOkmw7SCJPFoqGp1ppw1+MLNqaHDyr/qQJYKPFrdvtolLJ4RC5Y5Nx1BbadQSMg0z1YH4njNyPhIItxsYeDZmHbNdVXHENLRbdspBRdR+CBJt02UcD1MJ74EMU1LQ/ZOIxUQMTVft98oNSO3GHFk3b7jFBUHT7KuJmbmtgNkPpk+r1UFuaZSQydv7l+pcn2j3r3pgVqhUiQkmA4CN0sYq4sE3VF09xp5MFoJpn4jG6QZ5TRRIe6CxZdtR7cyc5L6wz8q/wyCRrabOLH8EyCEZgLCbUkNGTJ6TCdFwQFoJMvFdAIRKj42SpJ1PKNm9Jr2TmFQsFhtO0Cdd9PjO6v8cxGbl9Z/FJwLi1m16pmjt4tMpE6A9T8jgZFGDYBGQgmtAil0WJRSV5IzCfDSMBCBLl4jI/pJ0HUREQs0AV6FrsVtxsIHzSSYXgbDacIGkq7XUQ+Yzm+Sr4oGofqhNsfkucH3jbX/GkXX4MeBeQXNWvEa97GRw/RXtny/qezQOVPZ4U2T6UFdKYcoENYx+T7Rq6nUE0GYg3OrsnITGepaaY+ISyMtDxUN2zWb0if2+8FFSFpYppXcScLIcytqS/wnCXFB3fJTrUK3ojNS+OCZ1AtuQjxwYZKswN1K/CpruLd0K7rHgan+aIySgDSnesE9j8ybG0u/tQc0QM3ANCaMvHqT+ywOhEWNanzvzqQ/xIX9b+TLTgguTOpemBhoMEnaE9axOFasr8DVXqUUokBhL4RXm9Ww1UNsOiwuxIWLL7sCxISw7hsC/a1szZBeiBxXeDZoEFoJPHjdMkl+imO9wEvQdc2TGrVWAW8E4LxNS9A20pXGklm4FvjMm0mIjaNmM1aD/wQJRhwzGTGaDw+r0UbatExos2bpmeZZ6/KjffAdmYDMibrv2evJ6xdc7cm24EY1Uvysk3p5a/lnCW6Jyu/KU9sXiq5JwS6MbaCwE9IlG8k2qgc0fFjZPhZMwMAXjwvSKeHhamfLFQYPbyvSD/EQRLWSiEPVmyeNEEBUoRn/wekGwUMNxmmRK67bTqeW9eho5+KH5FvRk5CCtjCW9XU79USiRK5X3ybGMngP7UMX2kBpA/Qc4FDg+KPS2XAfJCmAFUU9A1z4zPeR4kDtHGyne39Q2AYVIo3YnB78MgbufN1jLTMp5oQJcPVkd+DYqtLuJtmy44Kfm0uNNBpHxwIHfs+3mcKx18yb9288FP1GmhqK4bQTdOFRsQpdEawxhwPvFBiQwUQRxMGbVQUP8/rjqrKhLkitiQFowDBJI2pBA5QCxbp1SWfpNZM3koLZHQh3wIjVqmQGbwUPZewodxRbWd+TvGz/2XQ367xboZQc4YynmOIrPSY5E2IxDCNlSnAeGdOXSs0IwXdzqaalEFuo21nq3Skpd1qMb8jLwq13OrvvopsGDxvywzHIDS8dPUEMVPuDX1gxqJmV03Cdv7f4MhLcE5isEV4YIwgGeeHh1ypvgJmxyLao24vfyAZGs332FnJpS9X6PM+dHy/MrqCLYTIWg8wl9PTDBcWC4J7BbL5KnejJzMjtliUqaXeF+Z2rD2KFRpMPYBsRIkMufjNq+eA6IM/+7NJvMQS9A9xcKNOJbAE8VEkWD40ChgYGGfE0eKzwmhHWaKREZCvBjQUvEF0eeLwm073R+iMrBQOU9axADQMVlQaGQVMMbl1R+i0aeGmoh4IbM0l96qTAOGH2FGLlOF9dlxLnhgZYVxwfHuGtJBgLeCrGUKsuyGO7j9upVlcsjER63kNKqrMUUxscqzB9cD6/jR4sXBsAA4NUv2Y6IGgQ0MDrMhbwrCH+jXsXg2FxYBASYR80JlGNFe5hxJKNjj+XHnkNs/gPqRG0qLFTwvFOH3NnLyr/twk4xl+S4EhWBgLL4DnDfVU5z6nUsqdzO/1HNA6lz5Xej8cKs5gZ2kywlBamxsM2JEnhRPwcudF4ZmsSNNI+8MwwZx4DUvBukF+IeB/+rts+CL5IxFhQDxgXELWdcYPCcCGeinghHsx9BdwgGETAg4bGC1OfYQjx2vc+cD4wVPBcYIxgqDCLqF6jg33hJkLXGd48rhcmSWDxApTBRONWD0jKR4YDHmAYPXxnzexi4ztEAwtwjOhCPkTC91xrtQs0elhhA8eHySPw7lB8HcYdRgCGJRFTdt+zVKr/FjIGte7NlkNGwYPXrQS72/LYT1lx+qurEzY+dQBvDnnOWHQADhUWLvgDCV477kWE0uoB9zh6YXDMME7jr4SC7wXfMerSGIeicpnhK4VllSYmSSXznuMes87dUVdIk9z1QcmyKwos/wjdxDDA+G6RH45jQ88TPRpMq76dVJWptTkz9D5m2V/Ea7LRkrne29Y4s40sMhwHemS4p2Ej0LtBo6lr7OA1YyECOMEopYDvp24HteM3do8ejZCzBo8XKfvHTPDYHgQZCk8gXTaI8nLk7la631yKZYpJQdvRT9bHRc20rZpIKT8mPHnVmDN7R/lPSwa6RvwucuaCdQBm2PKsnUqdIFLWnoVqlbeTM/FWjynYG44vga47Jyv6Ao+zQ7jiz7SE0OZ/S8c9ZdyZRUZWXeSyIzkhRCn0Jz25fbwwbVr0rOvoGeke+zxbWP8qkbEPdRk/lSzHAYyLR5Snfi+F+6t+kSrFkfNcbA1628qVl4iid5ZkotKNLzDXFmRIMkzaFlOWyGYraWDznlxpKfUSagxeoRRbK1Kpuh7+UpebyV3k031jTWEmyaoxXcdkZvRHTLBnlYytlDYP1P/nTFpS8JUIc5T/1BDS9S4fL85ggLMmyI0WmVSlxo/MF984LncEx0j2SXpGuseSJ2cPflikU3umMytZ8GThJROF3YlH/ZFetpr17+dl0q/mwh4ja/JUepxewCwrcvaudOR90im+fC3b1Y61JVvC5tTgRSyVwkB2W6BG4Lzx/DRSKGOBV59LDf3SStmLM16Vun9sYTtCifs8PSPdY0mzgbF0tm/0dvLsKgsMK9d9cE1xNi5jIDF/YWxoeWbFn7hIYcKUCMfKEbfetrB96Lj4rIuuJZcevlzYlq6inhb0JPCDuiSlHkul20LQpShwKfJSSYdJTp0d5x7B7Zts6d7guLu2rDGYsj/JhvenLtDNwrJKq7K4jvu5tc4sasfs8/SMdI8lzZQ98myVYjcILiq1UlzHOWKtM4fB3ZaxJb18vcuttwkhPkg9/6oUN6XkNrmgnjvBZnQzSLuaKXv585md/orkMiUk38U4f5Qrb1oxkeOCb2dcfKG8aQnlOO9IO8XrCkwUOdtdIGNdOJC+AjI8iQeLdWy2hl7FMjYG5kq4xfyxa91dN5R/3afpGekeS5rN6eHLmG1VcpQ9qX49kd8eLALVUu5ODR2asfiPmbCQ5lbBcYvnrCvuwGKmS4atjD3J61+JzJ9FPHnXWGEaWUZ1QV62uJsNDPczscJNy1KNEin5CbZlj7uOt3GtnIssUJXLjNwuyrnRUqrZ8fx2XWnWfZLKwEiPHkuNhxhbpixxcvnXEtxzv1t+2RYOcmb/O593j1JSIqWygrBSn7yP9cdWP9vXcK3B95dfMk9Jr1CYxoSempBxH85lhj63pW/0F5k++2Yna20UdmYTZKfTX2aWOEOkRGSd8Q0se4BvoEs4LlITlww9I91jSYKBpPnM0OWc8z2hBs97dI0zV3c6V7M4mO3c7ubzVTPLLM6FSmVQgXJJQNfbYimrMmFJKPW7h2Nqt2xibEUuM/jCqczwbU7f6GPCsj/AOD+Rc2vcEntCU3tQvyi/2ItMNltZVENJtWOX57azcFbL6RnpHkuSKcb2k6q0MkwJTxGFhdfykj1pP+vY/B3K8aqWgFMWb+ripHGgdgkGUdF4lf8UC+qabE4NvnOzPYRl3mryCGblKo7JbyUUc35/XETceSo9+DrRN3oHE/Z13LKeUStdTyrqh6jShLG9wDnZcjEvGigmf3cY213vBLB9gp6R7rEkkenht1u2XQkncKnumGF5zJ7rGMqZCRff1xpMFHXakh55dS4z+qlcdnTjVHakUCkY1DdcyKVH78tlhq7YkhlGOd9YUCQqlxq+6Ii+0WJ//8rC5sxIbChgS2rwGZuzo79y+0Z3s1TqEjKBN0xlRjaQEQ5Pya5ipz2wRorSrGTEhIvp/C7UpaiCDP4xufTQTdxOXUGG+cCgcVaemiNr/Gt685cXpSqlXclEP2IVZ39f/rUKwQYGPKs0M7qEkPLGTjXEraJnpHssOTCtWFiielBOsZ8euTi1vWPQh9ecqr2RsSfyzPBfpcV/JCx+thD8IC7EnpmP3EoLmz9VWPbryE294MEaCyuM2IPvZrZ4DxnE0rPOOY8cUNuUGr7Ys+1bmeAnIBxT/jNZCb5up7UMtTMikSL1PXpPqdHhyrvmgNC5kvf8FZWyfiNsu3pNSaWcgjN/5P2F7StX57e/aCw/fRqkeGm6dQlL8SlylbXTqO20uDg4k/S/inMoTbuk6BnpHksOnhr+cFV+spKuU5zueN30VN/oxeWXJaTnYpGDCpOZkU+n+0YfsCxrhA6/6tn0qMvvSc/xpBusBfKE7WxQtxJ9iVxq8JRUyr7AN9DAVS7qmFdxV3pgIpcdvpIvGnNd6EGRpxu52ECOLXtCyhaliSOl0IRUKD5UYmtq+JBcduQX5D3/M51Tad9KKVd58jNO0T1mbGF7+iBn/s8Ijfge8KbU4EX+tsgr31qc1mbjINRB9hkrqSzieL99A12q8m9Lhp6R7rHkkDZ/c/klHnKlis6ryS1r5SISNUEIgwxgpRB96bicQqn8LGpX35MZ3GBZ4iO+QaX/JZssH5bSu8qdzx9SWNjeN5GfSXPFK0twCcbtocV6GHuxOdV/GLPsC8nYVQZOYUDJK60qhrWR9T8xzawbhLBO8j3hMIopb4LNR+aVq7RdyaChj5gsOHOlsqAbWP8qVzDatyiV/sU5M08+Sud97JrC9Jnr3L1DGFvZ4JgtLKy7uohU15IB1xapSqeHXuQPMmLfjnSXnBcNeka6x5IiZ694N3V/K6vLc6a2eJ7qaCwa8Mxg1Sw9MsCPTLBCqbTr8vTgr2xhV9VyV577Bl6YXj+en3kVppGjGhy5mbbgpYqJiwied5il9RxdK/ttIXh10SIpH/YCsd1cZvD4VDaTC8butUh1Hf0bGee1hIXqeSXIoD9IxzqDkqHZTGYjt6xKJUbuuTcXC9OHjLu7IrMvVIafhtof5V+xQ1TS1CIsqzIwzJncrYSlHVzc1+kZ6R5LBnirnm1XhRSUx35DRq6jo/0ogC/Unhg5eX2e8OTJ1F1fPpUZvlXYqaP88AwZ7+nCfOG548W5n4TjsFPW4DEe53sMoqe2jLGZqtjv9Yxlp1LD19tCHFr+UwD+/bWM7UDmxqQ99F5hpX5NBrYS01ZSbfc85wLmeZU66PC+04WZqpVPgmxifU9hQqCEbwlbMpQJVVykziUjWop/w8ulHsH1a4pzR6+PWQQ6l+p/prTsMyrXgt42W5zGYiRahJSVPGyleO4hZ3afrYkSR89I91gypNLLXxrssrtkDHcVpztaee5+xvoyGfs6bluVip7k3d834M3d0pcZ+igZuGeU/7xIwXnOQWznXoumbrGHj2Jp60qrqtyqt5VOtqqw//7poYuVLaoWYfWRhelz8FOlRn8mUlZVjN6T7g4yzi/MF9TX6QgrhYnIvm44YLF+uBaV7qusFSmVmx8rzl5JjckJUlhYVaUEV2wulZevLf+qha7TiLCy1TnsnvrjkTF1l2Xg2pHBnoxK+dvX6RnpHksGl6dfH/DCEP889/CYgvWoZDfFsgdMpYdeuSUzckouM3JqWFP28PMQZii/xQjkJheyQxeqgDGh43KldE/bmR48kVv2mXS4/gCZ9AoLx42znVi1o4rJ9NCrlM2+hTrX5T/B456dL86dXv4VsQieSw+eKWz7HXQN9hr8I0/2YsGWDebSIzewFD+BPnfPOXnezybys4NrnNk7BzL2scwSlXCDYDKy1OdkZsVplsUrK5MIj30Px6FS1mf3fA/Ss/K7jngqm9trwNIH7ylmRy6gBuuQ8p9K358sTlc89DCTqcFPBs/TkoU9VQ6XGBWvo0ePfZn7rKGXe2nrKrINJcdDSjXjycJz1xV33V3agHiQpdfnM/1vV4wfT1ptCUW9cxirUnH/vSrWAYxHcSbz0mNXjhdn6q7+Bu7NrLjWEqmXBPerXPfcbHH2a/nsyM3cL04Pe7Sw86CDWRGrd1SBqnNc8DfStnuMKh2T4xSOX+fuwkosJTalBk8lA32pzkADWfSuJON8Ip1rX/B4eN459T459x3fC53MDs1bwq4sndc/v7BqFdu918o7DzA2Wuwb/SvjexZG4Eq+li/s/ovM9N/ELKu8jqQ3OZafQUXASDanhi9iKau6/KmSN65emH4+Hag2Fj6ZGX7MsqxKYzI2//iStWVL9sR6/O0wlR58LRf2ZUzw0mQKQMZ1h1LeFZzxMcXZcwS3GlqzU3ny8TWF6eAiJJFgYVwn03chHU/Fswee592RLswc52aGziYv+sPlP9Oxys1cyiup4SgtTyaZzAhmr1VCvSxYvQ8oz3vUkeqD6wNLQk2lhj/JU9a55V/rAp44XZ9TJ4pzlcpxk5kh8oz3xPQ91/kq/f+7y79WuDs9sM7m1g207aIhJqTydjPHO1Zy7glb/IGud8nrp17DdeP5We3CzveyvifzbOZ8W9j/WP5TBSmdi8fzc9rVznNsYIL12bfTZ5Ti6XRdvztRmKmq0bKU6BnpHvsc55HX+3py8jIsO8yzfRcjfaz8Xy0BXW+h1FfH8tORA2g+d7PMganssuuF2JNhApQjp9Y40+N3kwHP9C+LjPFGIZWcV1JN7izMnHhEed1LxLud1NA1PGWTI7wIjhU/db2CClJuEvn8sQeyeaxRWYLeZE1lR67x0+XI8M3zwszq8VD9jW2s7ymFbPYeuuaV0AugHsIDXnF2XLBla0U2+0e/wfQ8eedEYXpP8SMCA5dFll4tMsuuJ2+4YuiDyPnC2lDoB+dTOrfN2dG3SM7+E+dY+m5c721jzuy38X9LkZ6R7rHPgLzbvkzmbDJB+9PjeQgTVmw3ulGkJEPF2K88Ja+SBe+q9WxXZGYCmEoPnc0s8QlObn35TyU815vlij1/3JnZkMuMfEZY4kPl/6oJHcM9ZIculrJ44zpnHguvlsilB19Nj+9ZwraxKngF6aj7uKWezIWoqmHtQ177970FduZaNl2VrnYPW77S7ktvq3juUl67Oj99Ep1/JcUvlx45j+zie7kVSJEr47nyjoni9OF/ZGxgVd/wreTlYjFreNh56hpcSB523vJkv8f5E+n6rOeCHUlGNnJMzJPyaiXZQ9Q4FoXNR+hcbSnlb8cLM1+dygyfzy2L2mqcj3J40XnFmLcDaYJLkp6R7tHVYKWTAWvwCJkS55ABOS7WQ4xDqfslPfR4KYTypONtowf9fqa8hyQ5d7wo7+Js56NR04/juCe9fL1g6R/YtqhUgfMho3gfW5g+HPuFt5rLDN1kWfazyv9dwVPevKXEVClswPjD0uE/S8np74VXG59KD6z1LOtdnFkfCE7dRlxbeN63pOSXibRVybgIojzvJ15h5k3Usu21Yv+m7NClVWGHYv6YMXfX7+mY7Ul75Egh5OfDDUIQup5fokaoFFfelB4+ixqiT9fzXSkpHcdz32IJ62hLsLczbkXWCEFYaOdC4aiBbPpGLixy8gmp5tz89gk6pyVVVClIz0j36Ergkf1dZvgrZIaeSWZ1nalxVmT0yPP6YoqLq8mLc8VC/v5g974ZIC/bsga+yOz0a5Rgo+FjJKN4m8vk69cV5jbj99Ksw+zw40IsGiKp3HnmsA+JlLhNunJ+1pmdOpKxefxfmCl7xbN4yv6cVPwQIarrbyjp7fRc9coJd/bGqezQNULYe9VxdjzvC+sKM5XZimFyfaPSP37PkfePO9NjW9IDp0mefhMT7Nm1rv/sfP4JRwTy0SezQ//KuYUMjEhvWUl117zrnHqou+NWhLDeag8frWx2HV0f7fgBNUR3Fxe2Pz/bN/owK2enSKmmx/PbKxNmliI9I92ja7ibDDNPDx6ftqzXMy7CFePqAtOohVTfGCvOXlX+U9NBzYhsevAVilmfs8o1K8IUXfebfUX1wWDqGWKxqn9lZfKJ5zgfn3Dmzi//uhdIEdw/PXgS9SBOYZa1VzoaGS3PlerndNLnrHdm78TfpjLDO6mHsMcbxWxppS4dz0+fVv6LFlTYK7/EoOJfyBOuzt8uQ4Z1o6u8qy3GT/bXEwS67IrN1tBJzBYnS8Go7VnMvaYPeYBLeRuX7M4xZ+Z8elPlcwFCWtls6hyy7U9jkj9NMuXS6zu58jaOFWbPyLHsU6z+5ZW1D5XjfXKNM/Ox8q9Lkp6R7tFxkE98pD30HmVb5ynOhsj70qaRAfLyrrY997sZKX+zkE1tpm5vxSCRR/mtsfzMO+imluU/NZ17UV/Z4j+whNhPd5wwnGQ0T1tTmLk0fBxhI70w7x54CJvdWv61iikxdBqzrbOVxVbRr3ulByqlXOE6b7nV2XGFX1QInrrdv7IqPOIWnTPWunM1i0sFjXQUqijf1+9Of/OJjO2e6hvZRMaztCQYXffcmvxM1fJgPrRT/jhjy2fY8nKWSrowwaZ31fqO0BBKNrhsGRNyjM3spu1LKYK59IqzhJ2+oLQRkZ9//EkHlxbhWbpUffE9erQT6sI/mwvxYsn5meSVVcUiydgpLtXtksnfMe494OXV5cGBu3vpval0ulKTg3zKXf2F2VUwIOU/NZVcauhNQoi/ZxYSS/QoJf8kit65q705coL3phTuyIw8TF5qqaYGHfNnBgrFC3NsfnY/e+BwZqWOJKv/VMXVu6jxGSi9KQSmbtPnXMIKxc+Ps91VmRfoiWT6Vy6m8Sm1TXjee+vtUWy2Bj8l0zYKPFXZBNrPFiXld5TIX7J2YaE02Jhjy55WzuAYLG3jet8eL85Uike1klx69GZh81JsXEp393h+NjKGvVToGekebQVd+LWMDRUzo9coi1fVKIZhJjO0QMbr1kxxx0vDNYmD5LIjl5DRfGf5VyYd97Pjzmwl97gZlDxfq/8Ylu77IeN7crDD0GEXuef9OxnET5T/pAVe5ebsyLXUMNUs1h9GKpkXUl7jFmbfrBv4Azhe2TfyGPO8O8aKc5ETQaK4hy1/rp22Putxa11KsW3SdT89LnfsNeNwMjP8EjqHa32DTsbyo2QsK+VJW8lUduQ2+uzFUIznXDtWmHt56fUSpjctvEfbmGIDa/fPDl9X6F/5WNhAo1YyWbuP71oorJ4o7jg2zkDr4Ny7tPyyYeDhT2aHviEzozkv3ffzKAONzATpeBcJ131OLQMNYDSpIfqCS65w+U81weCj53nvchd2HzxWmH1dlIEGyAQZW5geWlOce56pgQbUU7lxvDh31LrC9MhYcfownYEGngo5d1zsKr9qK9TX0maxLDV6RrpHW7iZsRUsk/6tEFZl4gUgo+VhVlomP7NqPD/98cNDXfhIlNqTs6y8Taq4M7IofS3g3W/NrFgzaa148WR2cDdPp2+xhP12bvEn62osw6slL/OWYn732nFn5v2rnbnIWsthJgozv7AXikcr6U3Sue9lrOlqPIasB6/ofXd+/vHRNYWZZ9J7Ll3PCuQo14YOtuVF71OedOhIK8duOU7bSsFKxSur6/CiF1nGdCmx1w3Yo0cryKWHX8Ys8TPqIgdye2Weud7pa5y5b5galyk2PCgyi91eR6jc2oXqyRn1sJGx0XRq8APctlH+81ByPQfCMdkw3HW/VpTisr+607c1UnUNx8+z6jCurCpHyWHOtonCDlS369qKboh9W9nBP9siNUGNze/W5GeqGt5WkksNHaq4eLcQ7MVj+ekJuk5190r2VXpGukdbmMoOvZkLu1Jvgiz0HPO89485s5eX/9Jq+Ca2YoxnrHHO1ajg1gWM8/3L/xcJPH0u5R2eUn9eW5x9V/nPf/Og9/GkzMi31ham3/q3YCg7Sc9I92gLKLfJLeunFU9VqSIZvntZXv3TBJu5qfS3JlPKM2YrDnez9nlpzp8uFRugTycFynRGQMfmSVf+IeWoU/rY7OOtyhrp0aMWPSPdoy2g4pmdyd5GhvoJ5T/tQcqC5OoWpti1dEM6npT321Ju427xEckKM2OM7Qx5a3yKsRUZll3hpDIrydVdxbhYxbkozcTjSh2lmDhRCbZcVBXJj8dz5VYu2HW24neIwvbLTAcve/RoBT0j3aNtbGPLXriQzVxni/oNZ6tYTPcrRTMKUrKrdxZnTz4SIeEePbqMnpHu0VYmM4PHko3+Onm9pYL37cIjoyykfEgx9Sdyrq/nSm738uxP42zmwZCX3qNHV9Ez0j06wqbM8vfYIv0vUvH96C4crJVVURdKueQf71ZK7haCo1CRVI66S7ozp48z1jPGPfZJeka6R8dQjInJ9PL1Nk/tTwY2KwXD7LEX0OtlionSqhtcyFJFNC6ZK5lwyAi7FlNFxvnDXPF76T9u4YyXisN7TBaVFI8Ip/j4DNs93Qtf9Nj3Yez/A/QAqs2O0keXAAAAAElFTkSuQmCC';
+  function slotDe(nome) {
+    var s = String(nome || '');
+    if (/^frete internacional/i.test(s)) return 'frete';
+    if (/^seguro/i.test(s)) return 'seguro';
+    if (/^capatazia/i.test(s)) return 'capat';
+    if (/^acr[eé]scimos/i.test(s)) return 'acresc';
+    if (/siscomex/i.test(s)) return 'sisc';
+    return '';
+  }
+  function montaPainel(wb, ws, c) {
+    var T = c.T, tu = c.tu, tf = c.tf, n = c.n, moeda = c.moeda;
+    var USD = '_-"$"\\ * #,##0.00_-;\\-"$"\\ * #,##0.00_-;_-"$"\\ * "-"??_-;_-@_-';
+    var COR = { lav: 'FFDEE3FE', cin: 'FFE6E6E6', pec: 'FFF8CBAD', pef: 'FFFBE5D6', ama: 'FFFFF2CC', ver: 'FFE2EFDA', verm: 'FFFF5353', preto: 'FF000000', branco: 'FFFFFFFF', azul: 'FF0000FF' };
+    var SLOTS = [['frete', 'FRETE INTERNACIONAL'], ['seguro', 'SEGURO INTERNACIONAL'], ['capat', 'CAPATAZIA'], ['acresc', 'ACRÉSCIMOS (DESPESAS PORTO ORIGEM)'], ['sisc', 'SISCOMEX']];
+    var TRIB = [['I.I (NÃO RECUPERÁVEL)', 'N', 'ii', 'M'], ['I.P.I. (RECUPERÁVEL)', 'P', 'ipi', 'O'], ['PIS (RECUPERÁVEL)', 'R', 'pis', 'Q'], ['COFINS (RECUPERÁVEL)', 'T', 'cofins', 'S'], ['ICMS (DIFERIDO)', 'V', 'icms', 'U']];
+    var CI = '\'CUSTO IMP\'!';
+    var nOut = c.outrasK.length;
+    var G6 = '$G$6';
+
+    // estilo de uma célula
+    function pc(r, col, valor, o) {
+      o = o || {};
+      var cell = ws.getCell(r, col);
+      cell.value = o.f ? { formula: o.f, result: valor } : valor;
+      cell.font = { name: o.fonte || 'Calibri', size: o.size || 11, bold: !!o.b, italic: !!o.i, color: { argb: o.cor || (o.entrada ? COR.azul : COR.preto) } };
+      if (o.fill) cell.fill = xlFill(o.fill);
+      if (o.nf) cell.numFmt = o.nf;
+      cell.alignment = { horizontal: o.al || (typeof valor === 'number' ? 'right' : 'left'), vertical: 'middle', wrapText: !!o.wrap };
+      cell.border = xlBorda();
+      return cell;
+    }
+    // preenche uma faixa com fill e borda, depois mescla
+    function faixa(r1, c1, r2, c2, valor, o) {
+      for (var r = r1; r <= r2; r++) for (var q = c1; q <= c2; q++) {
+        var cl = ws.getCell(r, q); cl.border = xlBorda(); if (o && o.fill) cl.fill = xlFill(o.fill);
+      }
+      pc(r1, c1, valor, o);
+      if (r2 > r1 || c2 > c1) ws.mergeCells(r1, c1, r2, c2);
+    }
+    function banda(r, c1, c2, texto, comMoedas) {
+      faixa(r, c1, r, c2, texto, { fill: COR.lav, al: 'center' });
+      if (comMoedas) { pc(r, 7, 'DÓLAR', { fill: COR.lav, al: 'center' }); pc(r, 8, 'REAL', { fill: COR.lav, al: 'center' }); }
+    }
+    function contorno(r1, c1, r2, c2) {
+      var med = { style: 'medium', color: { argb: COR.preto } };
+      for (var r = r1; r <= r2; r++) for (var q = c1; q <= c2; q++) {
+        var cell = ws.getCell(r, q), b = Object.assign({}, cell.border || {});
+        if (r === r1) b.top = med; if (r === r2) b.bottom = med; if (q === c1) b.left = med; if (q === c2) b.right = med;
+        cell.border = b;
+      }
+    }
+    var gU = function (v) { return tu > 0 ? v / tu : 0; };
+    var fG = function (r) { return 'IF(' + G6 + '>0,H' + r + '/' + G6 + ',0)'; };
+    var slotVal = function (s) { var k = c.slotK[s]; return k === undefined ? 0 : despesaBRL(S.despesas[k]); };
+    var slotRef = function (s) { var k = c.slotK[s]; return k === undefined ? '0' : 'DESPESAS!G' + (c.D_FIRST + k); };
+
+    // ---- larguras e alturas
+    [[1, 2.7], [2, 16.1], [3, 11.4], [4, 42.7], [5, 27], [6, 13.3], [7, 20.1], [8, 25.7], [9, 4], [10, 17], [11, 16.7], [12, 24.7], [13, 14.4]].forEach(function (w) { ws.getColumn(w[0]).width = w[1]; });
+    [3, 4, 5, 6].forEach(function (r) { ws.getRow(r).height = 30; });
+
+    xlTexto(ws.getCell('B1'), 'Células em azul podem ser editadas. Itens, quantidades e alíquotas ficam na aba CUSTO IMP; os valores das despesas, na aba DESPESAS.', { i: true, cor: XL.nota, size: 9 });
+
+    /* ===== cabeçalho ===== */
+    faixa(3, 2, 4, 3, '', {});
+    if (LOGO_B64) {
+      var img = wb.addImage({ base64: LOGO_B64, extension: 'png' });
+      ws.addImage(img, { tl: { col: 1.04, row: 2.22 }, ext: { width: 188, height: 47 } });
+    }
+    faixa(3, 4, 4, 5, 'CUSTOS PARA IMPORTAÇÃO', { b: true, size: 20, fonte: 'Bahnschrift', al: 'center' });
+    faixa(3, 6, 4, 6, 'MARÍTIMO', { b: true, size: 12, cor: 'FFFF0000', al: 'center', entrada: false });
+    ws.getCell(3, 6).dataValidation = { type: 'list', allowBlank: false, formulae: ['"MARÍTIMO,AÉREO"'] };
+    faixa(3, 7, 4, 7, 'ATÉ', { al: 'center' });
+    faixa(3, 8, 4, 8, 'EADI - BETIM', { b: true, size: 12, cor: 'FFFF0000', al: 'center', f: 'IF(F3<>"",IF(F3="MARÍTIMO","EADI - BETIM","CONFINS"),"")' });
+    faixa(5, 2, 6, 3, 'PROCESSO:', { size: 14, fonte: 'Bahnschrift', al: 'center' });
+    faixa(5, 4, 6, 4, S.processo || '', { b: true, size: 20, fonte: 'Bahnschrift', al: 'center', entrada: true });
+    faixa(5, 5, 6, 6, 'TAXA DE CÂMBIO: ', { size: 14, fonte: 'Bahnschrift', al: 'center' });
+    pc(5, 7, 'DI', { b: true, al: 'center' }); pc(5, 8, 'PAGAMENTO', { b: true, size: 12, al: 'center' });
+    pc(6, 7, tu, { nf: NF.taxa, b: true, al: 'center', entrada: true, size: 12 });
+    pc(6, 8, num(S.taxaPag) > 0 ? tf : null, { nf: NF.taxa, b: true, al: 'center', entrada: true, size: 12 });
+    contorno(3, 2, 6, 8);
+
+    // bloco SOMA (J:M)
+    var totalNF = T.fob + (function () { var s = 0; ['frete', 'seguro', 'capat', 'acresc', 'sisc'].forEach(function (x) { s += slotVal(x); }); return s; })() + T.ii + T.ipi + T.pis + T.cofins + T.icms;
+    var diTot = totalNF - T.fob - (T.ii + T.ipi + T.pis + T.cofins + T.icms);
+    var outTot = 0; c.outrasK.forEach(function (k) { outTot += despesaBRL(S.despesas[k]); });
+    faixa(3, 10, 3, 12, 'SOMA', { fill: COR.verm, cor: COR.branco, b: true, size: 14, al: 'center' });
+    [['VALOR ORIGEM', 10], ['VALOR NF', 11], ['VALOR NF + DESPESAS', 12]].forEach(function (x) { pc(4, x[1], x[0], { fill: COR.preto, cor: COR.branco, b: true, al: 'center' }); });
+    var rowSub = 24 + nOut, rowCT = 25 + nOut;
+    pc(6, 10, T.fob, { f: 'H8', nf: NF.brl, b: true }); pc(6, 11, totalNF, { f: 'H22', nf: NF.brl, b: true }); pc(6, 12, totalNF + outTot, { f: 'H' + rowCT, nf: NF.brl, b: true });
+    ['II', 'IPI', 'PIS', 'COFINS'].forEach(function (t, q) { pc(7, 10 + q, t, { fill: COR.preto, cor: COR.branco, b: true, al: 'center' }); });
+    [['ii', 16], ['ipi', 17], ['pis', 18], ['cofins', 19]].forEach(function (x, q) { pc(8, 10 + q, T[x[0]], { f: 'H' + x[1], nf: NF.brl }); });
+    ws.getRow(4).height = 30;
+
+    /* ===== despesas listadas na DI ===== */
+    banda(7, 2, 4, 'DESPESAS LISTADAS NA DI', true);
+    pc(7, 5, 'DECLARAÇÃO: ', { fill: COR.lav, al: 'left' }); pc(7, 6, '', { fill: COR.lav, entrada: true });
+    for (var q8 = 2; q8 <= 6; q8++) ws.getCell(8, q8).border = xlBorda();
+    pc(8, 2, 'VALOR TOTAL DOS PRODUTOS', {}); ws.mergeCells(8, 2, 8, 6);
+    pc(8, 7, gU(T.fob), { f: fG(8), nf: USD, fill: COR.cin, b: true }); pc(8, 8, T.fob, { f: CI + 'J' + c.C_TOT, nf: NF.brl, fill: COR.cin, b: true });
+    faixa(9, 2, 9, 8, '', {});
+    SLOTS.forEach(function (s, q) {
+      var r = 10 + q, v = slotVal(s[0]);
+      for (var qq = 2; qq <= 6; qq++) ws.getCell(r, qq).border = xlBorda();
+      pc(r, 2, s[1], {}); ws.mergeCells(r, 2, r, 6);
+      pc(r, 7, gU(v), { f: fG(r), nf: USD, fill: COR.cin }); pc(r, 8, v, { f: slotRef(s[0]), nf: NF.brl });
+    });
+    var h15 = diTot;
+    pc(15, 6, 'TOTAL:', { b: true, al: 'right' }); pc(15, 7, gU(h15), { f: 'SUM(G10:G14)', nf: USD, b: true }); pc(15, 8, h15, { f: 'SUM(H10:H14)', nf: NF.brl, b: true });
+    var tribTot = T.ii + T.ipi + T.pis + T.cofins + T.icms;
+    TRIB.forEach(function (t, q) {
+      var r = 16 + q;
+      for (var qq = 2; qq <= 6; qq++) ws.getCell(r, qq).border = xlBorda();
+      pc(r, 2, t[0], {}); ws.mergeCells(r, 2, r, 6);
+      pc(r, 7, gU(T[t[2]]), { f: fG(r), nf: USD, fill: COR.cin }); pc(r, 8, T[t[2]], { f: CI + t[1] + c.C_TOT, nf: NF.brl });
+    });
+    pc(21, 6, 'TOTAL:', { b: true, al: 'right' }); pc(21, 7, gU(tribTot), { f: 'SUM(G16:G20)', nf: USD, b: true }); pc(21, 8, tribTot, { f: 'SUM(H16:H20)', nf: NF.brl, b: true });
+    for (var q22 = 2; q22 <= 6; q22++) ws.getCell(22, q22).border = xlBorda();
+    pc(22, 2, 'TOTAL NF', { b: true }); ws.mergeCells(22, 2, 22, 6);
+    pc(22, 7, gU(totalNF), { f: 'SUM(G15,G21,G8)', nf: USD, b: true, fill: COR.ama }); pc(22, 8, totalNF, { f: 'SUM(H8,H15,H21)', nf: NF.brl, b: true, fill: COR.ama });
+    contorno(7, 2, 22, 8);
+
+    /* ===== outras despesas importação ===== */
+    banda(23, 2, 6, 'OUTRAS DESPESAS IMPORTAÇÃO', true);
+    c.outrasK.forEach(function (k, q) {
+      var r = 24 + q, v = despesaBRL(S.despesas[k]);
+      for (var qq = 2; qq <= 6; qq++) ws.getCell(r, qq).border = xlBorda();
+      pc(r, 2, S.despesas[k].nome, { f: 'DESPESAS!B' + (c.D_FIRST + k) }); ws.mergeCells(r, 2, r, 6);
+      pc(r, 7, gU(v), { f: fG(r), nf: USD, fill: COR.cin }); pc(r, 8, v, { f: 'DESPESAS!G' + (c.D_FIRST + k), nf: NF.brl });
+    });
+    for (var qs = 2; qs <= 6; qs++) ws.getCell(rowSub, qs).border = xlBorda(); ws.mergeCells(rowSub, 2, rowSub, 6);
+    pc(rowSub, 7, gU(outTot), { f: nOut ? 'SUM(G24:G' + (23 + nOut) + ')' : '0', nf: USD, b: true, fill: COR.ama });
+    pc(rowSub, 8, outTot, { f: nOut ? 'SUM(H24:H' + (23 + nOut) + ')' : '0', nf: NF.brl, b: true, fill: COR.ama });
+    for (var qc = 2; qc <= 7; qc++) { pc(rowCT, qc, qc === 2 ? 'CUSTO TOTAL' : '', { fill: COR.pef, b: true }); }
+    ws.mergeCells(rowCT, 2, rowCT, 7); pc(rowCT, 8, totalNF + outTot, { f: 'H22+H' + rowSub, nf: NF.brl, b: true, fill: COR.pef });
+    contorno(23, 2, rowCT, 8);
+
+    /* ===== um bloco por produto ===== */
+    var b0 = 26 + nOut, L = 24;
+    c.linhas.forEach(function (x, j) {
+      var b = b0 + j * L, l = x.l, it = x.it;
+      var cr = c.C_FIRST + j, rr = c.R_FIRST + j;
+      var di = {}; SLOTS.forEach(function (s) { var k = c.slotK[s[0]]; di[s[0]] = k === undefined ? 0 : (l.porDespesa[k] || 0); });
+      var diSoma = di.frete + di.seguro + di.capat + di.acresc + di.sisc;
+      var impSoma = l.ii + l.ipi + l.pis + l.cofins + l.icms;
+      var outras = l.aduaneiras + l.outras - diSoma;
+      var custo = l.fob + diSoma + impSoma + outras;
+      var rP = b + 4, rQ = b + 5, rT = b + 6, rDI = b + 7, rSub = b + 13, rImp = b + 14, rSubI = b + 20, rOut = b + 22;
+      // cabeçalho do produto
+      faixa(b, 2, b + 2, 2, 'PRODUTO:', { fill: COR.ver, b: true, al: 'center' });
+      faixa(b, 3, b + 2, 3, it.pn || '', { fill: COR.ver, b: true, al: 'center', f: 'IF(' + CI + 'B' + cr + '="","",' + CI + 'B' + cr + ')' });
+      faixa(b, 4, b + 2, 4, it.desc || '', { fill: COR.ver, b: true, al: 'center', f: 'IF(' + CI + 'C' + cr + '="","",' + CI + 'C' + cr + ')', wrap: true });
+      faixa(b, 5, b + 2, 5, 'NCM:', { fill: COR.ver, b: true, al: 'center' });
+      faixa(b, 6, b + 2, 6, it.ncm || '', { fill: COR.ver, b: true, al: 'center', f: 'IF(' + CI + 'D' + cr + '="","",' + CI + 'D' + cr + ')' });
+      pc(b, 7, 'CUSTO TOTAL', { fill: COR.ver, b: true }); pc(b, 8, custo, { f: 'H' + rT + '+H' + rSub + '+H' + rSubI + '+H' + rOut, nf: NF.brl, fill: COR.ver, b: true });
+      pc(b + 1, 7, 'CUSTO UNITÁRIO', { fill: COR.ver, b: true }); pc(b + 1, 8, l.qtd > 0 ? custo / l.qtd : 0, { f: 'IF(G' + rQ + '>0,H' + b + '/G' + rQ + ',0)', nf: NF.brlU, fill: COR.ver, b: true });
+      pc(b + 2, 7, '% CUSTO X PRODUTO', { fill: COR.ver, b: true }); pc(b + 2, 8, l.fob > 0 ? (custo - l.fob) / l.fob : 0, { f: 'IF(H' + rT + '>0,(H' + b + '-H' + rT + ')/H' + rT + ',0)', nf: NF.pct, fill: COR.ver, b: true });
+      // índice do produto
+      faixa(b + 3, 2, b + 22, 2, j + 1, { al: 'center' });
+      // pedido
+      faixa(b + 3, 3, b + 3, 6, 'PEDIDO ', { fill: COR.lav, al: 'center' });
+      pc(b + 3, 7, 'DÓLAR', { fill: COR.lav, al: 'center' }); pc(b + 3, 8, 'REAL', { fill: COR.lav, al: 'center' });
+      faixa(rP, 3, rP, 6, 'PREÇO UNITÁRIO NA ORIGEM (Unit price origin)', {});
+      var pu = num(it.fob) * c.tf;
+      pc(rP, 7, gU(pu), { f: fG(rP), nf: USD, fill: COR.cin }); pc(rP, 8, pu, { f: CI + 'I' + cr, nf: NF.brlU, fill: COR.cin });
+      faixa(rQ, 3, rQ, 6, 'QUANTIDADE', {});
+      faixa(rQ, 7, rQ, 8, l.qtd, { f: CI + 'F' + cr, nf: NF.int, al: 'center' });
+      faixa(rT, 3, rT, 6, 'PREÇO TOTAL ORIGEM', {});
+      pc(rT, 7, gU(l.fob), { f: 'G' + rP + '*G' + rQ, nf: USD, fill: COR.pec, b: true }); pc(rT, 8, l.fob, { f: CI + 'J' + cr, nf: NF.brl, fill: COR.pec, b: true });
+      // despesas listadas na DI
+      banda(rDI, 3, 6, 'DESPESAS LISTADAS NA DI', true);
+      SLOTS.forEach(function (s, q) {
+        var r = rDI + 1 + q, ref = c.slotK[s[0]] === undefined ? '0' : 'RATEIO!' + colL(7 + c.slotK[s[0]]) + rr;
+        faixa(r, 3, r, 6, s[1], {});
+        pc(r, 7, gU(di[s[0]]), { f: fG(r), nf: USD, fill: COR.cin }); pc(r, 8, di[s[0]], { f: ref, nf: NF.brl });
+      });
+      faixa(rSub, 3, rSub, 6, '', {});
+      pc(rSub, 7, gU(diSoma), { f: 'SUM(G' + (rDI + 1) + ':G' + (rDI + 5) + ')', nf: USD, fill: COR.pec, b: true }); pc(rSub, 8, diSoma, { f: 'SUM(H' + (rDI + 1) + ':H' + (rDI + 5) + ')', nf: NF.brl, fill: COR.pec, b: true });
+      // impostos
+      banda(rImp, 3, 6, 'IMPOSTOS', true);
+      TRIB.forEach(function (t, q) {
+        var r = rImp + 1 + q, aliq = t[2] === 'icms' ? (num(it.icms) > 0 ? num(it.icms) / 100 : 'DIFERIMENTO') : num(it[t[2]]) / 100;
+        faixa(r, 3, r, 5, t[0], {});
+        var fa = t[2] === 'icms' ? 'IF(' + CI + 'U' + cr + '>0,' + CI + 'U' + cr + ',"DIFERIMENTO")' : CI + t[3] + cr;
+        pc(r, 6, aliq, { f: fa, nf: NF.pct, fill: COR.cin, al: 'center' });
+        pc(r, 7, gU(l[t[2]]), { f: fG(r), nf: USD, fill: COR.cin }); pc(r, 8, l[t[2]], { f: CI + t[1] + cr, nf: NF.brl });
+      });
+      faixa(rSubI, 3, rSubI, 6, '', {});
+      pc(rSubI, 7, gU(impSoma), { f: 'SUM(G' + (rImp + 1) + ':G' + (rImp + 5) + ')', nf: USD, fill: COR.pec, b: true }); pc(rSubI, 8, impSoma, { f: 'SUM(H' + (rImp + 1) + ':H' + (rImp + 5) + ')', nf: NF.brl, fill: COR.pec, b: true });
+      // outras despesas
+      banda(b + 21, 3, 6, 'OUTRA DESPESA IMPORTAÇÃO', true);
+      var somaDI = SLOTS.map(function (s) { return c.slotK[s[0]] === undefined ? '0' : 'RATEIO!' + colL(7 + c.slotK[s[0]]) + rr; }).join('+');
+      faixa(rOut, 3, rOut, 5, 'DESPESAS IMPORTAÇÃO', {});
+      pc(rOut, 6, T.fob > 0 ? l.fob / T.fob : 0, { f: 'IF($H$8>0,H' + rT + '/$H$8,0)', nf: NF.pct, al: 'center' });
+      pc(rOut, 7, gU(outras), { f: fG(rOut), nf: USD, fill: COR.pec, b: true });
+      pc(rOut, 8, outras, { f: 'RATEIO!' + c.cAdu + rr + '+RATEIO!' + c.cLoc + rr + '-(' + somaDI + ')', nf: NF.brl, fill: COR.pec, b: true });
+      contorno(b, 2, b + 22, 8);
+      faixa(b + 23, 2, b + 23, 8, '', {});
+    });
+    var fimR = b0 + n * L;
+    xlTexto(ws.getCell(fimR + 1, 2), 'As colunas DÓLAR convertem o valor em reais pela taxa DI. O rateio das despesas por produto está na aba RATEIO, e os tributos de cada produto vêm da aba CUSTO IMP.', { i: true, cor: XL.nota, size: 9 });
+    xlTexto(ws.getCell(fimR + 2, 2), 'Gerado em ' + new Date().toLocaleDateString('pt-BR') + '.', { i: true, cor: XL.nota, size: 9 });
+    ws.pageSetup = { orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 };
+  }
+
+  /* ---------- aba DESPESA IMPORTAÇÃO: topo igual ao de custos, embaixo só a explicação do frete ---------- */
+  function montaDespesa(wb, ws, c) {
+    var T = c.T, tu = c.tu;
+    var USD = '_-"$"\\ * #,##0.00_-;\\-"$"\\ * #,##0.00_-;_-"$"\\ * "-"??_-;_-@_-';
+    var COR = { lav: 'FFDEE3FE', cin: 'FFD9D9D9', pef: 'FFFBE5D6', ama: 'FFFFF2CC', preto: 'FF000000', azul: 'FF0000FF' };
+    var P = '\'CUSTOS PARA IMP\'!';
+    var gU = function (v) { return tu > 0 ? v / tu : 0; };
+    var slotVal = function (s) { var k = c.slotK[s]; return k === undefined ? 0 : despesaBRL(S.despesas[k]); };
+
+    function pc(r, col, valor, o) {
+      o = o || {};
+      var cell = ws.getCell(r, col);
+      cell.value = o.f ? { formula: o.f, result: valor } : valor;
+      cell.font = { name: o.fonte || 'Calibri', size: o.size || 11, bold: !!o.b, color: { argb: o.cor || (o.entrada ? COR.azul : COR.preto) } };
+      if (o.fill) cell.fill = xlFill(o.fill);
+      if (o.nf) cell.numFmt = o.nf;
+      cell.alignment = { horizontal: o.al || (typeof valor === 'number' || o.f ? 'right' : 'left'), vertical: 'middle', wrapText: !!o.wrap };
+      cell.border = xlBorda();
+      return cell;
+    }
+    function faixa(r1, c1, r2, c2, valor, o) {
+      for (var r = r1; r <= r2; r++) for (var q = c1; q <= c2; q++) {
+        var cl = ws.getCell(r, q); cl.border = xlBorda(); if (o && o.fill) cl.fill = xlFill(o.fill);
+      }
+      pc(r1, c1, valor, o);
+      if (r2 > r1 || c2 > c1) ws.mergeCells(r1, c1, r2, c2);
+    }
+    function contorno(r1, c1, r2, c2) {
+      var med = { style: 'medium', color: { argb: COR.preto } };
+      for (var r = r1; r <= r2; r++) for (var q = c1; q <= c2; q++) {
+        var cell = ws.getCell(r, q), b = Object.assign({}, cell.border || {});
+        if (r === r1) b.top = med; if (r === r2) b.bottom = med; if (q === c1) b.left = med; if (q === c2) b.right = med;
+        cell.border = b;
+      }
+    }
+    [[1, 2.7], [2, 10.7], [3, 14.1], [4, 37.3], [5, 17.4], [6, 12], [7, 12.3], [8, 18.6], [9, 22.4], [10, 22]].forEach(function (w) { ws.getColumn(w[0]).width = w[1]; });
+    [2, 3, 4, 5].forEach(function (r) { ws.getRow(r).height = 30; });
+
+    /* ===== cabeçalho (ligado à aba CUSTOS PARA IMP) ===== */
+    faixa(2, 2, 3, 3, '', {});
+    if (LOGO_B64) {
+      var img = wb.addImage({ base64: LOGO_B64, extension: 'png' });
+      ws.addImage(img, { tl: { col: 1.06, row: 1.3 }, ext: { width: 160, height: 40 } });
+    }
+    faixa(2, 4, 3, 6, 'CUSTOS PARA IMPORTAÇÃO', { b: true, size: 20, fonte: 'Bahnschrift', al: 'center' });
+    var marit = 'MARÍTIMO';
+    faixa(2, 7, 3, 7, marit, { b: true, size: 12, cor: 'FFFF0000', al: 'center', f: 'IF(' + P + 'F3<>"",' + P + 'F3,"")' });
+    faixa(2, 8, 3, 8, 'ATÉ', { al: 'center' });
+    faixa(2, 9, 3, 9, 'EADI - BETIM', { b: true, size: 12, cor: 'FFFF0000', al: 'center', f: 'IF(' + P + 'H3<>"",' + P + 'H3,"")' });
+    faixa(4, 2, 5, 3, 'PROCESSO:', { size: 14, fonte: 'Bahnschrift', al: 'center' });
+    faixa(4, 4, 5, 4, S.processo || '', { b: true, size: 18, fonte: 'Bahnschrift', al: 'center', f: 'IF(' + P + 'D5<>"",' + P + 'D5,"")' });
+    faixa(4, 5, 5, 6, 'TAXA DE CÂMBIO: ', { b: true, size: 12, al: 'center' });
+    faixa(4, 7, 4, 8, 'DI', { b: true, al: 'center' });
+    faixa(5, 7, 5, 8, c.tu, { nf: '0.0000', b: true, al: 'center', f: 'IF(' + P + 'G6<>"",' + P + 'G6,"")' });
+    pc(4, 9, 'PAGAMENTO', { b: true, al: 'center' });
+    pc(5, 9, c.tf, { nf: '0.0000', b: true, al: 'center', f: 'IF(' + P + 'H6<>"",' + P + 'H6,IF(' + P + 'G6<>"",' + P + 'G6,""))' });
+    contorno(2, 2, 5, 9);
+
+    /* ===== topo igual ao de custos ===== */
+    faixa(6, 2, 6, 8, '', { fill: COR.lav });
+    pc(6, 9, 'REAL', { fill: COR.lav, al: 'center' });
+    var G5 = '$G$5';
+    var fU = function (r) { return 'IF(' + G5 + '>0,I' + r + '/' + G5 + ',0)'; };
+    var vaTot = T.valorAduaneiro;
+    var linhasTop = [
+      [7, 1, 'PREÇO NA ORIGEM (Price origin)', T.fob, P + 'H8', true],
+      [8, 3, 'FRETE INTERNACIONAL ', slotVal('frete'), P + 'H10', true],
+      [9, 4, 'SEGURO INTERNACIONAL', slotVal('seguro'), P + 'H11', true],
+      [10, 5, 'CAPATAZIA', slotVal('capat'), P + 'H12', true],
+      [11, 6, 'ACRÉSCIMOS (DESPESAS PORTO ORIGEM)', slotVal('acresc'), P + 'H13', false],
+      [12, 7, 'TAXA SISCOMEX', slotVal('sisc'), P + 'H14', false]
+    ];
+    linhasTop.forEach(function (x) {
+      var r = x[0];
+      pc(r, 2, x[1], { al: 'center' });
+      faixa(r, 3, r, 7, x[2], {});
+      pc(r, 8, gU(x[3]), { f: fU(r), nf: USD, fill: x[5] ? undefined : COR.cin });
+      pc(r, 9, x[3], { f: x[4], nf: NF.brl, fill: x[5] ? COR.cin : undefined });
+    });
+    pc(13, 2, 8, { al: 'center' });
+    faixa(13, 3, 13, 7, 'PREÇO CIF (FOB + FRETE + SEGURO) = VALOR ADUANEIRO', { b: true, al: 'right' });
+    pc(13, 8, gU(vaTot), { f: fU(13), nf: USD, b: true });
+    pc(13, 9, vaTot, { f: '\'CUSTO IMP\'!L' + c.C_TOT, nf: NF.brl, b: true });
+    faixa(14, 2, 14, 9, '', { fill: COR.lav });
+    var TRB = [['I.I (NÃO RECUPERÁVEL)', 16, T.ii], ['I.P.I. (RECUPERÁVEL)', 17, T.ipi], ['PIS (RECUPERÁVEL)', 18, T.pis], ['COFINS (RECUPERÁVEL)', 19, T.cofins], ['ICMS (DIFERIDO)', 20, T.icms]];
+    var totImp = 0;
+    TRB.forEach(function (t, q) {
+      var r = 15 + q; totImp += t[2];
+      pc(r, 2, 6 + q, { al: 'center' });
+      faixa(r, 3, r, 7, t[0], {});
+      pc(r, 8, gU(t[2]), { f: fU(r), nf: USD, fill: COR.cin });
+      pc(r, 9, t[2], { f: P + 'H' + t[1], nf: NF.brl });
+    });
+    faixa(20, 2, 20, 7, 'TOTAL IMPOSTOS', { b: true, al: 'right' });
+    pc(20, 8, gU(totImp), { f: 'SUM(H15:H19)', nf: USD, b: true });
+    pc(20, 9, totImp, { f: 'SUM(I15:I19)', nf: NF.brl, b: true });
+    faixa(21, 2, 21, 9, vaTot > 0 ? totImp / vaTot : 0, { fill: COR.lav, al: 'center', b: true, nf: '"TRIBUTOS ÷ VALOR ADUANEIRO: "0.00%', f: 'IF(I13>0,I20/I13,0)' });
+    contorno(2, 2, 21, 9);
+
+    /* ===== despesas de importação (mesma lógica da planilha da diretoria) ===== */
+    var DI = despImportCalc();
+    faixa(22, 2, 22, 10, '', { fill: COR.lav });
+    ws.getRow(23).height = 22;
+    faixa(23, 2, 23, 4, 'DESPESAS DE IMPORTAÇÃO', { fill: COR.lav, b: true, al: 'center' });
+    ['VALOR', 'RETENÇÃO', 'COFINS', 'PIS', 'VALOR LÍQUIDO', 'VALOR DESP. IMPORT'].forEach(function (t, q) { pc(23, 5 + q, t, { fill: COR.lav, b: true, al: 'center' }); });
+    ws.getRow(24).height = 24; ws.getRow(25).height = 24;
+    // linha 24: frete cobrado (boleto) — informativo, não entra no total
+    pc(24, 2, 11, { al: 'center' });
+    faixa(24, 3, 24, 4, 'FRETE INTERNACIONAL (valor total)', { b: true, wrap: true });
+    pc(24, 5, DI.boleto || null, { nf: NF.brl, entrada: true, fill: COR.ama });
+    pc(24, 6, null, { nf: NF.brl }); pc(24, 7, null, { nf: NF.brl }); pc(24, 8, null, { nf: NF.brl });
+    pc(24, 9, DI.boletoI, { f: 'E24', nf: NF.brl, b: true });
+    pc(24, 10, DI.boletoI, { f: 'I24', nf: NF.brl, fill: COR.cin });
+    // linha 25: diferença de frete = boleto líquido − frete na DI − acréscimos
+    // linha 25: frete na NF (em aberto; vazio = usa o frete da DI) — aqui entram os impostos a retirar
+    pc(25, 2, 12, { al: 'center' });
+    faixa(25, 3, 25, 4, 'FRETE NA NF (em aberto; impostos a retirar) = DIFERENÇA DE FRETE', { b: true, wrap: true });
+    pc(25, 5, DI.nfInformado ? DI.nf : null, { nf: NF.brl, entrada: true, fill: COR.ama });
+    pc(25, 6, DI.nfF, { nf: NF.brl, entrada: true }); pc(25, 7, DI.nfG, { nf: NF.brl, entrada: true }); pc(25, 8, DI.nfH, { nf: NF.brl, entrada: true });
+    pc(25, 9, DI.nfI, { f: 'E25-F25-G25-H25', nf: NF.brl, b: true });
+    pc(25, 10, DI.dif, { f: 'IF(E24>0,MAX(0,E24-I8-I25-I11),0)', nf: NF.brl, b: true, fill: COR.ama });
+    var r = 26, num13 = 13;
+    DI.linhas.forEach(function (L) {
+      if (!(Math.abs(L.E) > 0)) return;
+      ws.getRow(r).height = 22;
+      var q = c.outrasK.indexOf(L.k);
+      pc(r, 2, num13++, { al: 'center' });
+      faixa(r, 3, r, 4, L.nome, { al: 'left', f: P + 'B' + (24 + q) });
+      pc(r, 5, L.E, { f: P + 'H' + (24 + q), nf: NF.brl });
+      pc(r, 6, L.F, { nf: NF.brl, entrada: true }); pc(r, 7, L.G, { nf: NF.brl, entrada: true }); pc(r, 8, L.H, { nf: NF.brl, entrada: true });
+      pc(r, 9, L.I, { f: 'E' + r + '-F' + r + '-G' + r + '-H' + r, nf: NF.brl });
+      var fj = L.regra === 'E' ? 'E' + r : (L.regra === 'EGH' ? 'E' + r + '-G' + r + '-H' + r : 'I' + r);
+      pc(r, 10, L.J, { f: fj, nf: NF.brl, fill: COR.ama });
+      r++;
+    });
+    faixa(r, 2, r, 9, 'TOTAL DESPESAS', { b: true, al: 'right' });
+    pc(r, 10, DI.totalDesp, { f: 'SUM(J25:J' + (r - 1) + ')', nf: NF.brl, b: true, fill: COR.ama });
+    var rTot = r;
+    r++;
+    faixa(r, 2, r, 9, 'TOTAL NF (FOB + FRETE + SEGURO + ACRÉSC. + SISCOMEX + TRIBUTOS)', { b: true, al: 'right' });
+    pc(r, 10, DI.totalNF, { f: 'I7+I8+I9+I10+I11+I12+I20', nf: NF.brl, b: true });
+    r++;
+    faixa(r, 2, r, 9, 'CUSTO TOTAL (TOTAL NF + DESPESAS)', { b: true, al: 'right', fill: COR.lav });
+    pc(r, 10, DI.custoTotal, { f: 'J' + (r - 1) + '+J' + rTot, nf: NF.brl, b: true, fill: COR.lav });
+    contorno(22, 2, r, 10);
+    xlTexto(ws.getCell(r + 2, 2), 'Diferença de frete = valor total pago − valor da DI − valor líquido da NF (NF menos retenção, COFINS e PIS) − acréscimos. O frete na NF fica em aberto (amarelo). AFRMM e ANVISA entram pelo valor cheio; BL, rodoviário, lavagem pelo valor menos COFINS e PIS; as demais pelo valor líquido.', { i: true, cor: XL.nota });
+    ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 };
+  }
+
+  /* ---------- Excel formatado, no estilo da planilha de custo de importação ---------- */
+  var XL = { preto: 'FF000000', azul: 'FF0B3041', navy: 'FF002060', coral: 'FFFF6161', coralClaro: 'FFFFE3E3', cinza: 'FFE8E8E8', branco: 'FFFFFFFF', entrada: 'FF0000FF', borda: 'FF7F7F7F', texto: 'FF000000', nota: 'FF595959' };
+  var NF = {
+    brl: '_-"R$"\\ * #,##0.00_-;\\-"R$"\\ * #,##0.00_-;_-"R$"\\ * "-"??_-;_-@_-',
+    brlU: '[<1]_-"R$"\\ * #,##0.0000_-;_-"R$"\\ * #,##0.00_-',
+    n2: '#,##0.00', n2u: '#,##0.00##', pct: '0.00%', int: '#,##0', peso: '#,##0.000', taxa: '0.0000', fator: '0.00"x"'
+  };
+  var NOME_RATEIO = { peso: 'Peso', fob: 'Valor FOB', igual: 'Igual por item', qtd: 'Quantidade' };
+  function colL(n) { var s = ''; while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
+  function xlFill(c) { return { type: 'pattern', pattern: 'solid', fgColor: { argb: c } }; }
+  function xlBorda() { var l = { style: 'thin', color: { argb: XL.borda } }; return { top: l, left: l, bottom: l, right: l }; }
+  function xlCab(cell, texto, cor) {
+    cell.value = texto; cell.fill = xlFill(cor || XL.preto);
+    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: XL.branco } };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; cell.border = xlBorda();
+  }
+  // o: f = fórmula, entrada = célula editável (azul), b = negrito, fill, nf, al, cor
+  function xlCel(cell, valor, o) {
+    o = o || {};
+    cell.value = o.f ? { formula: o.f, result: valor } : valor;
+    cell.font = { name: 'Calibri', size: 10, bold: !!o.b, color: { argb: o.entrada ? XL.entrada : (o.cor || XL.texto) } };
+    cell.fill = xlFill(o.fill || (o.entrada ? XL.branco : XL.cinza));
+    if (o.nf) cell.numFmt = o.nf;
+    cell.alignment = { horizontal: o.al || 'center', vertical: 'middle' };
+    cell.border = xlBorda();
+  }
+  function xlTexto(cell, texto, o) {
+    o = o || {};
+    cell.value = texto;
+    cell.font = { name: 'Calibri', size: o.size || 10, bold: !!o.b, italic: !!o.i, color: { argb: o.cor || XL.texto } };
+    cell.alignment = { horizontal: o.al || 'left', vertical: 'middle' };
+  }
+  function xlTotal(cell, valor, o) { o = o || {}; xlCel(cell, valor, { f: o.f, nf: o.nf, b: true, fill: XL.preto, cor: XL.branco, al: o.al }); }
+
+  async function montaExcel() {
+    var EX = window.ExcelJS; if (!EX) throw new Error('ExcelJS ausente');
+    var linhas = [];
+    S.itens.forEach(function (it, i) { var l = R.linhas[i]; if (l && l.qtd > 0) linhas.push({ it: it, l: l }); });
+    if (!linhas.length) return null;
+    var n = linhas.length, m = S.despesas.length, T = R.totais;
+    var tf = tfEf(), tu = taxaUsdEf();
+    var moeda = S.moedaFat;
+
+    var wb = new EX.Workbook();
+    wb.creator = 'Custo de importação'; wb.created = new Date();
+    wb.calcProperties = { fullCalcOnLoad: true };
+    var wsP = wb.addWorksheet('CUSTOS PARA IMP', { views: [{ showGridLines: false }], properties: { tabColor: { argb: 'FF002060' } } });
+    var wsE = wb.addWorksheet('DESPESA IMPORTAÇÃO', { views: [{ showGridLines: false }], properties: { tabColor: { argb: 'FFFFC000' } } });
+    var wsC = wb.addWorksheet('CUSTO IMP', { views: [{ showGridLines: false, state: 'frozen', xSplit: 3, ySplit: 6 }], properties: { tabColor: { argb: XL.coral } } });
+    var wsD = wb.addWorksheet('DESPESAS', { views: [{ showGridLines: false }], properties: { tabColor: { argb: XL.navy } } });
+    var wsR = wb.addWorksheet('RATEIO', { views: [{ showGridLines: false, state: 'frozen', xSplit: 2, ySplit: 8 }], properties: { tabColor: { argb: 'FF00682F' } } });
+    var wsN = wb.addWorksheet('BASE NCM', { views: [{ showGridLines: false }], properties: { tabColor: { argb: 'FF7F7F7F' } } });
+    [wsC, wsD, wsR, wsN].forEach(function (w) { w.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }; });
+
+    var C_HDR = 6, C_FIRST = 7, C_LAST = 6 + n, C_TOT = 7 + n;
+    var D_HDR = 4, D_FIRST = 5, D_LAST = 4 + m, D_TOT = 5 + m;
+    var R_FIRST = 10, R_LAST = 9 + n, R_TOT = 10 + n;
+    var cE1 = colL(7), cEm = colL(6 + m), cAdu = colL(7 + m), cLoc = colL(8 + m);
+    var slotK = {}; S.despesas.forEach(function (d, k) { var sl = slotDe(d.nome); if (sl && slotK[sl] === undefined) slotK[sl] = k; });
+    var outrasK = []; S.despesas.forEach(function (d, k) { var eh = false; for (var sl in slotK) if (slotK[sl] === k) eh = true; if (!eh) outrasK.push(k); });
+
+    // bases de rateio, para os valores já calculados guardados nas fórmulas
+    var baseTot = { 'Peso': 0, 'Valor FOB': T.fob, 'Igual por item': n, 'Quantidade': T.qtd };
+    linhas.forEach(function (x) { baseTot['Peso'] += x.l.qtd * num(x.it.peso); });
+
+    /* ===== DESPESAS ===== */
+    xlTexto(wsD.getCell('B1'), 'DESPESAS DO PROCESSO', { size: 16, b: true });
+    xlTexto(wsD.getCell('B2'), 'Altere os valores em azul. As demais colunas recalculam, e o rateio por item está na aba RATEIO.', { i: true, cor: XL.nota });
+    ['DESPESA', 'MOEDA', 'VALOR', 'RATEAR POR', 'VALOR ADUANEIRO', 'EM R$'].forEach(function (t, q) { xlCab(wsD.getCell(D_HDR, 2 + q), t, q === 5 ? XL.coral : XL.preto); });
+    wsD.getRow(D_HDR).height = 26;
+    var listaMoeda = moeda === 'USD' ? '"USD,BRL"' : '"' + moeda + ',USD,BRL"';
+    S.despesas.forEach(function (d, k) {
+      var r = D_FIRST + k;
+      var cod = d.moeda === 'FAT' ? moeda : d.moeda;
+      var emReais = despesaBRL(d);
+      xlCel(wsD.getCell(r, 2), d.nome, { entrada: true, al: 'left' });
+      xlCel(wsD.getCell(r, 3), cod, { entrada: true });
+      xlCel(wsD.getCell(r, 4), num(d.valor), { entrada: true, nf: NF.n2 });
+      xlCel(wsD.getCell(r, 5), NOME_RATEIO[d.rateio] || 'Valor FOB', { entrada: true });
+      xlCel(wsD.getCell(r, 6), d.aduaneiro ? 'SIM' : 'NÃO', { entrada: true });
+      xlCel(wsD.getCell(r, 7), emReais, { f: 'IF(C' + r + '="BRL",D' + r + ',IF(C' + r + '="USD",D' + r + '*\'CUSTO IMP\'!$F$3,D' + r + '*\'CUSTO IMP\'!$E$3))', nf: NF.brl });
+      wsD.getCell(r, 3).dataValidation = { type: 'list', allowBlank: false, formulae: [listaMoeda] };
+      wsD.getCell(r, 5).dataValidation = { type: 'list', allowBlank: false, formulae: ['"Peso,Valor FOB,Igual por item,Quantidade"'] };
+      wsD.getCell(r, 6).dataValidation = { type: 'list', allowBlank: false, formulae: ['"SIM,NÃO"'] };
+    });
+    var totDesp = 0; S.despesas.forEach(function (d) { totDesp += despesaBRL(d); });
+    xlTotal(wsD.getCell(D_TOT, 2), 'TOTAL DAS DESPESAS', { al: 'left' });
+    [3, 4, 5, 6].forEach(function (q) { xlTotal(wsD.getCell(D_TOT, q), ''); });
+    xlTotal(wsD.getCell(D_TOT, 7), totDesp, { f: m ? 'SUM(G' + D_FIRST + ':G' + D_LAST + ')' : '0', nf: NF.brl });
+
+    var s0 = D_TOT + 3;
+    xlCab(wsD.getCell(s0, 2), 'RESUMO DO PROCESSO', XL.preto);
+    xlCab(wsD.getCell(s0, 3), 'VALOR (R$)', XL.preto);
+    xlCab(wsD.getCell(s0, 4), '% DO VALOR FINAL', XL.preto);
+    var comp = [['FOB TOTAL', 'J', T.fob], ['FRETE, SEGURO E ACRÉSCIMOS', 'K', T.aduaneiras], ['DESPESAS LOCAIS', 'W', T.outras],
+                ['II', 'N', T.ii], ['IPI', 'P', T.ipi], ['PIS', 'R', T.pis], ['COFINS', 'T', T.cofins], ['ICMS', 'V', T.icms]];
+    var sFin = s0 + comp.length + 1;
+    comp.forEach(function (c, q) {
+      var r = s0 + 1 + q;
+      xlCel(wsD.getCell(r, 2), c[0], { al: 'left', fill: XL.branco });
+      xlCel(wsD.getCell(r, 3), c[2], { f: '\'CUSTO IMP\'!' + c[1] + C_TOT, nf: NF.brl });
+      xlCel(wsD.getCell(r, 4), T.total > 0 ? c[2] / T.total : 0, { f: 'IF(C$' + sFin + '>0,C' + r + '/C$' + sFin + ',0)', nf: NF.pct });
+    });
+    xlCel(wsD.getCell(sFin, 2), 'VALOR FINAL TOTAL', { al: 'left', b: true, fill: XL.coralClaro });
+    xlCel(wsD.getCell(sFin, 3), T.total, { f: 'SUM(C' + (s0 + 1) + ':C' + (sFin - 1) + ')', nf: NF.brl, b: true, fill: XL.coralClaro });
+    xlCel(wsD.getCell(sFin, 4), T.total > 0 ? 1 : 0, { f: 'SUM(D' + (s0 + 1) + ':D' + (sFin - 1) + ')', nf: NF.pct, b: true, fill: XL.coralClaro });
+    xlCel(wsD.getCell(sFin + 2, 2), 'Valor aduaneiro (base de II, IPI, PIS e COFINS)', { al: 'left', fill: XL.branco });
+    xlCel(wsD.getCell(sFin + 2, 3), T.valorAduaneiro, { f: '\'CUSTO IMP\'!L' + C_TOT, nf: NF.brl });
+    xlCel(wsD.getCell(sFin + 3, 2), 'Total de tributos', { al: 'left', fill: XL.branco });
+    xlCel(wsD.getCell(sFin + 3, 3), T.ii + T.ipi + T.pis + T.cofins + T.icms, { f: 'SUM(C' + (s0 + 4) + ':C' + (s0 + 8) + ')', nf: NF.brl });
+    [[2, 46], [3, 17], [4, 17], [5, 18], [6, 17], [7, 18]].forEach(function (w) { wsD.getColumn(w[0]).width = w[1]; });
+    wsD.getColumn(1).width = 2;
+
+    /* ===== RATEIO ===== */
+    xlTexto(wsR.getCell('B1'), 'RATEIO DAS DESPESAS POR ITEM', { size: 16, b: true });
+    xlTexto(wsR.getCell('B2'), 'Cada despesa é dividida entre os itens pela base escolhida na aba DESPESAS. Sem peso informado, o rateio por peso usa o valor FOB.', { i: true, cor: XL.nota });
+    xlCab(wsR.getCell(3, 2), 'ITEM (PN)', XL.preto);
+    ['Peso', 'Valor FOB', 'Igual por item', 'Quantidade'].forEach(function (t, q) { xlCab(wsR.getCell(3, 3 + q), t, XL.azul); });
+    var rotulos = ['Valor da despesa (R$)', 'Ratear por', 'Compõe o valor aduaneiro?', 'Base usada', 'Total da base'];
+    rotulos.forEach(function (t, q) { var c = wsR.getCell(4 + q, 2); xlCab(c, t, XL.azul); c.alignment = { horizontal: 'left', vertical: 'middle' }; });
+    for (var q = 4; q <= 8; q++) for (var cc = 3; cc <= 6; cc++) { var vz = wsR.getCell(q, cc); vz.fill = xlFill(XL.branco); vz.border = xlBorda(); }
+    [0, 1, 2, 3].forEach(function (q) {
+      var nome = ['Peso', 'Valor FOB', 'Igual por item', 'Quantidade'][q], L = colL(3 + q);
+      xlCel(wsR.getCell(8, 3 + q), baseTot[nome], { f: 'SUM(' + L + R_FIRST + ':' + L + R_LAST + ')', nf: NF.n2u, b: true });
+    });
+    S.despesas.forEach(function (d, k) {
+      var col = 7 + k, L = colL(col), r = D_FIRST + k;
+      var nomeRat = NOME_RATEIO[d.rateio] || 'Valor FOB';
+      var efetiva = baseTot[nomeRat] > 0 ? nomeRat : 'Valor FOB';
+      var h = wsR.getCell(3, col); xlCab(h, d.nome, XL.preto); h.value = { formula: 'DESPESAS!B' + r, result: d.nome };
+      xlCel(wsR.getCell(4, col), despesaBRL(d), { f: 'DESPESAS!G' + r, nf: NF.brl });
+      xlCel(wsR.getCell(5, col), nomeRat, { f: 'DESPESAS!E' + r });
+      xlCel(wsR.getCell(6, col), d.aduaneiro ? 'SIM' : 'NÃO', { f: 'DESPESAS!F' + r });
+      xlCel(wsR.getCell(7, col), efetiva, { f: 'IF(INDEX($C$8:$F$8,MATCH(' + L + '$5,$C$3:$F$3,0))>0,' + L + '$5,"Valor FOB")' });
+      xlCel(wsR.getCell(8, col), baseTot[efetiva], { f: 'INDEX($C$8:$F$8,MATCH(' + L + '$7,$C$3:$F$3,0))', nf: NF.n2u, b: true });
+    });
+    var hAdu = wsR.getCell(3, 7 + m); xlCab(hAdu, 'FRETE, SEGURO E ACRÉSC. (R$)', XL.coral);
+    var hLoc = wsR.getCell(3, 8 + m); xlCab(hLoc, 'DESPESAS LOCAIS (R$)', XL.coral);
+    wsR.getRow(3).height = 42;
+    linhas.forEach(function (x, j) {
+      var r = R_FIRST + j, cr = C_FIRST + j, l = x.l;
+      xlCel(wsR.getCell(r, 2), x.it.pn || ('Item ' + (j + 1)), { f: 'IF(\'CUSTO IMP\'!B' + cr + '="","Item ' + (j + 1) + '",\'CUSTO IMP\'!B' + cr + ')', al: 'left' });
+      xlCel(wsR.getCell(r, 3), l.qtd * num(x.it.peso), { f: '\'CUSTO IMP\'!F' + cr + '*\'CUSTO IMP\'!E' + cr, nf: NF.n2u });
+      xlCel(wsR.getCell(r, 4), l.fob, { f: '\'CUSTO IMP\'!J' + cr, nf: NF.n2 });
+      xlCel(wsR.getCell(r, 5), 1, { f: 'IF(\'CUSTO IMP\'!F' + cr + '>0,1,0)', nf: NF.int });
+      xlCel(wsR.getCell(r, 6), l.qtd, { f: '\'CUSTO IMP\'!F' + cr, nf: NF.n2u });
+      for (var k = 0; k < m; k++) {
+        var L = colL(7 + k);
+        xlCel(wsR.getCell(r, 7 + k), l.porDespesa[k] || 0, { f: 'IF(' + L + '$8=0,0,' + L + '$4*INDEX($C' + r + ':$F' + r + ',MATCH(' + L + '$7,$C$3:$F$3,0))/' + L + '$8)', nf: NF.brl });
+      }
+      xlCel(wsR.getCell(r, 7 + m), l.aduaneiras, { f: m ? 'SUMPRODUCT(--(' + cE1 + '$6:' + cEm + '$6="SIM"),' + cE1 + r + ':' + cEm + r + ')' : '0', nf: NF.brl, b: true, fill: XL.coralClaro });
+      xlCel(wsR.getCell(r, 8 + m), l.outras, { f: m ? 'SUM(' + cE1 + r + ':' + cEm + r + ')-' + cAdu + r : '0', nf: NF.brl, b: true, fill: XL.coralClaro });
+    });
+    xlTotal(wsR.getCell(R_TOT, 2), 'TOTAL', { al: 'left' });
+    [[3, baseTot['Peso'], NF.n2u], [4, T.fob, NF.n2], [5, n, NF.int], [6, T.qtd, NF.n2u]].forEach(function (c) {
+      var L = colL(c[0]); xlTotal(wsR.getCell(R_TOT, c[0]), c[1], { f: 'SUM(' + L + R_FIRST + ':' + L + R_LAST + ')', nf: c[2] });
+    });
+    for (var k2 = 0; k2 < m; k2++) {
+      var L2 = colL(7 + k2), soma = T.porDespesa[k2] || 0;
+      xlTotal(wsR.getCell(R_TOT, 7 + k2), soma, { f: 'SUM(' + L2 + R_FIRST + ':' + L2 + R_LAST + ')', nf: NF.brl });
+    }
+    xlTotal(wsR.getCell(R_TOT, 7 + m), T.aduaneiras, { f: 'SUM(' + cAdu + R_FIRST + ':' + cAdu + R_LAST + ')', nf: NF.brl });
+    xlTotal(wsR.getCell(R_TOT, 8 + m), T.outras, { f: 'SUM(' + cLoc + R_FIRST + ':' + cLoc + R_LAST + ')', nf: NF.brl });
+    wsR.getColumn(1).width = 2; wsR.getColumn(2).width = 30;
+    for (var cw = 3; cw <= 8 + m; cw++) wsR.getColumn(cw).width = cw <= 6 ? 14 : 18;
+
+    /* ===== CUSTO IMP ===== */
+    xlTexto(wsC.getCell('B1'), 'CUSTO DE IMPORTAÇÃO', { size: 16, b: true });
+    var rot = ['PROCESSO', 'FORNECEDOR', 'MOEDA DA FATURA', 'DÓLAR PAGAMENTO (R$)', 'DÓLAR DI (R$)', 'PESO TOTAL (KG)', 'FOB TOTAL (R$)', 'VALOR FINAL TOTAL (R$)', 'VALOR FINAL ÷ FOB'];
+    rot.forEach(function (t, q) { xlCab(wsC.getCell(2, 2 + q), t, q >= 7 ? XL.coral : XL.azul); });
+    wsC.getRow(2).height = 40; wsC.getRow(3).height = 22;
+    var pesoTot = baseTot['Peso'];
+    xlCel(wsC.getCell('B3'), S.processo || '', { f: 'IF(\'CUSTOS PARA IMP\'!D5="","",\'CUSTOS PARA IMP\'!D5)', b: true });
+    xlCel(wsC.getCell('C3'), S.fornecedor || '', { entrada: true, b: true });
+    xlCel(wsC.getCell('D3'), moeda, { entrada: true });
+    xlCel(wsC.getCell('E3'), tf, { f: 'IF(\'CUSTOS PARA IMP\'!H6>0,\'CUSTOS PARA IMP\'!H6,\'CUSTOS PARA IMP\'!G6)', nf: NF.taxa });
+    xlCel(wsC.getCell('F3'), tu, { f: '\'CUSTOS PARA IMP\'!G6', nf: NF.taxa });
+    xlCel(wsC.getCell('G3'), pesoTot, { f: 'SUMPRODUCT(E' + C_FIRST + ':E' + C_LAST + ',F' + C_FIRST + ':F' + C_LAST + ')', nf: NF.peso });
+    xlCel(wsC.getCell('H3'), T.fob, { f: 'J' + C_TOT, nf: NF.brl });
+    xlCel(wsC.getCell('I3'), T.total, { f: 'AB' + C_TOT, nf: NF.brl, b: true, fill: XL.coralClaro });
+    xlCel(wsC.getCell('J3'), T.fob > 0 ? T.total / T.fob : 0, { f: 'IF(H3>0,I3/H3,0)', nf: NF.fator, b: true, fill: XL.coralClaro });
+    xlTexto(wsC.getCell('B4'), 'Células em azul podem ser editadas e o restante recalcula. Processo e câmbio ficam na aba CUSTOS PARA IMP. Frete, seguro e despesas são rateados nas abas DESPESAS e RATEIO.', { i: true, cor: XL.nota });
+
+    var cab = ['PN', 'DESCRIÇÃO', 'NCM', 'PESO UNIT. (KG)', 'QTD', 'FOB UNIT. (' + moeda + ')', 'FOB TOTAL (' + moeda + ')', 'FOB UNIT. (R$)', 'FOB TOTAL (R$)',
+               'FRETE, SEGURO E ACRÉSC. (R$)', 'VALOR ADUANEIRO (R$)', 'ALQ. II', 'II (R$)', 'ALQ. IPI', 'IPI (R$)', 'ALQ. PIS', 'PIS (R$)', 'ALQ. COFINS', 'COFINS (R$)', 'ALQ. ICMS', 'ICMS (R$)',
+               'DESPESAS LOCAIS (R$)', '% FOB', '% FRETE, SEGURO E DESPESAS', '% TRIBUTOS', 'VALOR FINAL UNIT. (R$)', 'VALOR FINAL TOTAL (R$)'];
+    cab.forEach(function (t, q) { xlCab(wsC.getCell(C_HDR, 2 + q), t, q >= 25 ? XL.coral : (q >= 22 ? XL.azul : XL.preto)); });
+    wsC.getRow(C_HDR).height = 42;
+    linhas.forEach(function (x, j) {
+      var r = C_FIRST + j, rr = R_FIRST + j, it = x.it, l = x.l, tt = l.total, q4 = l.qtd;
+      var fobFat = num(it.fob);
+      xlCel(wsC.getCell(r, 2), it.pn || '', { al: 'left', fill: XL.branco, b: true });
+      xlCel(wsC.getCell(r, 3), it.desc || '', { al: 'left', fill: XL.branco });
+      xlCel(wsC.getCell(r, 4), it.ncm || '', { fill: XL.branco });
+      xlCel(wsC.getCell(r, 5), num(it.peso), { entrada: true, nf: NF.peso });
+      xlCel(wsC.getCell(r, 6), q4, { entrada: true, nf: NF.int });
+      xlCel(wsC.getCell(r, 7), fobFat, { entrada: true, nf: NF.n2u });
+      xlCel(wsC.getCell(r, 8), q4 * fobFat, { f: 'F' + r + '*G' + r, nf: NF.n2 });
+      xlCel(wsC.getCell(r, 9), fobFat * tf, { f: 'G' + r + '*$E$3', nf: NF.brlU });
+      xlCel(wsC.getCell(r, 10), l.fob, { f: 'F' + r + '*I' + r, nf: NF.brl });
+      xlCel(wsC.getCell(r, 11), l.aduaneiras, { f: 'RATEIO!' + cAdu + rr, nf: NF.brl });
+      xlCel(wsC.getCell(r, 12), l.valorAduaneiro, { f: 'J' + r + '+K' + r, nf: NF.brl });
+      /* Imposto vindo da Memória de Cálculo: valor fixo (entrada) e alíquota efetiva só informativa. */
+      var fxI = it.iiV != null && String(it.iiV) !== '', fxP = it.ipiV != null && String(it.ipiV) !== '', fxR = it.pisV != null && String(it.pisV) !== '', fxC = it.cofinsV != null && String(it.cofinsV) !== '';
+      xlCel(wsC.getCell(r, 13), fxI ? (l.valorAduaneiro > 0 ? l.ii / l.valorAduaneiro : 0) : num(it.ii) / 100, { entrada: !fxI, nf: NF.pct });
+      xlCel(wsC.getCell(r, 14), l.ii, fxI ? { entrada: true, nf: NF.brl } : { f: 'L' + r + '*M' + r, nf: NF.brl });
+      xlCel(wsC.getCell(r, 15), fxP ? (l.valorAduaneiro + l.ii > 0 ? l.ipi / (l.valorAduaneiro + l.ii) : 0) : num(it.ipi) / 100, { entrada: !fxP, nf: NF.pct });
+      xlCel(wsC.getCell(r, 16), l.ipi, fxP ? { entrada: true, nf: NF.brl } : { f: '(L' + r + '+N' + r + ')*O' + r, nf: NF.brl });
+      xlCel(wsC.getCell(r, 17), fxR ? (l.valorAduaneiro > 0 ? l.pis / l.valorAduaneiro : 0) : num(it.pis) / 100, { entrada: !fxR, nf: NF.pct });
+      xlCel(wsC.getCell(r, 18), l.pis, fxR ? { entrada: true, nf: NF.brl } : { f: 'L' + r + '*Q' + r, nf: NF.brl });
+      xlCel(wsC.getCell(r, 19), fxC ? (l.valorAduaneiro > 0 ? l.cofins / l.valorAduaneiro : 0) : num(it.cofins) / 100, { entrada: !fxC, nf: NF.pct });
+      xlCel(wsC.getCell(r, 20), l.cofins, fxC ? { entrada: true, nf: NF.brl } : { f: 'L' + r + '*S' + r, nf: NF.brl });
+      xlCel(wsC.getCell(r, 21), num(it.icms) / 100, { entrada: true, nf: NF.pct });
+      xlCel(wsC.getCell(r, 22), l.icms, { f: 'IF(AND(U' + r + '>0,U' + r + '<1),(L' + r + '+N' + r + '+P' + r + '+R' + r + '+T' + r + '+W' + r + ')/(1-U' + r + ')*U' + r + ',0)', nf: NF.brl });
+      xlCel(wsC.getCell(r, 23), l.outras, { f: 'RATEIO!' + cLoc + rr, nf: NF.brl });
+      xlCel(wsC.getCell(r, 24), tt > 0 ? l.fob / tt : 0, { f: 'IF(AB' + r + '>0,J' + r + '/AB' + r + ',0)', nf: NF.pct });
+      xlCel(wsC.getCell(r, 25), tt > 0 ? (l.aduaneiras + l.outras) / tt : 0, { f: 'IF(AB' + r + '>0,(K' + r + '+W' + r + ')/AB' + r + ',0)', nf: NF.pct });
+      xlCel(wsC.getCell(r, 26), tt > 0 ? (l.ii + l.ipi + l.pis + l.cofins + l.icms) / tt : 0, { f: 'IF(AB' + r + '>0,(N' + r + '+P' + r + '+R' + r + '+T' + r + '+V' + r + ')/AB' + r + ',0)', nf: NF.pct });
+      xlCel(wsC.getCell(r, 27), q4 > 0 ? tt / q4 : 0, { f: 'IF(F' + r + '>0,AB' + r + '/F' + r + ',0)', nf: NF.brlU, b: true, fill: XL.coralClaro });
+      xlCel(wsC.getCell(r, 28), tt, { f: 'J' + r + '+K' + r + '+W' + r + '+N' + r + '+P' + r + '+R' + r + '+T' + r + '+V' + r, nf: NF.brl, b: true, fill: XL.coralClaro });
+    });
+    var sm = function (L) { return 'SUM(' + L + C_FIRST + ':' + L + C_LAST + ')'; };
+    xlTotal(wsC.getCell(C_TOT, 2), 'TOTAL', { al: 'left' });
+    for (var qq = 3; qq <= 28; qq++) xlTotal(wsC.getCell(C_TOT, qq), '');
+    xlTotal(wsC.getCell(C_TOT, 6), T.qtd, { f: sm('F'), nf: NF.int });
+    xlTotal(wsC.getCell(C_TOT, 8), fobFatTotal(linhas), { f: sm('H'), nf: NF.n2 });
+    [['J', 10, T.fob], ['K', 11, T.aduaneiras], ['L', 12, T.valorAduaneiro], ['N', 14, T.ii], ['P', 16, T.ipi], ['R', 18, T.pis], ['T', 20, T.cofins], ['V', 22, T.icms], ['W', 23, T.outras], ['AB', 28, T.total]].forEach(function (c) {
+      xlTotal(wsC.getCell(C_TOT, c[1]), c[2], { f: sm(c[0]), nf: NF.brl });
+    });
+    var ptot = T.total > 0;
+    xlTotal(wsC.getCell(C_TOT, 24), ptot ? T.fob / T.total : 0, { f: 'IF(AB' + C_TOT + '>0,J' + C_TOT + '/AB' + C_TOT + ',0)', nf: NF.pct });
+    xlTotal(wsC.getCell(C_TOT, 25), ptot ? (T.aduaneiras + T.outras) / T.total : 0, { f: 'IF(AB' + C_TOT + '>0,(K' + C_TOT + '+W' + C_TOT + ')/AB' + C_TOT + ',0)', nf: NF.pct });
+    xlTotal(wsC.getCell(C_TOT, 26), ptot ? (T.ii + T.ipi + T.pis + T.cofins + T.icms) / T.total : 0, { f: 'IF(AB' + C_TOT + '>0,(N' + C_TOT + '+P' + C_TOT + '+R' + C_TOT + '+T' + C_TOT + '+V' + C_TOT + ')/AB' + C_TOT + ',0)', nf: NF.pct });
+    xlTexto(wsC.getCell(C_TOT + 2, 2), 'Valor final = FOB + frete, seguro e acréscimos + despesas locais + II + IPI + PIS + COFINS + ICMS, o mesmo critério da coluna “Valor total (por unidade)” da planilha de custo de importação.', { i: true, cor: XL.nota });
+    xlTexto(wsC.getCell(C_TOT + 3, 2), 'ICMS em 0% quando há diferimento (RET de MG). Gerado em ' + new Date().toLocaleDateString('pt-BR') + '.', { i: true, cor: XL.nota });
+    wsC.autoFilter = { from: { row: C_HDR, column: 2 }, to: { row: C_LAST, column: 28 } };
+    var larg = [2, 14, 38, 12, 11, 12, 13, 14, 15, 17, 18, 17, 9, 15, 9, 15, 9, 15, 10, 15, 9, 15, 17, 9, 14, 11, 18, 19];
+    larg.forEach(function (w, q) { wsC.getColumn(1 + q).width = w; });
+
+    /* ===== BASE NCM ===== */
+    xlTexto(wsN.getCell('B1'), 'BASE NCM', { size: 16, b: true });
+    xlTexto(wsN.getCell('B2'), 'Alíquotas usadas para preencher os itens. Cada item guarda na aba CUSTO IMP a alíquota que foi aplicada.', { i: true, cor: XL.nota });
+    ['NCM', 'II', 'IPI', 'PIS', 'COFINS', 'ICMS'].forEach(function (t, q) { xlCab(wsN.getCell(3, 2 + q), t, XL.preto); });
+    S.ncm.forEach(function (r, k) {
+      var row = 4 + k;
+      xlCel(wsN.getCell(row, 2), String(r.ncm), { fill: XL.branco });
+      ['ii', 'ipi', 'pis', 'cofins'].forEach(function (f, q) { xlCel(wsN.getCell(row, 3 + q), num(r[f]) / 100, { fill: XL.branco, nf: NF.pct }); });
+      var dif = /dif/i.test(r.icms);
+      xlCel(wsN.getCell(row, 7), dif ? 'DIFERIMENTO' : num(r.icms) / 100, { fill: XL.branco, nf: dif ? undefined : NF.pct });
+    });
+    wsN.getColumn(1).width = 2; for (var cn = 2; cn <= 7; cn++) wsN.getColumn(cn).width = cn === 7 ? 16 : 14;
+
+    montaPainel(wb, wsP, { linhas: linhas, n: n, m: m, T: T, tf: tf, tu: tu, moeda: moeda, slotK: slotK, outrasK: outrasK,
+                          C_FIRST: C_FIRST, C_TOT: C_TOT, R_FIRST: R_FIRST, D_FIRST: D_FIRST, cAdu: cAdu, cLoc: cLoc });
+    montaDespesa(wb, wsE, { T: T, tf: tf, tu: tu, slotK: slotK, outrasK: outrasK, C_TOT: C_TOT });
+    var buf = await wb.xlsx.writeBuffer();
+    return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  }
+  function fobFatTotal(linhas) { var s = 0; linhas.forEach(function (x) { s += x.l.qtd * num(x.it.fob); }); return s; }
+  function calcula(state) { S = state; R = calcular(estadoCalculo()); return R; }
+  async function gerar(state) { S = state; S.moedaFat = 'USD'; R = calcular(estadoCalculo()); return montaExcel(); }
+  function despImport(state) { S = state; S.moedaFat = 'USD'; R = calcular(estadoCalculo()); return despImportCalc(); }
+  return { calcula: calcula, gerar: gerar, num: num, despImport: despImport };
+})();
+
+/* ================= Custo de Importação (aba do processo) ================= */
+let __ccxLoading = null;
+function ccxLoadExcelJS(){
+  if(window.ExcelJS) return Promise.resolve();
+  if(__ccxLoading) return __ccxLoading;
+  __ccxLoading = new Promise((res, rej)=>{
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+    s.onload = ()=>res();
+    s.onerror = ()=>{ __ccxLoading = null; rej(new Error('Não foi possível carregar o gerador de Excel')); };
+    document.head.appendChild(s);
+  });
+  return __ccxLoading;
+}
+
+function ccxIsAereo(p){ return p && p.modal==='aereo'; }
+
+/* Linhas de custo por modal. Todas ratearem por Valor FOB por padrão. `key` liga a linha ao pagamento/cadastro de origem. */
+function ccxDespesasPadrao(p){
+  const d = (key, nome, moeda, adu)=>({ key, nome, moeda, valor:'', rateio:'fob', aduaneiro:adu });
+  const base = [
+    d('frete','Frete internacional (conforme DI)','USD',true),
+    d('seguro','Seguro internacional','USD',true),
+    d('acresc','Acréscimos (despesas no porto de origem)','USD',true),
+    d('sisc','Taxa Siscomex','BRL',false),
+    d('difFrete','Diferença de frete (boleto menos DI)','BRL',false),
+  ];
+  if(ccxIsAereo(p)) return base.concat([
+    d('honorarios','Honorários do despachante','BRL',false),
+    d('li','Taxa de emissão de LI','BRL',false),
+    d('armConfins','Armazenagem Confins','BRL',false),
+  ]);
+  return base.concat([
+    d('demurrage','Demurrage','BRL',false),
+    d('honorarios','Honorários do despachante','BRL',false),
+    d('afrmm','AFRMM','BRL',false),
+    d('li','Taxa de emissão de LI','BRL',false),
+    d('dta','Transporte DTA','BRL',false),
+    d('armTora','Armazenagem Tora','BRL',false),
+    d('armMovecta','Armazenagem Movecta','BRL',false),
+    d('lavagem','Lavagem de container','BRL',false),
+  ]);
+}
+
+/* Nomes dinâmicos: despachante selecionado e empresa do DTA */
+function ccxNomeLinha(p, d){
+  const ex = (p && p.extra) || {};
+  if(d.key==='honorarios') return 'Honorários do despachante' + (ex.despachante ? ' – '+ex.despachante : '');
+  if(d.key==='dta') return 'Transporte DTA' + (ex.transportadoraDTA ? ' – '+ex.transportadoraDTA : '');
+  return d.nome;
+}
+
+/* Preenche as despesas com o que o processo já tem (Custos, Memória e pagamentos da Fase 8). */
+function ccxPreencherDespesas(p, ci){
+  const pay = p.payments || {};
+  const baseEst = getEstimadosBase(p);
+  const pv = k => (pay[k] && (parseFloat(pay[k].valor)||0)>0) ? (parseFloat(pay[k].valor)||0) : (baseEst[k]||0);
+  const cambio = parseFloat(p.cambio)||0;
+  const m = p.duimpMemoria || {};
+  const fmt = v => v>0 ? fmtNumberBR(v) : '';
+  const fmt6 = v => v>0 ? fmtNumberBR(v,6) : '';
+  const lista = ccxDespesasPadrao(p);
+  const put = (key, txt)=>{ const x = lista.find(d=>d.key===key); if(x) x.valor = txt; };
+  let memRows = []; try{ memRows = getDuimpMemoriaRows(p); }catch(e){}
+  const somaMem = k => memRows.reduce((t,r)=>t+(parseFloat(r[k])||0),0);
+  const mFrete = somaMem('freteBrl'), mSeg = somaMem('seguroBrl'), mAcr = somaMem('acrescimosBrl'), mSisc = somaMem('taxaSiscomexBrl');
+  const usd = brl => cambio ? brl/cambio : 0;
+  put('frete', mFrete>0 ? fmt6(usd(mFrete)) : fmt(parseFloat(p.frete)||0));
+  put('seguro', mSeg>0 ? fmt6(usd(mSeg)) : fmt(parseFloat(p.seguro)||0));
+  put('acresc', mAcr>0 ? fmt6(usd(mAcr)) : (m.additionsTotalBrl && cambio ? fmt6(usd(m.additionsTotalBrl)) : ''));
+  put('sisc', mSisc>0 ? fmt(mSisc) : fmt(parseFloat(p.taxaSiscomex)||0));
+  put('honorarios', fmt(pv('prestacaoDespachante')));
+  put('dta', fmt(pv('dta')));
+  put('lavagem', fmt(pv('lavagemContainer')));
+  if(ccxIsAereo(p)) put('armConfins', fmt(pv('armazenagemZonaSecundaria')));
+  else { put('armTora', fmt(pv('armazenagemZonaSecundaria'))); put('armMovecta', fmt(pv('armazenagemZonaPrimaria'))); }
+  /* Demurrage, AFRMM e LI normalmente são lançados como pagamentos personalizados: casa pelo nome. */
+  const casar = { demurrage:/demurrage/i, afrmm:/afrmm/i, li:/(emiss[aã]o.*\bli\b|\bli\b)/i };
+  (p.customPayments||[]).forEach(cp=>{
+    const rec = pay['custom:'+cp.id]; const v = rec ? (parseFloat(rec.valor)||0) : 0;
+    const key = Object.keys(casar).find(k=>casar[k].test(cp.name||'') && lista.some(d=>d.key===k));
+    if(key){ const x = lista.find(d=>d.key===key); x.valor = fmt((parseFloat(String(x.valor).replace(/\./g,'').replace(',','.'))||0) + v); }
+    else if(v>0) lista.push({ key:'', nome: cp.name, moeda:'BRL', valor: fmtNumberBR(v), rateio:'fob', aduaneiro:false });
+  });
+  lista.forEach(d=>{ d.nome = ccxNomeLinha(p, d); });
+  ci.despesas = lista;
+  ci.listaModal = ccxIsAereo(p) ? 'aereo' : 'maritimo';
+}
+
+function ensureCustoImp(p){
+  p.custoImp = p.custoImp || {};
+  const ci = p.custoImp;
+  if(ci.taxaPag == null) ci.taxaPag = '';   // em branco de propósito: o usuário escolhe (DUIMP ou outro valor)
+  ci.pesos = ci.pesos || {};
+  ci.icms = ci.icms || {};
+  ci.creditos = ci.creditos || { ipi:true, pis:true, cofins:true, icms:false };
+  if(!ci.despesas || ci.listaModal !== (ccxIsAereo(p) ? 'aereo' : 'maritimo')) ccxPreencherDespesas(p, ci);
+  if(ci.boletoFrete==null) ci.boletoFrete = '';
+  /* Frete total já lançado de verdade em Pagamentos (digitado/pago, não o puxado automático) vira o valor total do frete aqui. */
+  if(!ci.boletoFrete){ const pf = (p.payments||{}).freteInternacional; if(pf && !pf.autoFilled && (parseFloat(pf.valor)||0)>0) ci.boletoFrete = fmtNumberBR(parseFloat(pf.valor)); }
+  ci.cred = ci.cred || {};
+  if(ci.nfFrete==null) ci.nfFrete = '';
+  ci.despesas.forEach(d=>{ if(d.key==='honorarios' || d.key==='dta') d.nome = ccxNomeLinha(p, d); });
+  /* Linhas automáticas vazias são preenchidas com o valor do processo; frete/seguro/acréscimos/Siscomex da DI seguem a Memória de Cálculo. */
+  try{
+    const pay = p.payments || {}, baseEst = getEstimadosBase(p);
+    const pv = k => (pay[k] && (parseFloat(pay[k].valor)||0)>0) ? (parseFloat(pay[k].valor)||0) : (baseEst[k]||0);
+    const mapa = { honorarios:'prestacaoDespachante', dta:'dta', armTora:'armazenagemZonaSecundaria', armConfins:'armazenagemZonaSecundaria', armMovecta:'armazenagemZonaPrimaria', lavagem:'lavagemContainer' };
+    ci.despesas.forEach(d=>{
+      if(d.user || !mapa[d.key]) return;
+      if(CCX.num(d.valor)>0) return;
+      const v = pv(mapa[d.key]);
+      if(v>0){ d.moeda = 'BRL'; d.valor = fmtNumberBR(v); }
+    });
+    const cambio = parseFloat(p.cambio)||0;
+    if(cambio){
+      const mem = {}; let rows = []; try{ rows = getDuimpMemoriaRows(p); }catch(e){}
+      const soma = k => rows.reduce((t,r)=>t+(parseFloat(r[k])||0),0);
+      const m = p.duimpMemoria || {};
+      const acr = soma('acrescimosBrl') > 0 ? soma('acrescimosBrl') : (parseFloat(m.additionsTotalBrl)||0);
+      const alvo = { frete: soma('freteBrl')/cambio, seguro: soma('seguroBrl')/cambio, acresc: acr/cambio };
+      Object.keys(alvo).forEach(key=>{
+        const d = ci.despesas.find(x=>x.key===key);
+        if(d && !d.user && alvo[key]>0.0000001){ d.moeda = 'USD'; d.valor = fmtNumberBR(alvo[key], 6); }
+      });
+      const sc = ci.despesas.find(x=>x.key==='sisc'); const sv = soma('taxaSiscomexBrl');
+      if(sc && !sc.user && sv>0){ sc.moeda = 'BRL'; sc.valor = fmtNumberBR(sv); }
+    }
+  }catch(e){ console.error(e); }
+  return ci;
+}
+
+function ccxCatalogoPeso(c){
+  if(!c) return '';
+  const pb = parseFloat(c.pesoBruto), pl = parseFloat(c.peso);
+  const v = (!isNaN(pb) && pb>0) ? pb : ((!isNaN(pl) && pl>0) ? pl : 0);
+  return v>0 ? fmtNumberBR(v,4) : '';
+}
+
+/* Diferença = boleto pago − valor já puxado (DI/Memória). Só vale quando o boleto está preenchido. */
+function ccxDiffs(p, ci){
+  const cambio = parseFloat(p.cambio)||0;
+  const n = CCX.num;
+  const fr = ci.despesas.find(d=>/^frete internacional/i.test(d.nome||''));
+  const sc = ci.despesas.find(d=>/^taxa siscomex/i.test(d.nome||''));
+  const freteSoDI = fr ? (fr.moeda==='BRL' ? n(fr.valor) : n(fr.valor)*cambio) : 0;
+  const siscDI = sc ? (sc.moeda==='BRL' ? n(sc.valor) : n(sc.valor)*cambio) : 0;
+  const ac = ci.despesas.find(d=>/^acr[eé]scimos/i.test(d.nome||''));
+  const acrescBrl = ac ? (ac.moeda==='BRL' ? n(ac.valor) : n(ac.valor)*cambio) : 0;
+  const freteDI = freteSoDI + acrescBrl;   // os acréscimos fazem parte do frete
+  const bf = n(ci.boletoFrete), bs = n(ci.boletoSiscomex);
+  /* Mesma regra da planilha: diferença = boleto do frete − frete na DI − acréscimos (o boleto já embute os dois). */
+  const cs = k => { const o = (ci.cred||{})[k]||{}; return n(o.ret)+n(o.cofins)+n(o.pis); };
+  const nfBase = n(ci.nfFrete);
+  const liqTotal = bf, liqNF = nfBase - cs('freteNF');
+  return { freteDI, siscDI, acrescBrl, freteAuto: bf>0, siscAuto: bs>0,
+           frete: bf>0 ? Math.max(0, bf-freteDI) : null,   /* 1ª aba: simples, boleto − frete da DI (acréscimos/NF/impostos só na aba Despesas de importação) */ sisc: bs>0 ? Math.max(0, bs-siscDI) : null };
+}
+function ccxDespesasEfetivas(p, ci){
+  const df = ccxDiffs(p, ci);
+  const out = ci.despesas.map(d=>{
+    const c = Object.assign({}, d);
+    if(/^diferen[cç]a de frete/i.test(c.nome||'')){ c.moeda='BRL'; c.valor = df.frete!=null && df.frete>0 ? fmtNumberBR(df.frete) : ''; }
+    if(/^diferen[cç]a siscomex/i.test(c.nome||'')){ c.moeda='BRL'; c.valor = df.sisc!=null && df.sisc>0 ? fmtNumberBR(df.sisc) : ''; }
+    return c;
+  });
+  /* Acréscimos fazem parte do frete: somam na linha de frete e a linha de acréscimos sai zerada (mesmas posições). */
+  const lista = out;
+  const iF = lista.findIndex(d=>/^frete internacional/i.test(d.nome||'')), iA = lista.findIndex(d=>/^acr[eé]scimos/i.test(d.nome||''));
+  if(iF>=0 && iA>=0 && df.acrescBrl>0){
+    const cambio = parseFloat(p.cambio)||0;
+    const f = lista[iF];
+    const fBrl = df.freteDI;   // já é frete + acréscimos em R$
+    f.moeda = 'BRL'; f.valor = fmtNumberBR(fBrl);
+    f.nome = 'Frete internacional (conforme DI + acréscimos)';
+    lista[iA].valor = '';
+  }
+  return lista;
+}
+
+function ccxBuildState(p, catalogo){
+  const ci = ensureCustoImp(p);
+  const porPn = {}; (catalogo||[]).forEach(c=>{ porPn[String(c.pn||c.id)] = c; });
+  const pct = v => v==null ? '0' : String(v).replace('.',',');
+  /* II/IPI/PIS/COFINS: valores da Memória de Cálculo (por item) quando o imposto estiver preenchido lá. */
+  let memRows = []; try{ memRows = getDuimpMemoriaRows(p); }catch(e){}
+  const memPorItem = {}; memRows.forEach(r=>{ memPorItem[r.itemId] = r; });
+  const memSoma = k => memRows.reduce((t,r)=>t+(parseFloat(r[k])||0),0);
+  const usaMem = { ii: memSoma('valorII')>0, ipi: memSoma('valorIPI')>0, pis: memSoma('valorPIS')>0, cofins: memSoma('valorCOFINS')>0 };
+  const memV = (it, k, campo)=> usaMem[k] ? String(Math.round((parseFloat((memPorItem[it.id]||{})[campo])||0)*100)/100).replace('.',',') : null;
+  const itens = (p.itens||[]).map(it=>{
+    const al = getEffectiveAliquotas(it);
+    const peso = ci.pesos[it.id]!=null ? ci.pesos[it.id] : ccxCatalogoPeso(porPn[String(it.pn)]);
+    return { id:it.id, pn:it.pn||'', desc:it.descricao||'', ncm:it.ncm||'', qtd:String(it.quantidade||0),
+      fob:String(it.valorUnitarioUsado||0).replace('.',','), peso: peso||'0',
+      ii:pct(al.ii), ipi:pct(al.ipi), pis:pct(al.pis), cofins:pct(al.cofins),
+      iiV: memV(it,'ii','valorII'), ipiV: memV(it,'ipi','valorIPI'), pisV: memV(it,'pis','valorPIS'), cofinsV: memV(it,'cofins','valorCOFINS'),
+      icms: ci.icms[it.id]!=null ? ci.icms[it.id] : '0', semNcm: !al.ncmEncontrado, pesoDoCadastro: ci.pesos[it.id]==null };
+  });
+  const ncm = []; const vistos = {};
+  itens.forEach(i=>{ if(i.ncm && !vistos[i.ncm]){ vistos[i.ncm]=1; ncm.push({ ncm:i.ncm, ii:i.ii, ipi:i.ipi, pis:i.pis, cofins:i.cofins, icms:i.icms }); } });
+  const supplier = (state.suppliers||[]).find(s=>s.id===p.supplierId);
+  return { processo: (p.ref||'').trim() || p.referencia || p.id || '', fornecedor: supplier?supplier.name:'', moedaFat:'USD',
+    taxaUsd: p.cambio ? String(p.cambio).replace('.',',') : '', taxaPag: ci.taxaPag,
+    creditos: ci.creditos, despesas: ccxDespesasEfetivas(p, ci), itens, ncm,
+    boletoFrete: ci.boletoFrete||'', nfFrete: ci.nfFrete||'', cred: ci.cred||{} };
+}
+
+async function renderCustoImpTab(){
+  const p = window.__editingProcess;
+  const el = document.getElementById('custoimp-content');
+  if(!el || !p) return;
+  let catalogo = [];
+  try{ catalogo = await getAllProdutosCached(); }catch(e){}
+  window.__ccxCatalogo = catalogo;
+  const ci = ensureCustoImp(p);
+  const S = ccxBuildState(p, catalogo);
+  const canEditHere = canEdit('processos');
+  const dis = canEditHere ? '' : 'disabled';
+  const cambio = parseFloat(p.cambio)||0;
+  const R = CCX.calcula(JSON.parse(JSON.stringify(S)));
+  const T = R.totais;
+  const inp = 'padding:5px 7px; border:1px solid var(--border-strong); border-radius:6px; background:var(--paper); color:inherit;';
+  const rateios = [['peso','Peso'],['fob','Valor FOB'],['igual','Igual por item'],['qtd','Quantidade']];
+  const nPag = CCX.num(ci.taxaPag);
+
+  const dfx = ccxDiffs(p, ci);
+  const despRows = ci.despesas.map((d0,k)=>{ const d = S.despesas[k] || d0;
+    const mesclado = dfx.acrescBrl>0;
+    if(mesclado && /^acr[eé]scimos/i.test(d0.nome||'')) return '';   // acréscimos já somados na linha de frete
+    const isFreteMesc = mesclado && /^frete internacional/i.test(d0.nome||''); const isDF = /^diferen[cç]a de frete/i.test(d.nome||''), isDS = false; const isDiff = isDF||isDS; const bol = isDF?ci.boletoFrete:ci.boletoSiscomex; const base = isDF?dfx.freteDI:dfx.siscDI; return `
+    <tr>
+      <td><input ${dis||isFreteMesc?'disabled':''} type="text" value="${(d.nome||'').replace(/"/g,'&quot;')}" onchange="ccxSetDesp(${k},'nome',this.value)" style="${inp} width:100%;"></td>
+      <td><select ${dis||isDiff||isFreteMesc?'disabled':''} onchange="ccxSetDesp(${k},'moeda',this.value)" style="${inp}"><option value="USD" ${d.moeda==='USD'?'selected':''}>USD</option><option value="BRL" ${d.moeda==='BRL'?'selected':''}>BRL</option></select></td>
+      <td>${isDiff?`<input ${dis} type="text" inputmode="decimal" value="${bol||''}" placeholder="valor total do frete" oninput="maskCurrencyInput(this)" onchange="ccxSetBoleto('${isDF?'boletoFrete':'boletoSiscomex'}',this.value)" style="${inp} width:110px; text-align:right;" title="Digite o valor total do frete. O custo lançado é: total − ${isDF?'frete':'taxa'} da DI (R$ ${fmtNumberBR(base)})">`:`<input ${dis||isFreteMesc?'disabled':''} type="text" inputmode="decimal" value="${d.valor||''}" onchange="ccxSetDesp(${k},'valor',this.value)" style="${inp} width:110px; text-align:right;" ${isFreteMesc?'title="Frete da DI + acréscimos (R$). Para alterar, edite a Memória de Cálculo."':''}>`}</td>
+      <td><select ${dis} onchange="ccxSetDesp(${k},'rateio',this.value)" style="${inp}">${rateios.map(r=>`<option value="${r[0]}" ${d.rateio===r[0]?'selected':''}>${r[1]}</option>`).join('')}</select></td>
+      <td style="text-align:center;"><input ${dis} type="checkbox" ${d.aduaneiro?'checked':''} onchange="ccxSetDesp(${k},'aduaneiro',this.checked)" title="Entra no valor aduaneiro (base de II, IPI, PIS e COFINS)"></td>
+      <td style="text-align:right;">${fmtBRL(T.porDespesa[k]||0)}${isDiff&&CCX.num(bol)>0?`<div class="form-hint" style="margin:0;">boleto ${fmtBRL(CCX.num(bol))} − DI ${fmtBRL(base)}</div>`:''}</td>
+      <td>${canEditHere?`<button class="btn" style="padding:2px 8px;" onclick="ccxRemoveDesp(${k})" title="Remover">×</button>`:''}</td>
+    </tr>`; }).join('');
+
+  const itemRows = S.itens.map((it,i)=>{
+    const l = R.linhas[i] || {};
+    return `<tr>
+      <td>${it.pn}</td><td>${it.desc}</td>
+      <td>${it.ncm||'—'}${it.semNcm?` <span title="NCM sem alíquota cadastrada" style="color:var(--ink-amber-fg);">⚠</span>`:''}</td>
+      <td style="text-align:right;">${it.qtd}</td>
+      <td style="text-align:right;">${fmtUSD(CCX.num(it.fob))}</td>
+      <td><input ${dis} type="text" inputmode="decimal" value="${it.peso==='0'?'':it.peso}" placeholder="kg" onchange="ccxSetPeso('${it.id}',this.value)" style="${inp} width:80px; text-align:right;" title="${it.pesoDoCadastro?'Do cadastro (Banco de Itens)':'Valor ajustado neste processo'}"></td>
+      <td><input ${dis} type="text" inputmode="decimal" value="${it.icms}" onchange="ccxSetIcms('${it.id}',this.value)" style="${inp} width:60px; text-align:right;" title="ICMS % (RET-MG zera)"></td>
+      <td style="text-align:right;">${fmtBRL(l.fob||0)}</td>
+      <td style="text-align:right;">${fmtBRL((l.ii||0)+(l.ipi||0)+(l.pis||0)+(l.cofins||0)+(l.icms||0))}</td>
+      <td style="text-align:right;">${fmtBRL((l.aduaneiras||0)+(l.outras||0))}</td>
+      <td style="text-align:right; font-weight:700;">${fmtBRL(l.total||0)}</td>
+      <td style="text-align:right; font-weight:700;">${fmtBRL(l.unitario||0)}</td>
+    </tr>`;
+  }).join('');
+
+  const avisos = (R.avisos||[]).map(a=>`<div class="form-hint" style="color:var(--ink-amber-fg);">${svgWarnInline()} ${a}</div>`).join('');
+  const semCambio = !cambio ? `<div class="form-hint" style="color:var(--ink-red-fg);">${svgWarnInline()} Defina a taxa do dólar da DUIMP na aba Memória de Cálculo da NF (ou Custos).</div>` : '';
+  const usarDuimp = cambio ? `'${fmtNumberBR(cambio,4)}'` : `''`;
+
+  const htmlMain = `
+  <div class="process-section">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+      <div>
+        <h3 style="margin:0 0 4px;">Custo de Importação</h3>
+        <div class="form-hint">Gera a planilha de custo para a diretoria (mesmo modelo da planilha atual, com fórmulas vivas). Os ajustes são salvos junto com o processo.</div>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        ${canEditHere?`<button class="btn" onclick="ccxRecarregarDespesas()" title="Refaz os valores das despesas a partir do processo (Custos, Memória e pagamentos)">Recarregar despesas do processo</button>`:''}
+        <button class="btn btn-primary" id="ccx-btn-xlsx" onclick="ccxBaixarExcel()">Gerar Excel</button>
+      </div>
+    </div>
+    ${semCambio}
+    <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; background:var(--paper); border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:14px;">
+      <div>
+        <label style="font-size:10px; text-transform:uppercase; color:var(--muted); font-weight:700;">Dólar DI / DUIMP</label><br>
+        <div style="padding:6px 0; font-weight:700;">${cambio?'R$ '+fmtNumberBR(cambio,4):'—'}</div>
+      </div>
+      <div>
+        <label style="font-size:10px; text-transform:uppercase; color:var(--muted); font-weight:700;">Dólar pagamento</label><br>
+        <input ${dis} id="ccx-taxa-pag" type="text" inputmode="decimal" value="${ci.taxaPag||''}" placeholder="em branco" oninput="maskCurrencyInputDecimals(this,4)" onchange="ccxSetTaxaPag(this.value)" style="${inp} width:120px;">
+        ${canEditHere?`<button class="btn" style="margin-left:6px;" onclick="ccxSetTaxaPag(${usarDuimp})" ${cambio?'':'disabled'}>Usar o da DUIMP</button><button class="btn" style="margin-left:4px;" onclick="ccxSetTaxaPag('')">Limpar</button>`:''}
+      </div>
+      <div class="form-hint" style="max-width:420px;">
+        O dólar de pagamento converte o FOB. ${nPag>0?`Usando <b>R$ ${fmtNumberBR(nPag,4)}</b>.`:'Em branco: o FOB usa o dólar da DI, e dá para preencher depois na planilha (célula H6).'}
+        Frete, seguro e despesas em USD usam sempre o dólar da DI.
+      </div>
+      <div style="margin-left:auto; font-size:12px;">
+        <b>Créditos (custo líquido):</b>
+        ${['ipi','pis','cofins','icms'].map(k=>`<label style="margin-left:8px;"><input ${dis} type="checkbox" ${ci.creditos[k]?'checked':''} onchange="ccxSetCred('${k}',this.checked)"> ${k.toUpperCase()}</label>`).join('')}
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+    <table class="data-table" style="width:100%; font-size:12px;">
+      <thead><tr><th>Despesa</th><th>Moeda</th><th>Valor</th><th>Ratear por</th><th title="Entra no valor aduaneiro">Aduaneira</th><th style="text-align:right;">Em R$</th><th></th></tr></thead>
+      <tbody>${despRows}</tbody>
+    </table>
+    </div>
+    ${canEditHere?`<button class="btn" style="margin-top:8px;" onclick="ccxAddDesp()">+ Adicionar despesa</button>`:''}
+    ${avisos}
+
+    <div style="overflow-x:auto; margin-top:16px;">
+    <table class="data-table" style="width:100%; font-size:12px;">
+      <thead><tr><th>PN</th><th>Descrição</th><th>NCM</th><th style="text-align:right;">Qtd</th><th style="text-align:right;">FOB un. (USD)</th><th>Peso un. (kg)</th><th>ICMS %</th><th style="text-align:right;">FOB (R$)</th><th style="text-align:right;">Impostos</th><th style="text-align:right;">Frete e despesas</th><th style="text-align:right;">Total (R$)</th><th style="text-align:right;">Unitário (R$)</th></tr></thead>
+      <tbody>${itemRows}
+      <tr style="font-weight:700; background:var(--paper);"><td colspan="3">TOTAL</td><td style="text-align:right;">${T.qtd}</td><td></td><td></td><td></td>
+        <td style="text-align:right;">${fmtBRL(T.fob)}</td>
+        <td style="text-align:right;">${fmtBRL(T.ii+T.ipi+T.pis+T.cofins+T.icms)}</td>
+        <td style="text-align:right;">${fmtBRL(T.aduaneiras+T.outras)}</td>
+        <td style="text-align:right;">${fmtBRL(T.total)}</td><td></td></tr></tbody>
+    </table>
+    </div>
+    <div style="display:flex; gap:24px; flex-wrap:wrap; margin-top:12px; font-size:13px;">
+      <div>Custo total: <b>${fmtBRL(T.total)}</b></div>
+      <div>Fator sobre o FOB: <b>${T.fator?fmtNumberBR(T.fator,2)+'x':'—'}</b></div>
+      <div>Custo líquido (após créditos): <b>${fmtBRL(T.liquido)}</b></div>
+    </div>
+    <div id="ccx-msg" class="form-hint" style="margin-top:8px;"></div>
+  </div>`;
+  const sub = window.__ccxSub || 1;
+  const tabBtn = (n, t)=>`<button class="btn ${sub===n?'btn-primary':''}" style="border-radius:6px 6px 0 0;" onclick="ccxSub(${n})">${t}</button>`;
+  el.innerHTML = `<div style="display:flex; gap:6px; margin-bottom:-1px;">${tabBtn(1,'Custo por item')}${tabBtn(2,'Despesas de importação')}</div>
+    <div id="ccx-sub-1" style="display:${sub===1?'block':'none'};">${htmlMain}</div>
+    <div id="ccx-sub-2" style="display:${sub===2?'block':'none'};">${ccxRenderDespImport(p, ci, S, dis, canEditHere, inp)}</div>`;
+}
+
+/* Copia só o número (sem R$), com vírgula decimal e sem separador de milhar — pronto pra colar. */
+function ccxCopiar(v){ copyToClipboard((Math.round((Number(v)||0)*100)/100).toFixed(2).replace('.',',')); }
+function ccxBtnCopiar(v){ return `<button type="button" class="memoria-col-copy" onclick="ccxCopiar(${Number(v)||0})" title="Copiar só o valor" style="margin-left:6px; vertical-align:middle;">${svgCopyIcon()}</button>`; }
+
+function ccxSub(n){ window.__ccxSub = n; renderCustoImpTab(); }
+
+function ccxRenderDespImport(p, ci, S, dis, canEditHere, inp){
+  const D = CCX.despImport(JSON.parse(JSON.stringify(S)));
+  const ni = (key, campo, v)=> `<input ${dis} type="text" inputmode="decimal" value="${v?fmtNumberBR(v):''}" placeholder="0,00" oninput="maskCurrencyInput(this)" onchange="ccxSetCredito('${key}','${campo}',this.value)" style="${inp} width:96px; text-align:right;">`;
+  const tdN = v => `<td style="text-align:right;">${fmtBRL(v)}</td>`;
+  const amarelo = 'background:#FFF2CC; color:#000; font-weight:700;';
+  const rows = D.linhas.filter(L=>Math.abs(L.E)>0).map(L=>`
+    <tr>
+      <td>${L.nome}</td>${tdN(L.E)}
+      <td>${ni(L.key,'ret',CCX.num((ci.cred[L.key]||{}).ret))}</td>
+      <td>${ni(L.key,'cofins',CCX.num((ci.cred[L.key]||{}).cofins))}</td>
+      <td>${ni(L.key,'pis',CCX.num((ci.cred[L.key]||{}).pis))}</td>
+      ${tdN(L.I)}<td style="text-align:right; ${amarelo}">${fmtBRL(L.J)}${ccxBtnCopiar(L.J)}</td>
+    </tr>`).join('');
+  const cb = ci.cred.freteBoleto||{}, cn = ci.cred.freteNF||{};
+  const resumo = [['Preço na origem (FOB)',D.fob],['Frete internacional (DI + acréscimos)',D.freteDI+D.acresc],['Seguro internacional',D.seguro],['Taxa Siscomex',D.sisc],['Tributos (II, IPI, PIS, COFINS, ICMS)',D.impostos]]
+    .filter(x=>Math.abs(x[1])>0 || x[0].startsWith('Preço'))
+    .map(x=>`<div style="display:flex; justify-content:space-between; gap:24px;"><span>${x[0]}</span><b>${fmtBRL(x[1])}</b></div>`).join('');
+  return `<div class="process-section">
+    <h3 style="margin:0 0 4px;">Despesas de importação</h3>
+    <div class="form-hint" style="margin-bottom:10px;">Valores puxados da aba Custo por item. Informe o valor total pago do frete; o frete na NF fica em aberto e é nele que entram os impostos a retirar. Os acréscimos fazem parte do frete: Frete (DI + acréscimos). Diferença de frete = total pago − frete (DI + acréscimos) − NF líquida (NF − impostos). Se houver, Retenção, COFINS e PIS de cada despesa; a coluna amarela é o que entra no custo.</div>
+    <div style="max-width:460px; font-size:12.5px; display:grid; gap:3px; background:var(--paper); border:1px solid var(--border); border-radius:8px; padding:10px 14px; margin-bottom:14px;">
+      ${resumo}
+      <div style="display:flex; justify-content:space-between; gap:24px; border-top:1px solid var(--border); padding-top:4px; margin-top:2px;"><span><b>Total NF</b></span><b>${fmtBRL(D.totalNF)}</b></div>
+    </div>
+    <div style="overflow-x:auto;">
+    <table class="data-table" style="width:100%; font-size:12px;">
+      <thead><tr><th>Despesa</th><th style="text-align:right;">Valor</th><th>Retenção</th><th>COFINS</th><th>PIS</th><th style="text-align:right;">Valor líquido</th><th style="text-align:right;">Valor desp. importação</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Frete internacional (valor total)</td>
+          <td><input ${dis} type="text" inputmode="decimal" value="${ci.boletoFrete||''}" placeholder="valor total" oninput="maskCurrencyInput(this)" onchange="ccxSetBoleto('boletoFrete',this.value)" style="${inp} width:110px; text-align:right;"></td>
+          <td></td><td></td><td></td>
+          ${tdN(D.boletoI)}<td style="text-align:right; color:var(--muted);" title="Informativo — não entra no total">${fmtBRL(D.boletoI)}</td>
+        </tr>
+        <tr>
+          <td>Frete na NF <span class="form-hint">(em aberto) — impostos a retirar aqui. Resultado = diferença de frete: total pago − frete (DI + acréscimos) − NF líquida (NF − impostos)</span></td>
+          <td><input ${dis} type="text" inputmode="decimal" value="${ci.nfFrete||''}" placeholder="preencher" oninput="maskCurrencyInput(this)" onchange="ccxSetBoleto('nfFrete',this.value)" style="${inp} width:110px; text-align:right; background:#FFF2CC; color:#000;"></td>
+          <td>${ni('freteNF','ret',CCX.num(cn.ret))}</td><td>${ni('freteNF','cofins',CCX.num(cn.cofins))}</td><td>${ni('freteNF','pis',CCX.num(cn.pis))}</td>
+          ${tdN(D.nfI)}<td style="text-align:right; ${amarelo}" title="${D.boleto>0 ? 'Total '+fmtBRL(D.boleto)+' − frete DI + acréscimos '+fmtBRL(D.freteDI+D.acresc)+' − NF líquida '+fmtBRL(D.nfI)+' (NF '+fmtBRL(D.nf)+' − impostos '+fmtBRL(D.nfF+D.nfG+D.nfH)+')' : 'Preencha o valor total do frete'}">${D.boleto>0 ? fmtBRL(D.dif)+ccxBtnCopiar(D.dif) : '—'}</td>
+        </tr>
+        ${rows}
+        <tr style="font-weight:700; background:var(--paper);"><td colspan="6" style="text-align:right;">TOTAL DESPESAS</td><td style="text-align:right; ${amarelo}">${fmtBRL(D.totalDesp)}${ccxBtnCopiar(D.totalDesp)}</td></tr>
+        <tr style="font-weight:700;"><td colspan="6" style="text-align:right;">CUSTO TOTAL (Total NF + despesas)</td><td style="text-align:right;">${fmtBRL(D.custoTotal)}</td></tr>
+      </tbody>
+    </table>
+    </div>
+    ${D.difBruta<0 ? `<div class="form-hint" style="color:var(--ink-amber-fg);">${svgWarnInline()} O total pago é menor que frete (DI + acréscimos) + NF líquida; a diferença foi considerada zero.</div>` : ''}
+    <div class="form-hint" style="margin-top:8px;">Regras da planilha: AFRMM e ANVISA entram pelo valor cheio; liberação de BL, rodoviário, lavagem pelo valor menos COFINS e PIS; as demais pelo valor líquido (menos retenção, COFINS e PIS). As linhas de frete total e de frete na NF são informativas.</div>
+  </div>`;
+}
+
+function ccxSetCredito(key, campo, v){ const p = window.__editingProcess; const ci = ensureCustoImp(p); ci.cred[key] = ci.cred[key] || {}; ci.cred[key][campo] = String(v||'').trim(); ccxTouch(); }
+
+function ccxTouch(){ renderCustoImpTab(); }
+function ccxSetTaxaPag(v){ const p = window.__editingProcess; ensureCustoImp(p).taxaPag = String(v||'').trim(); ccxTouch(); }
+function ccxSetBoleto(campo, v){ const p = window.__editingProcess; ensureCustoImp(p)[campo] = String(v||'').trim(); try{ prefillPagamentos(p); }catch(e){} ccxTouch(); }
+function ccxSetCred(k, v){ const p = window.__editingProcess; ensureCustoImp(p).creditos[k] = !!v; ccxTouch(); }
+function ccxSetDesp(k, campo, v){ const p = window.__editingProcess; const d = ensureCustoImp(p).despesas[k]; if(d){ d[campo] = v; if(campo==='valor'||campo==='moeda') d.user = true; ccxTouch(); } }
+function ccxRemoveDesp(k){ const p = window.__editingProcess; ensureCustoImp(p).despesas.splice(k,1); ccxTouch(); }
+function ccxAddDesp(){ const p = window.__editingProcess; ensureCustoImp(p).despesas.push({ nome:'Nova despesa', moeda:'BRL', valor:'', rateio:'fob', aduaneiro:false }); ccxTouch(); }
+function ccxSetPeso(id, v){ const p = window.__editingProcess; ensureCustoImp(p).pesos[id] = String(v||'').trim(); ccxTouch(); }
+function ccxSetIcms(id, v){ const p = window.__editingProcess; ensureCustoImp(p).icms[id] = String(v||'0').trim()||'0'; ccxTouch(); }
+function ccxRecarregarDespesas(){
+  if(!confirm('Refazer as despesas a partir do processo? Os valores digitados aqui serão substituídos.')) return;
+  const p = window.__editingProcess; ccxPreencherDespesas(p, ensureCustoImp(p)); ccxTouch();
+}
+
+async function ccxBaixarExcel(){
+  const p = window.__editingProcess; if(!p) return;
+  const btn = document.getElementById('ccx-btn-xlsx');
+  const msg = document.getElementById('ccx-msg');
+  if(btn) btn.disabled = true;
+  try{
+    if(!(parseFloat(p.cambio)>0)){ if(msg) msg.textContent = 'Defina o dólar da DUIMP antes de gerar.'; return; }
+    await ccxLoadExcelJS();
+    const S = ccxBuildState(p, window.__ccxCatalogo || []);
+    if(!S.itens.some(i=>CCX.num(i.qtd)>0)){ if(msg) msg.textContent = 'O processo não tem itens com quantidade.'; return; }
+    const blob = await CCX.gerar(JSON.parse(JSON.stringify(S)));
+    if(!blob){ if(msg) msg.textContent = 'Nada para gerar.'; return; }
+    const nome = 'custo-importacao-' + String(S.processo||'processo').replace(/[^\w\-]+/g,'_') + '.xlsx';
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nome;
+    document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    if(msg) msg.textContent = 'Planilha gerada: ' + nome;
+  }catch(e){
+    console.error(e);
+    if(msg) msg.textContent = 'Não foi possível gerar o Excel: ' + (e.message||e);
+  }finally{ if(btn) btn.disabled = false; }
+}
+
 function switchTab(tab){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
+  if(tab==='custoimp' && typeof renderCustoImpTab==='function') renderCustoImpTab();
+  if(tab==='custos' && typeof syncCustosFromMemoria==='function'){ syncCustosFromMemoria(); if(typeof updateCostPreview==='function') updateCostPreview(); }
 }
 
 function svgFlagIcon(size){
@@ -16467,6 +17992,7 @@ function getStageVisual(stageKey, p){
 
 function renderEtapasTab(){
   const p = window.__editingProcess;
+  try{ prefillPagamentos(p); }catch(e){ console.error(e); }
   const stages = getStagesForProcess(p);
   const currentKey = recomputeStatus(p);
   p.status = currentKey;
@@ -16634,6 +18160,10 @@ function getAlertTarget(p, text){
       }
     }
     return {stageKey: stage ? stage.key : null};
+  }
+  if(text.includes('entregue no agente')){
+    const f4 = stages.find(s=>s.key==='fase4');
+    return {stageKey:'fase4', itemIndex: f4 ? f4.items.indexOf('Booking') : null};
   }
   if(text.includes('agente de cargas')) return {stageKey:'fase4', itemIndex:1};
   if(text.includes('notificar o despachante') || text.includes('despachante ainda não foi notificado')) return {stageKey:'fase5', itemIndex:1};
@@ -16958,6 +18488,7 @@ async function deleteDocFile(docType){
 }
 
 function collectCostFields(){
+  try{ syncCustosFromMemoria(); }catch(e){}
   return {
     fob: parseBRMasked(document.getElementById('c-fob').value),
     frete: parseBRMasked(document.getElementById('c-frete').value),
@@ -17010,9 +18541,11 @@ function calcularSeguroAutomatico(){
 }
 
 function updateCostPreview(){
+  syncCustosFromMemoria();
   const fields = collectCostFields();
   const p = window.__editingProcess;
-  const pLike = {...p, ...fields, payments: p ? p.payments : {}, extra: p ? p.extra : {}};
+  try{ if(p) prefillPagamentos(p); }catch(e){ console.error(e); }   // Custos segue a aba Custo de Importação
+  const pLike = {...p, ...fields, payments: p ? p.payments : {}, extra: p ? p.extra : {}, customPayments: p ? p.customPayments : []};
   const costs = computeCosts(pLike);
   const el = document.getElementById('cost-preview');
   const icmsAplicavel = fields.regime !== 'revenda';
@@ -17029,7 +18562,9 @@ function updateCostPreview(){
      nesta lista principal é que muda pro realizado, como pedido. */
   const payments = pLike.payments || {};
   const pago = (key)=> !!(payments[key] && payments[key].checked);
-  const valorPago = (key)=> parseFloat(payments[key].valor)||0;
+  const valorPago = (key)=> parseFloat((payments[key]||{}).valor)||0;
+  /* Valor lançado em Pagamentos (já puxado automaticamente, pago ou não) tem prioridade sobre a estimativa. */
+  const valorPag = (key, estimado)=> valorPago(key)>0 ? valorPago(key) : estimado;
 
   const freteEstimado = (()=>{
     const freteValorInformado = parseFloat((pLike.extra||{}).provFreteInternacionalUsd)||0;
@@ -17037,37 +18572,44 @@ function updateCostPreview(){
     const cambio = parseFloat(pLike.cambio)||0;
     return freteMoeda==='BRL' ? freteValorInformado : freteValorInformado*cambio;
   })();
-  const freteBrl = pago('freteInternacional') ? valorPago('freteInternacional') : freteEstimado;
+  const memFreteBrl = getMemoriaCustos(pLike).freteBrl;
+  const freteBrl = valorPag('freteInternacional', memFreteBrl!=null ? memFreteBrl : freteEstimado);
+  const acrescBrl = getAcrescimosBrl(pLike);
+  const temAcresc = acrescBrl>0 && freteBrl>acrescBrl;   // informativo: o frete total já inclui os acréscimos
   const freteTag = pago('freteInternacional') ? ' <span class="cost-realizado-tag">pago</span>' : '';
 
   const honorariosEstimado = getHonorariosDespachante(pLike).valor;
-  const honorarios = pago('prestacaoDespachante') ? valorPago('prestacaoDespachante') : honorariosEstimado;
+  const honorarios = valorPag('prestacaoDespachante', honorariosEstimado);
   const honorariosTag = pago('prestacaoDespachante') ? ' <span class="cost-realizado-tag">pago</span>' : '';
 
   const armZP = !isAereo ? computeArmazenagemZonaPrimaria(pLike) : null;
   const armZPEstimado = armZP && armZP.status==='ok' ? armZP.total : 0;
-  const armZPValor = (!isAereo && pago('armazenagemZonaPrimaria')) ? valorPago('armazenagemZonaPrimaria') : armZPEstimado;
+  const armZPValor = !isAereo ? valorPag('armazenagemZonaPrimaria', armZPEstimado) : armZPEstimado;
   const armZPTag = (!isAereo && pago('armazenagemZonaPrimaria')) ? ' <span class="cost-realizado-tag">pago</span>' : '';
 
   const armZS = computeArmazenagemZonaSecundaria(pLike);
   const armZSEstimado = armZS && armZS.status==='ok' ? armZS.total : 0;
-  const armZSValor = pago('armazenagemZonaSecundaria') ? valorPago('armazenagemZonaSecundaria') : armZSEstimado;
+  const armZSValor = valorPag('armazenagemZonaSecundaria', armZSEstimado);
   const armZSTag = pago('armazenagemZonaSecundaria') ? ' <span class="cost-realizado-tag">pago</span>' : '';
 
   const freteDtaPLike = !isAereo ? computeFreteDTABiotech(pLike) : { status:'nao_aplicavel' };
   const dtaEstimado = effectiveProvValue(pLike, freteDtaPLike.status==='ok' ? freteDtaPLike.total : 0, 'provTransporteDtaBrl');
-  const dtaValor = !isAereo ? (pago('dta') ? valorPago('dta') : dtaEstimado) : 0;
+  const dtaValor = !isAereo ? valorPag('dta', dtaEstimado) : 0;
   const dtaTag = (!isAereo && pago('dta')) ? ' <span class="cost-realizado-tag">pago</span>' : '';
 
-  const lavagemValor = !isAereo ? getLavagemContainerValor(pLike) : 0;
+  const lavagemValor = !isAereo ? valorPag('lavagemContainer', getLavagemContainerValor(pLike)) : 0;
+  /* Demais despesas da aba Custo de Importação (AFRMM, demurrage, LI, extras) viram pagamentos personalizados. */
+  const customRows = (pLike.customPayments||[]).map(cp=>({ nome:cp.name, valor: parseFloat((payments['custom:'+cp.id]||{}).valor)||0 })).filter(r=>r.valor>0);
+  const customSoma = customRows.reduce((t,r)=>t+r.valor,0);
 
-  const custoTotalHierarquia = costs.fobBrl + freteBrl + costs.seguroBrl + costs.ii + costs.ipi + costs.pis + costs.cofins + (icmsAplicavel?costs.icms:0) + honorarios + costs.taxaSiscomex + costs.despesas + armZPValor + armZSValor + dtaValor + lavagemValor;
+  const custoTotalHierarquia = costs.fobBrl + freteBrl + costs.seguroBrl + costs.ii + costs.ipi + costs.pis + costs.cofins + (icmsAplicavel?costs.icms:0) + honorarios + costs.taxaSiscomex + costs.despesas + armZPValor + armZSValor + dtaValor + lavagemValor + customSoma;
 
   el.innerHTML = `
     <tr><td>CIF (USD) — referência p/ base de cálculo</td><td>${fmtUSD(costs.cifUsd)}</td></tr>
     <tr><td>CIF (BRL) — referência p/ base de cálculo</td><td>${fmtBRL(costs.cifBrl)}</td></tr>
     <tr><td>FOB (BRL)</td><td>${fmtBRL(costs.fobBrl)}</td></tr>
     <tr><td>Frete (BRL)${freteTag}</td><td>${fmtBRL(freteBrl)}</td></tr>
+    ${temAcresc ? `<tr><td style="color:var(--muted);">↳ dos quais acréscimos (já incluídos no frete)</td><td style="color:var(--muted);">${fmtBRL(acrescBrl)}</td></tr>` : ''}
     <tr><td>Seguro (BRL)</td><td>${fmtBRL(costs.seguroBrl)}</td></tr>
     <tr><td>II</td><td>${fmtBRL(costs.ii)}</td></tr>
     <tr><td>IPI</td><td>${fmtBRL(costs.ipi)}</td></tr>
@@ -17081,6 +18623,7 @@ function updateCostPreview(){
     <tr><td>Armazenagem Zona Secundária${armZSTag}</td><td>${fmtBRL(armZSValor)}</td></tr>
     ${!isAereo ? `<tr><td>Transporte DTA${dtaTag}</td><td>${fmtBRL(dtaValor)}</td></tr>` : ''}
     ${!isAereo ? `<tr><td>Lavagem de Container</td><td>${fmtBRL(lavagemValor)}</td></tr>` : ''}
+    ${customRows.map(r=>`<tr><td>${r.nome}</td><td>${fmtBRL(r.valor)}</td></tr>`).join('')}
     <tr class="total"><td>Custo Total Estimado</td><td>${fmtBRL(custoTotalHierarquia)}</td></tr>
   `;
   renderCustosComparativo(pLike);
@@ -17120,15 +18663,28 @@ function renderCustosComparativo(pLike){
 
 /* Lista os pagamentos da Fase 8 separadamente (fixos + personalizados), cada um com seu
    próprio valor — usado tanto no preview da aba Custos quanto na Capa em PDF. */
+/* Acréscimos (R$) da DI/Memória: já estão embutidos no valor total do frete pago; aparecem à parte nos custos/capa. */
+function getAcrescimosBrl(p){
+  try{
+    if(!p) return 0;
+    const df = ccxDiffs(p, ensureCustoImp(p));
+    return df.acrescBrl>0.004 ? Math.round(df.acrescBrl*100)/100 : 0;
+  }catch(e){ return 0; }
+}
+
 function paymentBreakdownRows(p){
   if(!p) return [];
   const payments = p.payments || {};
-  const nomesFixos = {freteInternacional:'Frete Internacional', armazenagemZonaPrimaria:'Armazenagem Zona Primária', armazenagemZonaSecundaria:'Armazenagem Zona Secundária', dta:'Transporte DTA', prestacaoDespachante:'Honorários Despachante'};
+  const nomesFixos = {freteInternacional:'Frete Internacional', armazenagemZonaPrimaria:'Armazenagem Zona Primária', armazenagemZonaSecundaria:'Armazenagem Zona Secundária', dta:'Transporte DTA', lavagemContainer:'Lavagem de Container', prestacaoDespachante:'Honorários Despachante'};
   const rows = Object.keys(nomesFixos).map(key=>{
     const rec = payments[key];
     const valor = rec ? (parseFloat(rec.valor)||0) : 0;
     return { key, label: nomesFixos[key] + (rec && rec.checked ? '' : ' (pendente)'), valor };
   });
+  /* O frete total pago já inclui os acréscimos: mostra o total e só sinaliza no rótulo (não soma duas vezes). */
+  const acr = getAcrescimosBrl(p);
+  const fr = rows.find(r=>r.key==='freteInternacional');
+  if(acr>0 && fr && fr.valor>acr){ fr.label = fr.label.replace(/^Frete Internacional/, 'Frete Internacional (inclui acréscimos)'); }
   (p.customPayments||[]).forEach(cp=>{
     const rec = payments['custom:'+cp.id];
     const valor = rec ? (parseFloat(rec.valor)||0) : 0;
@@ -17148,6 +18704,7 @@ function collectProcessFormData(){
     checklist: window.__editingProcess.checklist,
     _blOrderMigrated: true,
     payments: window.__editingProcess.payments,
+    custoImp: window.__editingProcess.custoImp || null,
     extra: window.__editingProcess.extra,
     history: window.__editingProcess.history || [],
     produto: document.getElementById('f-produto').value.trim(),
@@ -17329,29 +18886,56 @@ function capaItem(checked, label){
   return `<div class="capa-item"><span class="capa-check">${checked?'&#10003;':''}</span><span>${label}</span></div>`;
 }
 
-function generateCapaPDF(){
+async function generateCapaPDF(){
+  /* A janela é aberta JÁ NO CLIQUE (antes de qualquer await), senão o navegador bloqueia o
+     pop-up; a logo da empresa vem do cadastro (companies_registry.logoUrl) e é buscada depois. */
+  const w = window.open('', '_blank');
+  if(!w){
+    alert('Não foi possível abrir a janela de impressão. Verifique se o navegador bloqueou pop-ups.');
+    return;
+  }
+  try{ w.document.write('<p style="font-family:Arial;padding:24px;color:#555;">Gerando capa...</p>'); }catch(e){}
+  let empresaLogo = '', empresaNomeCapa = (getEmpresaConfig().nome||'').trim();
+  try{
+    const reg = (companiesRegistry||[]).find(c=>c.id===activeCompanyId);
+    if(reg && reg.logoUrl){ empresaLogo = reg.logoUrl; empresaNomeCapa = reg.name || empresaNomeCapa; }
+    else {
+      const snap = await db.collection('companies_registry').doc(activeCompanyId).get();
+      if(snap.exists){ const d = snap.data(); empresaLogo = d.logoUrl || ''; empresaNomeCapa = d.name || empresaNomeCapa; }
+    }
+  }catch(e){ console.warn('Logo da empresa indisponível na capa:', e); }
+  try{ prefillPagamentos(window.__editingProcess); }catch(e){}
   const data = collectProcessFormData();
   const fornecedor = state.suppliers.find(s=>s.id===data.supplierId);
-  const stages = getStagesForProcess(data);
   const costs = computeCosts(data);
+  const capaCustoCampos = [
+    ['FOB (BRL)', costs.fobBrl], ['Seguro', costs.seguroBrl],
+    ['II', costs.ii], ['IPI', costs.ipi], ['PIS', costs.pis], ['COFINS', costs.cofins],
+    ...(costs.icms>0 ? [['ICMS', costs.icms]] : []),
+    ['Taxa Siscomex', costs.taxaSiscomex],
+    ...(costs.despesas>0 ? [['Despesas aduaneiras', costs.despesas]] : []),
+    ...paymentBreakdownRows(data).filter(r=>r.valor>0).map(r=>[r.label.replace(/ \(pendente\)$/,'').replace(/^Frete Internacional/,'Frete'), r.valor]),
+  ];
+  const capaCustoRows = [];
+  for(let i=0;i<capaCustoCampos.length;i+=4) capaCustoRows.push(capaCustoCampos.slice(i,i+4));
   const extra = data.extra || {};
   const destino = data.modal==='aereo' ? (data.aeroportoDestinoFinal ? data.aeroportoDesembarque : data.aeroportoDestino) : (extra.recintoAlfandegado || data.portoDestino || 'Recinto alfandegado a definir');
   const refDisplay = data.ref || ('REF-'+data.id.slice(0,6).toUpperCase());
-  const statusLabel = stageInfoFor(data, data.status).label;
 
-  const etapasHtml = stages.map(s=>{
-    if(s.type==='payments'){
-      return s.items.map(it=>{
-        const rec = (data.payments && data.payments[it.key]) || {checked:false, valor:''};
-        const v = parseFloat(rec.valor)||0;
-        return capaItem(rec.checked, it.label + (v?` — ${fmtBRL(v)}`:''));
-      }).join('');
-    }
-    const checked = data.checklist[s.key]||[];
-    return s.items.map((label,idx)=>capaItem(checked[idx], label)).join('');
-  }).join('');
+  /* Checklist fixo de 5 documentos (pedido). Sai SEMPRE desmarcado: é marcado à mão, na capa
+     impressa, conforme cada documento é colocado dentro da pasta física do processo. */
+  const CAPA_DOCS = [
+    ['Invoice', 'Comercial Invoice (Fatura)'],
+    ['Packing List', 'Packing List'],
+    ['Conhecimento de Embarque', 'HBL / HAWB (Conhecimento de Embarque)'],
+    ['DUIMP', 'Rascunho / Registro da DUIMP'],
+    ['Nota Fiscal', 'DANFE — Nota Fiscal de Entrada'],
+  ];
+  const docsHtml = CAPA_DOCS.map(([label])=>capaItem(false, label)).join('');
 
-  const docsHtml = getDocTypesForProcess(data).map(d=>capaItem(data.docs && data.docs[d], d)).join('');
+  /* Chegada CONFIRMADA (não prevista): a data real de chegada ao Brasil (atracação no porto /
+     1ª entrada no aéreo), com o fallback antigo pela chegada no recinto; vazio enquanto não houver. */
+  const chegadaConfirmadaData = (getChegadaBrasilInfo(data).data) || extra.dataChegadaBetim || null;
 
   const field = (label, value)=>`<div class="f"><div class="l">${label}</div><div class="v">${value || '—'}</div></div>`;
 
@@ -17364,19 +18948,25 @@ function generateCapaPDF(){
 html, body{ margin:0; padding:0; }
 body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);font-size:9.5pt;background:#fff;}
 .sheet{width:190mm;max-width:190mm;margin:0 auto;padding:0;}
-.head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--bar);padding-bottom:8px;margin-bottom:14px;}
-.head h1{font-size:19pt;color:var(--title);margin:0;}
-.head .ref{font-size:22pt;font-weight:800;color:var(--bar);background:var(--fill);padding:8px 18px;border-radius:4px;letter-spacing:.3px;}
-.sec-bar{background:var(--bar);color:#fff;font-size:9.5pt;font-weight:700;letter-spacing:.5px;padding:6px 10px;text-transform:uppercase;margin-top:16px; break-after:avoid; page-break-after:avoid;}
-.row{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px; break-inside:avoid; page-break-inside:avoid;}
-.f{flex:1 1 150px;min-width:150px;}
+.head{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--bar);padding-bottom:8px;margin-bottom:10px;}
+.head h1{font-size:17pt;color:var(--title);margin:0;}
+.head-left{display:flex;align-items:center;gap:14px;}
+.head-logo{height:46px;width:auto;max-width:60mm;object-fit:contain;display:block;}
+.head-empresa{font-size:11pt;font-weight:800;color:var(--bar);text-transform:uppercase;letter-spacing:.4px;}
+.head .ref{font-size:20pt;font-weight:800;color:var(--bar);background:var(--fill);padding:6px 16px;border-radius:4px;letter-spacing:.3px;}
+.sec-bar{background:var(--bar);color:#fff;font-size:9.5pt;font-weight:700;letter-spacing:.5px;padding:5px 10px;text-transform:uppercase;margin-top:13px; break-after:avoid; page-break-after:avoid;}
+.row{display:flex;flex-wrap:wrap;gap:10px;margin-top:7px; break-inside:avoid; page-break-inside:avoid;}
+.f{flex:1 1 130px;min-width:130px;}
 .f .l{font-size:7.5pt;text-transform:uppercase;color:var(--label);font-weight:700;letter-spacing:.4px;}
-.f .v{background:var(--fill);padding:6px 9px;border-radius:3px;font-size:10pt;margin-top:3px;min-height:15px;}
-.capa-items{display:flex;flex-wrap:wrap;margin-top:8px;}
-.capa-item{width:33%;font-size:8.5pt;padding:3px 6px 3px 0;display:flex;align-items:center;gap:6px; break-inside:avoid; page-break-inside:avoid;}
+.f .v{background:var(--fill);padding:5px 9px;border-radius:3px;font-size:9.5pt;margin-top:3px;min-height:15px;}
+.capa-sign{display:flex;gap:18px;margin-top:16px;align-items:flex-end;}
+.capa-sign .sg{flex:1;border-top:1px solid #1c2333;padding-top:3px;font-size:8pt;color:var(--label);text-align:center;}
+.capa-sign .sg.dt{flex:0 0 38mm;}
+.capa-items{display:flex;flex-wrap:wrap;margin-top:10px;}
+.capa-item{width:33%;font-size:9.5pt;padding:5px 6px 5px 0;display:flex;align-items:center;gap:6px; break-inside:avoid; page-break-inside:avoid;}
 .capa-check{display:inline-block;width:12px;height:12px;border:1.4px solid var(--bar);text-align:center;line-height:11px;font-size:8px;color:var(--bar);flex-shrink:0;}
-.obs-box{background:var(--fill);border-radius:4px;padding:8px 10px;margin-top:8px;font-size:9.5pt;min-height:30px; break-inside:avoid; page-break-inside:avoid;}
-.foot{text-align:center;font-size:7.5pt;color:#8a93a8;margin-top:18px;padding-top:8px;border-top:1px solid #d5dcec;}
+.obs-box{background:var(--fill);border-radius:4px;padding:7px 10px;margin-top:8px;font-size:9.5pt;min-height:44px; break-inside:avoid; page-break-inside:avoid;}
+.foot{text-align:center;font-size:7.5pt;color:#8a93a8;margin-top:12px;padding-top:6px;border-top:1px solid #d5dcec;}
 @media print{
   body{ background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   .sheet{ width:auto; max-width:none; }
@@ -17385,7 +18975,10 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);font-size:9.5pt;bac
 <body>
 <div class="sheet">
   <div class="head">
-    <h1>PROCESSO DE IMPORTAÇÃO</h1>
+    <div class="head-left">
+      ${empresaLogo ? `<img src="${empresaLogo}" alt="${(empresaNomeCapa||'').replace(/"/g,'&quot;')}" class="head-logo">` : (empresaNomeCapa ? `<div class="head-empresa">${empresaNomeCapa}</div>` : '')}
+      <h1>PROCESSO DE IMPORTAÇÃO</h1>
+    </div>
     <div class="ref">${refDisplay}</div>
   </div>
 
@@ -17393,10 +18986,8 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);font-size:9.5pt;bac
   <div class="row">
     ${field('Produto', data.produto)}
     ${field('Fornecedor', fornecedor?fornecedor.name:'')}
-    ${field('Status Atual', statusLabel)}
   </div>
   <div class="row">
-    ${field('Referência', data.ref)}
     ${field('Referência do Fornecedor', (data.referenciasFornecedor||[]).map(r=>r.ref).filter(Boolean).join(' / '))}
     ${field('Tipo de Processo', tipoProcessoLabel(data.tipo))}
   </div>
@@ -17408,7 +18999,7 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);font-size:9.5pt;bac
   <div class="row">
     ${field('Data de Abertura', fmtDate(data.dataPedido))}
     ${field('Prontidão da Carga', fmtDate(data.prontidao))}
-    ${field('Previsão de Entrada em Estoque', (()=>{ try{ const pe=computePrevisaoEntradaEstoque(data); return pe.dataFinal?fmtDate(pe.dataFinal):'—'; }catch(e){ return '—'; } })())}
+    ${field('Entrada em Estoque', fmtDate(extra.dataRecebimentoEstoque))}
   </div>
 
   <div class="sec-bar">2. Dados da Importação</div>
@@ -17416,7 +19007,7 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);font-size:9.5pt;bac
     ${field('DI / DUIMP', extra.numeroDUIMP)}
     ${field('Modal', data.modal==='aereo'?'Aéreo':'Marítimo')}
     ${field('Incoterm', data.incoterm)}
-    ${field('Regime Fiscal', data.regime)}
+    ${field('Regime Fiscal', String(data.regime||'').toUpperCase())}
   </div>
   <div class="row">
     ${field('Controle de Temperatura', data.temperaturaControlada ? (data.temperaturaValor==='outro' ? data.temperaturaOutro : (data.temperaturaValor||'Sim')) : 'Não')}
@@ -17430,12 +19021,11 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);font-size:9.5pt;bac
   <div class="row">
     ${field('Agente de Cargas', extra.agenteCarga)}
     ${field('Despachante', extra.despachante)}
-    ${field('Transportadora (DTA)', extra.transportadoraDTA)}
+    ${data.modal==='aereo' ? '' : field('Transportadora (DTA)', extra.transportadoraDTA)}
   </div>
   <div class="row">
-    ${field('Número do BL', extra.numeroBL)}
+    ${data.modal==='aereo' ? '' : field('Número do BL', extra.numeroBL)}
     ${field('Valor FOB', data.fob?fmtUSD(parseFloat(data.fob)):'')}
-    ${field('Quantidade de Containers', data.containersQty)}
     ${field('Número da NF', extra.numeroNF)}
   </div>
 
@@ -17444,7 +19034,6 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);font-size:9.5pt;bac
   <div class="row">
     ${field('AWB', extra.numeroAWB)}
     ${field('Companhia Aérea', extra.ciaAerea)}
-    ${field('Freetime', '')}
   </div>
   <div class="row">
     ${field('Aeroporto de Embarque', data.aeroportoEmbarque)}
@@ -17463,49 +19052,53 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);font-size:9.5pt;bac
   </div>`}
   <div class="row">
     ${field('Data de Embarque', fmtDate(data.dataEmbarqueReal))}
-    ${field('Chegada Prevista', fmtDate(data.chegadaPrevista))}
-    ${field('Data de Chegada (Betim)', fmtDate(extra.dataChegadaBetim))}
+    ${field('Chegada Confirmada', fmtDate(chegadaConfirmadaData))}
+    ${data.modal==='aereo' ? '' : field('Data de Chegada (Betim)', fmtDate(extra.dataChegadaBetim))}
   </div>
   ${(extra.containersList && extra.containersList.length) ? `
   <div class="row">
     ${extra.containersList.map((c,i)=>field('Container #'+(i+1), (c.container||'—')+' / Lacre: '+(c.lacre||'—'))).join('')}
   </div>` : ''}
 
-  <div class="sec-bar">4. Etapas do Processo</div>
-  <div class="capa-items">${etapasHtml}</div>
-
-  <div class="sec-bar">5. Checklist de Documentos</div>
+  <div class="sec-bar">4. Checklist de Documentos</div>
   <div class="capa-items">${docsHtml}</div>
+  <div class="capa-sign"><div class="sg">Assinatura do responsável (conferência da pasta)</div><div class="sg dt">Data</div></div>
 
-  <div class="sec-bar">6. Custos</div>
+  <div class="sec-bar">5. Custos</div>
+  ${capaCustoRows.map(r=>`<div class="row">${r.map(([l,v])=>field(l, fmtBRL(v))).join('')}</div>`).join('')}
   <div class="row">
-    ${field('CIF (BRL) — referência', fmtBRL(costs.cifBrl))}
-    ${field('FOB + Seguro (BRL)', fmtBRL(costs.fobBrl+costs.seguroBrl))}
-    ${field(costs.icmsAplicavel ? 'Impostos (II+IPI+PIS+COFINS+ICMS)' : 'Impostos (II+IPI+PIS+COFINS) — RET-MG', fmtBRL(costs.ii+costs.ipi+costs.pis+costs.cofins+costs.icms))}
-    ${field('Pagamentos da Fase 8 (inclui frete real)', fmtBRL(costs.paymentsTotal))}
+    ${field('Custo Total', fmtBRL(costs.total))}
   </div>
-  <div class="row">
-    ${field('Custo Total Estimado', fmtBRL(costs.total))}
-  </div>
-  ${(() => {
-    const rows = paymentBreakdownRows(data);
-    if(!rows.length) return '';
-    return `<div class="row">` + rows.map(r => field(r.label, fmtBRL(r.valor))).join('') + `</div>`;
-  })()}
 
-  <div class="sec-bar">7. Observações</div>
+  <div class="sec-bar">6. Observações</div>
   <div class="obs-box">${data.obs || '—'}</div>
 
   <div class="foot">Capa gerada automaticamente pelo ComexTrack em ${fmtDate(todayStr())}.</div>
 </div>
-<` + `script>window.onload=function(){ setTimeout(function(){ window.print(); }, 350); };<` + `/script>
+<` + `script>window.onload=function(){
+  /* Capa = UMA página A4: se o conteúdo (ex.: muitos containers ou observação longa) passar da
+     área útil, reduz a escala até caber, em vez de quebrar em duas páginas. */
+  try{
+    var sheet = document.querySelector('.sheet');
+    var avail = 277 * (96/25.4) - 6; // A4 297mm − margens de 10mm, em px (com folga)
+    var H = function(){ return sheet.getBoundingClientRect().height; };
+    if(H() > avail){
+      var z = 1;
+      for(var n=0; n<12 && H() > avail; n++){ z *= Math.max(0.5, avail/H()) * 0.995; sheet.style.zoom = z; }
+    } else {
+      /* Sobrou espaço: distribui o que falta entre as barras de seção (até 22px cada), pra
+         aproveitar a folha toda em vez de deixar um vazio no rodapé. */
+      var bars = document.querySelectorAll('.sec-bar');
+      var extra = Math.min((avail - H()) / Math.max(1, bars.length), 22);
+      for(var i=0;i<bars.length;i++){ bars[i].style.marginTop = (13 + extra) + 'px'; }
+      if(H() > avail){ for(var j=0;j<bars.length;j++){ bars[j].style.marginTop = '13px'; } }
+    }
+  }catch(e){}
+  setTimeout(function(){ window.print(); }, 350);
+};<` + `/script>
 </body></html>`;
 
-  const w = window.open('', '_blank');
-  if(!w){
-    alert('Não foi possível abrir a janela de impressão. Verifique se o navegador bloqueou pop-ups.');
-    return;
-  }
+  w.document.open();
   w.document.write(html);
   w.document.close();
 }
